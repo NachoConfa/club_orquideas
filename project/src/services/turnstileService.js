@@ -57,14 +57,29 @@ export const verifyTurnstileToken = async (token) => {
   }
 
   if (supabase) {
-    const { data, error } = await withTurnstileTimeout(
-      supabase.functions.invoke('verify-turnstile', {
-        body: { token },
-      })
-    );
+    let data;
+    let error;
+
+    try {
+      const response = await withTurnstileTimeout(
+        supabase.functions.invoke('verify-turnstile', {
+          body: { token },
+        })
+      );
+      data = response.data;
+      error = response.error;
+    } catch (requestError) {
+      if (import.meta.env.DEV) {
+        console.error('No se pudo llamar a verify-turnstile:', requestError);
+      }
+      throw new Error(TURNSTILE_LOAD_FAILED_MESSAGE);
+    }
 
     if (error) {
-      throw new Error(error.message || TURNSTILE_FAILED_MESSAGE);
+      if (import.meta.env.DEV) {
+        console.error('verify-turnstile devolvio error:', error);
+      }
+      throw new Error(TURNSTILE_LOAD_FAILED_MESSAGE);
     }
 
     return {
