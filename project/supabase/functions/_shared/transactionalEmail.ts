@@ -410,7 +410,7 @@ export const sendPasswordChangedEmail = async (
     String(user.user_metadata?.full_name || user.user_metadata?.name || '').trim() ||
     email.split('@')[0] ||
     'Cliente';
-  const subject = 'Tu contrasena fue actualizada';
+  const subject = 'Tu contraseña fue actualizada';
   const html = `
     <!doctype html>
     <html>
@@ -419,15 +419,15 @@ export const sendPasswordChangedEmail = async (
           <tr>
             <td align="center" style="padding:24px 12px;">
               <table role="presentation" width="100%" style="max-width:620px;border-collapse:collapse;background:#ffffff;border:1px solid #eadbc8;border-radius:18px;overflow:hidden;">
-                <tr><td style="padding:28px;background:#f8ddeb;"><p style="margin:0 0 8px;color:#6b756f;font-size:13px;letter-spacing:.12em;text-transform:uppercase;">${STORE_NAME}</p><h1 style="margin:0;font-size:26px;">Contrasena actualizada</h1></td></tr>
-                <tr><td style="padding:28px;font-size:16px;line-height:1.6;"><p>Hola ${escapeHtml(name)},</p><p>Te confirmamos que la contrasena de tu cuenta fue actualizada correctamente.</p><p>Si no realizaste este cambio, contactanos lo antes posible.</p><p style="margin-top:28px;color:#6b756f;">${STORE_NAME}<br />WhatsApp: ${WHATSAPP}</p></td></tr>
+                <tr><td style="padding:28px;background:#f8ddeb;"><p style="margin:0 0 8px;color:#6b756f;font-size:13px;letter-spacing:.12em;text-transform:uppercase;">${STORE_NAME}</p><h1 style="margin:0;font-size:26px;">Contraseña actualizada</h1></td></tr>
+                <tr><td style="padding:28px;font-size:16px;line-height:1.6;"><p>Hola ${escapeHtml(name)},</p><p>Te confirmamos que la contraseña de tu cuenta fue actualizada correctamente.</p><p>Si no realizaste este cambio, contactanos lo antes posible.</p><p style="margin-top:28px;color:#6b756f;">${STORE_NAME}<br />WhatsApp: ${WHATSAPP}</p></td></tr>
               </table>
             </td>
           </tr>
         </table>
       </body>
     </html>`;
-  const text = `Hola ${name},\nTe confirmamos que la contrasena de tu cuenta fue actualizada correctamente.\nSi no realizaste este cambio, contactanos lo antes posible.\n${STORE_NAME}\nWhatsApp: ${WHATSAPP}`;
+  const text = `Hola ${name},\nTe confirmamos que la contraseña de tu cuenta fue actualizada correctamente.\nSi no realizaste este cambio, contactanos lo antes posible.\n${STORE_NAME}\nWhatsApp: ${WHATSAPP}`;
 
   const resend = await sendResendEmail({ to: email, subject, html, text, env });
   return { sent: true, resend };

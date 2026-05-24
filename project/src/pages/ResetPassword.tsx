@@ -74,12 +74,12 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
     setError('');
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('Las contrasenas no coinciden.');
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.');
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
@@ -94,7 +94,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
       void sendPasswordChangedEmail();
       setResetComplete(true);
     } catch (resetError) {
-      setError(resetError instanceof Error ? resetError.message : 'Error al actualizar la contrasena.');
+      setError(resetError instanceof Error ? resetError.message : 'Error al actualizar la contraseña.');
     } finally {
       setIsResetting(false);
     }
@@ -105,9 +105,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Contrasena actualizada</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Contraseña actualizada</h2>
           <p className="text-gray-600 mb-6">
-            Tu contrasena fue cambiada correctamente{userName ? `, ${userName}` : ''}.
+            Tu contraseña fue cambiada correctamente{userName ? `, ${userName}` : ''}.
           </p>
           <button
             onClick={onPasswordReset}
@@ -155,8 +155,8 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
           <div className="bg-gradient-to-r from-emerald-500 to-teal-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Cambiar contrasena</h2>
-          <p className="text-gray-600">Ingresa tu nueva contrasena.</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Cambiar contraseña</h2>
+          <p className="text-gray-600">Ingresa tu nueva contraseña.</p>
         </div>
 
         {error && (
@@ -171,7 +171,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type={showPasswords.new ? 'text' : 'password'}
-              placeholder="Nueva contrasena"
+              placeholder="Nueva contraseña"
               value={formData.newPassword}
               onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
               className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
@@ -191,7 +191,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type={showPasswords.confirm ? 'text' : 'password'}
-              placeholder="Confirmar nueva contrasena"
+              placeholder="Confirmar nueva contraseña"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
@@ -213,7 +213,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
             className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             <Lock className="h-5 w-5" />
-            <span>{isResetting ? 'Actualizando...' : 'Cambiar contrasena'}</span>
+            <span>{isResetting ? 'Actualizando...' : 'Cambiar contraseña'}</span>
           </button>
         </form>
       </div>

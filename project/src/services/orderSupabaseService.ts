@@ -80,38 +80,45 @@ export interface CustomerOrder {
 
 type OrderRow = {
   id: string;
+  user_id?: string | null;
   order_number: string | null;
   subtotal: number | null;
   shipping: number | null;
   shipping_total: number | null;
   payment_fee?: number | null;
+  total?: number | null;
   total_amount: number | null;
   status: CustomerOrder['status'] | string | null;
   payment_status?: string | null;
   payment_method: 'transfer' | 'cash' | 'mercadopago' | string | null;
-  delivery_method: 'delivery' | 'pickup' | string | null;
+  delivery_method?: 'delivery' | 'pickup' | string | null;
   shipping_method?: ShippingMethod | string | null;
   shipping_zone_name?: string | null;
   shipping_requires_quote?: boolean | null;
   customer_name?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
+  delivery_address?: string | Record<string, unknown> | null;
   shipping_address?: string | Record<string, unknown> | null;
   billing_address?: string | Record<string, unknown> | null;
   city?: string | null;
   province?: string | null;
   postal_code?: string | null;
   stock_deducted?: boolean | null;
+  stock_deducted_at?: string | null;
   created_at: string | null;
+  updated_at?: string | null;
 };
 
 type OrderItemRow = {
   id: number | string;
   order_id: string;
+  product_id?: string | null;
   product_name: string | null;
-  product_image: string | null;
+  product_image?: string | null;
   quantity: number | null;
   unit_price: number | null;
+  subtotal?: number | null;
   total_price: number | null;
   product_details: {
     display_id?: number;
@@ -515,33 +522,49 @@ const normalizeOrderStatus = (status: string | null): CustomerOrder['status'] =>
   }
 };
 
+const logUserOrdersQueryError = (queryName: string, error: unknown) => {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
+  const supabaseError = error as {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+  };
+
+  console.error(`${queryName} error:`, error);
+  console.error(`${queryName} message:`, supabaseError?.message);
+  console.error(`${queryName} details:`, supabaseError?.details);
+  console.error(`${queryName} hint:`, supabaseError?.hint);
+  console.error(`${queryName} code:`, supabaseError?.code);
+};
+
 const getOrdersForUser = async (userId: string): Promise<OrderRow[]> => {
   const client = getClient();
   const selectColumns = [
     'id',
+    'user_id',
     'order_number',
     'subtotal',
     'shipping',
     'shipping_total',
-    'payment_fee',
+    'total',
     'total_amount',
     'status',
     'payment_status',
     'payment_method',
-    'delivery_method',
-    'shipping_method',
-    'shipping_zone_name',
     'shipping_requires_quote',
     'customer_name',
     'customer_email',
     'customer_phone',
-    'shipping_address',
-    'billing_address',
-    'city',
-    'province',
-    'postal_code',
+    'delivery_address',
+    'notes',
     'stock_deducted',
+    'stock_deducted_at',
     'created_at',
+    'updated_at',
   ];
 
   const { data, error } = await client
@@ -551,7 +574,8 @@ const getOrdersForUser = async (userId: string): Promise<OrderRow[]> => {
     .order('created_at', { ascending: false });
 
   if (error) {
-    throw error;
+    logUserOrdersQueryError('getSupabaseOrdersForUser orders query', error);
+    throw new Error('No se pudieron cargar tus pedidos.');
   }
 
   return (data ?? []) as unknown as OrderRow[];
@@ -567,11 +591,12 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
   const orderIds = orderRows.map((order) => order.id);
   const { data: items, error: itemError } = await client
     .from('order_items')
-    .select('id, order_id, product_name, product_image, quantity, unit_price, total_price, product_details')
+    .select('id, order_id, product_id, product_name, quantity, unit_price, subtotal, total_price, product_details')
     .in('order_id', orderIds);
 
   if (itemError) {
-    throw itemError;
+    logUserOrdersQueryError('getSupabaseOrdersForUser order_items query', itemError);
+    throw new Error('No se pudieron cargar tus pedidos.');
   }
 
   const itemsByOrder = ((items ?? []) as OrderItemRow[]).reduce<Record<string, OrderItemRow[]>>(
@@ -583,7 +608,14 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
   );
 
   return orderRows.map((order) => {
-    const addressRecord = parseAddressRecord(order.shipping_address);
+    const addressRecord = parseAddressRecord(order.shipping_address ?? order.delivery_address ?? order.billing_address);
+    const addressText = String(addressRecord.address ?? order.delivery_address ?? '').toLowerCase();
+    const normalizedDeliveryMethod =
+      order.delivery_method === 'pickup' ||
+      addressText.includes('retiro') ||
+      addressText.includes(PICKUP_ADDRESS.toLowerCase())
+        ? 'pickup'
+        : 'delivery';
     const splitName = splitCustomerName(order.customer_name);
     const customerInfo = {
       email: order.customer_email || '',
@@ -613,10 +645,11 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
 
     const subtotal = Number(order.subtotal ?? orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const shipping = Number(order.shipping ?? order.shipping_total ?? 0);
-    const paymentFee = Number(order.payment_fee ?? 0);
-    const total = Number(order.total_amount ?? subtotal + shipping + paymentFee);
+    const rawTotal = Number(order.total_amount ?? order.total ?? subtotal + shipping);
+    const paymentFee = Number(order.payment_fee ?? Math.max(rawTotal - subtotal - shipping, 0));
+    const total = rawTotal;
     const shippingMethod =
-      order.delivery_method === 'pickup'
+      normalizedDeliveryMethod === 'pickup'
         ? 'pickup'
         : order.shipping_method === 'uber' || shippingInfo?.method === 'uber'
           ? 'uber'
@@ -643,7 +676,7 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
           : order.payment_method === 'mercadopago'
             ? 'mercadopago'
             : 'transfer',
-      deliveryMethod: order.delivery_method === 'pickup' ? 'pickup' : 'delivery',
+      deliveryMethod: normalizedDeliveryMethod,
       customerInfo,
     };
   });

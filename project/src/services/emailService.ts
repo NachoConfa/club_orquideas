@@ -67,7 +67,7 @@ export const sendPasswordChangedEmail = async () => {
     return { success: true, result };
   } catch (error) {
     if (import.meta.env.DEV) {
-      console.warn('No se pudo enviar email de cambio de contrasena:', error);
+      console.warn('No se pudo enviar email de cambio de contraseña:', error);
     }
     return { success: false, error };
   }

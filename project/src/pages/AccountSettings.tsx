@@ -15,8 +15,14 @@ import {
   Truck,
   User,
 } from 'lucide-react';
+import TurnstileWidget from '../components/TurnstileWidget';
 import { getSupabaseOrdersForUser, type CustomerOrder } from '../services/orderSupabaseService';
 import { isSupabaseReady, sendSupabasePasswordReset, updateSupabaseProfile } from '../services/supabaseService';
+import {
+  TURNSTILE_FAILED_MESSAGE,
+  TURNSTILE_REQUIRED_MESSAGE,
+  isTurnstileEnabled,
+} from '../services/turnstileService';
 
 type ProfileTab = 'profile' | 'security' | 'orders';
 
@@ -126,6 +132,9 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [passwordResetCaptchaToken, setPasswordResetCaptchaToken] = useState('');
+  const [passwordResetCaptchaKey, setPasswordResetCaptchaKey] = useState(0);
+  const shouldShowPasswordCaptcha = isTurnstileEnabled();
 
   useEffect(() => {
     setProfileData({
@@ -193,6 +202,37 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     setSuccessMessage('');
   };
 
+  const resetPasswordCaptcha = () => {
+    setPasswordResetCaptchaToken('');
+    setPasswordResetCaptchaKey((current) => current + 1);
+  };
+
+  const handlePasswordCaptchaVerify = (token: string) => {
+    if (import.meta.env.DEV) {
+      console.info('Captcha de cambio de contraseña completado:', {
+        hasCaptchaToken: Boolean(token),
+        tokenLength: token?.length ?? 0,
+      });
+    }
+
+    setPasswordResetCaptchaToken(token);
+  };
+
+  const clearPasswordCaptchaToken = () => {
+    setPasswordResetCaptchaToken('');
+  };
+
+  const getPasswordResetErrorMessage = (error: unknown) => {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const lowerMessage = rawMessage.toLowerCase();
+
+    if (lowerMessage.includes('captcha') || lowerMessage.includes('turnstile')) {
+      return TURNSTILE_FAILED_MESSAGE;
+    }
+
+    return error instanceof Error ? error.message : 'No se pudo enviar el email de cambio de contraseña.';
+  };
+
   const handleProfileSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -236,6 +276,22 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
       return;
     }
 
+    const captchaToken = passwordResetCaptchaToken.trim();
+
+    if (shouldShowPasswordCaptcha) {
+      if (import.meta.env.DEV) {
+        console.info('Captcha antes de enviar cambio de contraseña:', {
+          hasCaptchaToken: Boolean(captchaToken),
+          tokenLength: captchaToken.length,
+        });
+      }
+
+      if (!captchaToken) {
+        showError(TURNSTILE_REQUIRED_MESSAGE);
+        return;
+      }
+    }
+
     setIsSendingPasswordEmail(true);
 
     try {
@@ -243,10 +299,12 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
         throw new Error('El servicio de cuenta no esta configurado.');
       }
 
-      await sendSupabasePasswordReset(user.email);
+      await sendSupabasePasswordReset(user.email, shouldShowPasswordCaptcha ? captchaToken : undefined);
       showSuccess('Te enviamos un email para cambiar tu contraseña.');
+      resetPasswordCaptcha();
     } catch (error) {
-      showError(error instanceof Error ? error.message : 'No se pudo enviar el email de cambio de contraseña.');
+      showError(getPasswordResetErrorMessage(error));
+      resetPasswordCaptcha();
     } finally {
       setIsSendingPasswordEmail(false);
     }
@@ -454,6 +512,18 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
                 </div>
               </div>
             </div>
+
+            {shouldShowPasswordCaptcha && (
+              <div className="mt-6">
+                <TurnstileWidget
+                  key={`profile-password-reset-${passwordResetCaptchaKey}`}
+                  action="password_reset"
+                  onVerify={handlePasswordCaptchaVerify}
+                  onExpire={clearPasswordCaptchaToken}
+                  onError={clearPasswordCaptchaToken}
+                />
+              </div>
+            )}
 
             <button
               type="button"
