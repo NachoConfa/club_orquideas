@@ -3,8 +3,8 @@ import { X, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import TurnstileWidget from './TurnstileWidget';
 import {
   TURNSTILE_FAILED_MESSAGE,
+  TURNSTILE_REQUIRED_MESSAGE,
   isTurnstileEnabled,
-  verifyTurnstileToken,
 } from '../services/turnstileService';
 import {
   isSupabaseReady,
@@ -85,23 +85,53 @@ const AuthModal = ({
     }
   }, [initialMode, isOpen, resetTurnstile, user]);
 
-  const verifySecurity = async () => {
-    try {
-      const verification = await verifyTurnstileToken(turnstileToken);
-
-      if (!verification.success) {
-        alert(verification.error || TURNSTILE_FAILED_MESSAGE);
-        resetTurnstile();
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error verificando Turnstile:', error);
-      alert(TURNSTILE_FAILED_MESSAGE);
-      resetTurnstile();
-      return false;
+  const handleTurnstileVerify = useCallback((token: string) => {
+    if (import.meta.env.DEV) {
+      console.info('Turnstile completado:', {
+        hasToken: Boolean(token),
+        tokenLength: token?.length ?? 0,
+      });
     }
+
+    setTurnstileToken(token);
+  }, []);
+
+  const clearTurnstileToken = useCallback(() => {
+    setTurnstileToken('');
+  }, []);
+
+  const getCaptchaTokenForAuth = (flow: 'login' | 'register' | 'password_reset') => {
+    if (!shouldShowCaptcha) {
+      return undefined;
+    }
+
+    const captchaToken = turnstileToken.trim();
+
+    if (import.meta.env.DEV) {
+      console.info('Captcha antes de enviar a Supabase Auth:', {
+        flow,
+        hasCaptchaToken: Boolean(captchaToken),
+        tokenLength: captchaToken.length,
+      });
+    }
+
+    if (!captchaToken) {
+      alert(TURNSTILE_REQUIRED_MESSAGE);
+      return null;
+    }
+
+    return captchaToken;
+  };
+
+  const getAuthErrorMessage = (error: unknown) => {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const lowerMessage = rawMessage.toLowerCase();
+
+    if (lowerMessage.includes('captcha') || lowerMessage.includes('turnstile')) {
+      return TURNSTILE_FAILED_MESSAGE;
+    }
+
+    return error instanceof Error ? error.message : 'No se pudo completar la autenticacion.';
   };
 
   const handleClose = () => {
@@ -124,8 +154,8 @@ const AuthModal = ({
     setIsResettingPassword(true);
 
     try {
-      const isVerified = await verifySecurity();
-      if (!isVerified) {
+      const captchaToken = getCaptchaTokenForAuth('password_reset');
+      if (captchaToken === null) {
         return;
       }
 
@@ -133,14 +163,14 @@ const AuthModal = ({
         throw new Error('El servicio de autenticacion no esta configurado.');
       }
 
-      await sendSupabasePasswordReset(formData.resetEmail);
+      await sendSupabasePasswordReset(formData.resetEmail, captchaToken);
       alert(`Se envió un enlace de recuperación a ${formData.resetEmail}. Revisá tu email para cambiar la contraseña.`);
       setShowForgotPassword(false);
       setFormData((current) => ({ ...current, resetEmail: '' }));
       resetTurnstile();
     } catch (error) {
       console.error('Error enviando recuperacion:', error);
-      alert(error instanceof Error ? error.message : 'Error al enviar el email. Por favor intenta nuevamente.');
+      alert(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {
       setIsResettingPassword(false);
@@ -159,8 +189,8 @@ const AuthModal = ({
 
     try {
       await withAuthFlowTimeout((async () => {
-        const isVerified = await verifySecurity();
-        if (!isVerified) {
+        const captchaToken = getCaptchaTokenForAuth(authMode);
+        if (captchaToken === null) {
           return;
         }
 
@@ -169,13 +199,13 @@ const AuthModal = ({
         }
 
         if (authMode === 'login') {
-          const authenticatedUser = await signInWithSupabase(formData.email, password);
+          const authenticatedUser = await signInWithSupabase(formData.email, password, captchaToken);
           onLogin(authenticatedUser);
           handleClose();
           return;
         }
 
-        const result = await signUpWithSupabase(formData.name, formData.email, password);
+        const result = await signUpWithSupabase(formData.name, formData.email, password, captchaToken);
 
         if (result.needsEmailConfirmation) {
           alert('Cuenta creada. Revisá tu email para confirmar la cuenta antes de iniciar sesión.');
@@ -190,7 +220,7 @@ const AuthModal = ({
       })());
     } catch (error) {
       console.error('Error de autenticacion:', error);
-      alert(error instanceof Error ? error.message : 'No se pudo completar la autenticación.');
+      alert(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {
       setIsSubmitting(false);
@@ -244,7 +274,9 @@ const AuthModal = ({
                 <TurnstileWidget
                   key={`reset-${turnstileResetKey}`}
                   action="password_reset"
-                  onVerify={setTurnstileToken}
+                  onVerify={handleTurnstileVerify}
+                  onExpire={clearTurnstileToken}
+                  onError={clearTurnstileToken}
                 />
               )}
 
@@ -355,7 +387,9 @@ const AuthModal = ({
               <TurnstileWidget
                 key={`${authMode}-${turnstileResetKey}`}
                 action={authMode}
-                onVerify={setTurnstileToken}
+                onVerify={handleTurnstileVerify}
+                onExpire={clearTurnstileToken}
+                onError={clearTurnstileToken}
               />
             )}
 

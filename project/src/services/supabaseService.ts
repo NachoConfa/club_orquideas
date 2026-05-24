@@ -478,11 +478,35 @@ export const getCurrentSupabaseUser = async (): Promise<AuthenticatedUser | null
 
 };
 
-export const signInWithSupabase = async (email: string, password: string) => {
+export const signInWithSupabase = async (email: string, password: string, captchaToken?: string) => {
   const client = getClient();
-  const authData = await signInWithPasswordRest(email, password);
+  const { data, error } = await withSupabaseTimeout(
+    client.auth.signInWithPassword({
+      email,
+      password,
+      options: {
+        captchaToken,
+      },
+    }),
+    'El inicio de sesion tardo demasiado. Verifica tu conexion e intenta nuevamente.',
+    SUPABASE_AUTH_TIMEOUT_MS
+  );
 
-  persistRestSession(authData);
+  if (error) {
+    throw error;
+  }
+
+  if (!data.session || !data.user) {
+    throw new Error('Supabase no devolvio una sesion valida.');
+  }
+
+  const authData = {
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    expires_in: data.session.expires_in,
+    token_type: data.session.token_type,
+    user: data.user,
+  };
 
   void withSupabaseTimeout(
     client.auth.setSession({
@@ -500,7 +524,8 @@ export const signInWithSupabase = async (email: string, password: string) => {
 export const signUpWithSupabase = async (
   name: string,
   email: string,
-  password: string
+  password: string,
+  captchaToken?: string
 ): Promise<AuthResult> => {
   const client = getClient();
   const { data, error } = await withSupabaseTimeout(
@@ -510,6 +535,7 @@ export const signUpWithSupabase = async (
       options: {
         data: { name, full_name: name },
         emailRedirectTo: window.location.origin,
+        captchaToken,
       },
     }),
     'La creación de cuenta tardó demasiado. Verificá tu conexión e intentá nuevamente.'
@@ -541,11 +567,11 @@ export const signOutFromSupabase = async () => {
   }
 };
 
-export const sendSupabasePasswordReset = async (email: string) => {
+export const sendSupabasePasswordReset = async (email: string, captchaToken?: string) => {
   const client = getClient();
   const redirectTo = `${window.location.origin}${window.location.pathname}?reset-password=true`;
   const { error } = await withSupabaseTimeout(
-    client.auth.resetPasswordForEmail(email, { redirectTo }),
+    client.auth.resetPasswordForEmail(email, { redirectTo, captchaToken }),
     'No se pudo enviar el email de cambio de contraseña. Intentá nuevamente.'
   );
 
