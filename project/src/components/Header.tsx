@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, User, Menu, Flower, Heart, Package, Crown, Settings, X } from 'lucide-react';
+import { ShoppingCart, User, Menu, Flower, Heart, Package, Shield, X } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 interface HeaderProps {
@@ -8,10 +8,10 @@ interface HeaderProps {
   onCartClick: () => void;
   onFavoritesClick: () => void;
   onUserClick: () => void;
-  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'videos' | 'admin-panel') => void;
+  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'account-settings' | 'admin') => void;
   searchQuery: string;
   onSearch: (query: string) => void;
-  user: { name: string; email: string } | null;
+  user: { name: string; email: string; isAdmin?: boolean } | null;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -26,29 +26,26 @@ const Header: React.FC<HeaderProps> = ({
   user,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Verificar si el usuario es admin
-  const isAdmin = user?.email === 'NachoGemerXD@hotmail.com';
-
   const handleMobileNavClick = (page: any) => {
     onNavigate(page);
     setIsMobileMenuOpen(false);
   };
 
   return (
-    <header className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-lg sticky top-0 z-50">
+    <header className="sticky top-0 z-50 border-b border-[#D9C7B4]/80 bg-[#E8DCCB]/95 shadow-sm backdrop-blur">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo y Nombre */}
           <div className="flex items-center space-x-2 flex-shrink-0">
-            <div className="bg-white p-1.5 rounded-full shadow-md">
-              <Flower className="h-6 w-6 sm:h-8 sm:w-8 text-pink-500" />
+            <div className="rounded-full bg-[#F8DDEB] p-1.5 shadow-sm ring-1 ring-white/80">
+              <Flower className="h-6 w-6 text-[#D96C9F] sm:h-8 sm:w-8" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg sm:text-2xl font-bold text-white">Club de Las Orquídeas</h1>
-              <p className="text-xs sm:text-sm text-emerald-100">Pasión por las Orquídeas</p>
+              <h1 className="text-lg font-semibold text-[#2F3A35] sm:text-2xl">Club de Las Orquídeas</h1>
+              <p className="text-xs text-[#6B756F] sm:text-sm">Pasión por las Orquídeas</p>
             </div>
             <div className="sm:hidden">
-              <h1 className="text-lg font-bold text-white">Club Orquídeas</h1>
+              <h1 className="text-lg font-semibold text-[#2F3A35]">Club Orquídeas</h1>
             </div>
           </div>
 
@@ -56,49 +53,47 @@ const Header: React.FC<HeaderProps> = ({
           <nav className="hidden lg:flex items-center space-x-6">
             <button 
               onClick={() => onNavigate('home')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium text-sm"
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Inicio
             </button>
             <button 
               onClick={() => onNavigate('orchids')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium text-sm"
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Orquídeas
             </button>
+            <button
+              onClick={() => onNavigate('arrangements')}
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
+            >
+              Arreglos
+            </button>
             <button 
               onClick={() => onNavigate('pots')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium text-sm"
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Macetas
             </button>
             <button 
               onClick={() => onNavigate('accessories')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium text-sm"
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Accesorios
             </button>
             <button 
               onClick={() => onNavigate('care')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium text-sm"
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Cuidados
             </button>
-            <button 
-              onClick={() => onNavigate('videos')}
-              className="text-white hover:text-emerald-200 transition-colors font-medium flex items-center space-x-1 text-sm"
-            >
-              <span>Videos</span>
-              <Crown className="h-3 w-3 text-yellow-400" />
-            </button>
-            {isAdmin && (
-              <button 
-                onClick={() => onNavigate('admin-panel')}
-                className="text-white hover:text-emerald-200 transition-colors font-medium flex items-center space-x-1 text-sm"
-                title="Administrar Productos"
+            {user?.isAdmin && (
+              <button
+                onClick={() => onNavigate('admin')}
+                className="inline-flex items-center gap-1 text-sm font-medium text-[#2F3A35] transition-colors hover:text-[#D96C9F]"
               >
-                <Settings className="h-3 w-3" />
-                <span>Admin</span>
+                <Shield className="h-4 w-4" />
+                Admin
               </button>
             )}
           </nav>
@@ -111,29 +106,43 @@ const Header: React.FC<HeaderProps> = ({
             </div>
 
             {user && (
+              <button
+                onClick={() => onNavigate('account-settings')}
+                className="hidden items-center gap-1 text-[#2F3A35] transition-colors hover:text-[#D96C9F] sm:flex"
+                title="Mi perfil"
+              >
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="hidden xl:inline text-sm font-medium">Mi perfil</span>
+              </button>
+            )}
+
+            {user && (
               <button 
                 onClick={() => onNavigate('orders')}
-                className="text-white hover:text-emerald-200 transition-colors hidden sm:block"
+                className="hidden text-[#2F3A35] transition-colors hover:text-[#D96C9F] sm:block"
                 title="Mis Pedidos"
               >
                 <Package className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             )}
             
-            <button 
-              onClick={onUserClick}
-              className="text-white hover:text-emerald-200 transition-colors"
-            >
-              <User className="h-5 w-5 sm:h-6 sm:w-6" />
-            </button>
+            {!user && (
+              <button
+                onClick={onUserClick}
+                className="text-[#2F3A35] transition-colors hover:text-[#D96C9F]"
+                title="Iniciar sesión"
+              >
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            )}
             
             <button
               onClick={onFavoritesClick}
-              className="relative text-white hover:text-emerald-200 transition-colors"
+              className="relative text-[#2F3A35] transition-colors hover:text-[#D96C9F]"
             >
               <Heart className="h-5 w-5 sm:h-6 sm:w-6" />
               {favoritesCount > 0 && (
-                <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-pink-500 text-white text-xs rounded-full h-4 w-4 sm:h-6 sm:w-6 flex items-center justify-center font-bold animate-pulse">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 animate-pulse items-center justify-center rounded-full bg-[#D96C9F] text-xs font-bold text-white sm:-right-2 sm:-top-2 sm:h-6 sm:w-6">
                   <span className="text-xs">{favoritesCount}</span>
                 </span>
               )}
@@ -141,11 +150,11 @@ const Header: React.FC<HeaderProps> = ({
             
             <button
               onClick={onCartClick}
-              className="relative bg-white text-emerald-500 p-1.5 sm:p-2 rounded-full shadow-md hover:shadow-lg transition-shadow"
+              className="relative rounded-full bg-[#CFE3D4] p-1.5 text-[#2F3A35] shadow-sm transition-shadow hover:shadow-md sm:p-2"
             >
               <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-pink-500 text-white text-xs rounded-full h-4 w-4 sm:h-6 sm:w-6 flex items-center justify-center font-bold animate-pulse">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 animate-pulse items-center justify-center rounded-full bg-[#D96C9F] text-xs font-bold text-white sm:-right-2 sm:-top-2 sm:h-6 sm:w-6">
                   <span className="text-xs">{cartCount}</span>
                 </span>
               )}
@@ -154,7 +163,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* Botón menú móvil */}
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden text-white p-1"
+              className="p-1 text-[#2F3A35] lg:hidden"
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -168,61 +177,69 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Menú Móvil */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden absolute left-0 right-0 top-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 shadow-lg border-t border-emerald-400">
+          <div className="absolute left-0 right-0 top-full border-t border-[#D9C7B4]/80 bg-[#E8DCCB] shadow-lg lg:hidden">
             <nav className="container mx-auto px-4 py-4 space-y-3">
               <button 
                 onClick={() => handleMobileNavClick('home')}
-                className="block w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Inicio
               </button>
               <button 
                 onClick={() => handleMobileNavClick('orchids')}
-                className="block w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Orquídeas
               </button>
+              <button
+                onClick={() => handleMobileNavClick('arrangements')}
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
+              >
+                Arreglos
+              </button>
               <button 
                 onClick={() => handleMobileNavClick('pots')}
-                className="block w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Macetas
               </button>
               <button 
                 onClick={() => handleMobileNavClick('accessories')}
-                className="block w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Accesorios
               </button>
               <button 
                 onClick={() => handleMobileNavClick('care')}
-                className="block w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Cuidados
               </button>
-              <button 
-                onClick={() => handleMobileNavClick('videos')}
-                className="flex items-center w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
-              >
-                <span>Videos Premium</span>
-                <Crown className="h-4 w-4 text-yellow-400 ml-2" />
-              </button>
+              {user && (
+                <button
+                  onClick={() => handleMobileNavClick('account-settings')}
+                  className="flex w-full items-center rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  <span>Mi perfil</span>
+                </button>
+              )}
               {user && (
                 <button 
                   onClick={() => handleMobileNavClick('orders')}
-                  className="flex items-center w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+                  className="flex w-full items-center rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
                 >
                   <Package className="h-4 w-4 mr-2" />
                   <span>Mis Pedidos</span>
                 </button>
               )}
-              {isAdmin && (
-                <button 
-                  onClick={() => handleMobileNavClick('admin-panel')}
-                  className="flex items-center w-full text-left text-white hover:text-emerald-200 transition-colors font-medium py-2 px-3 rounded hover:bg-emerald-500/20"
+              {user?.isAdmin && (
+                <button
+                  onClick={() => handleMobileNavClick('admin')}
+                  className="flex w-full items-center rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
                 >
-                  <Settings className="h-4 w-4 mr-2" />
-                  <span>Panel de Admin</span>
+                  <Shield className="h-4 w-4 mr-2" />
+                  <span>Panel administrador</span>
                 </button>
               )}
             </nav>

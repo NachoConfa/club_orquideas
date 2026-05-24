@@ -1,26 +1,13 @@
 import React from 'react';
 import { X, Heart, ShoppingCart, Trash2 } from 'lucide-react';
-
-interface FavoriteItem {
-  id: number;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  rating: number;
-  reviews: number;
-  category: string;
-  color: string;
-  size: string;
-  inStock: boolean;
-}
+import type { Product } from '../types/product';
 
 interface FavoritesProps {
-  items: FavoriteItem[];
+  items: Product[];
   isOpen: boolean;
   onClose: () => void;
   onRemoveItem: (id: number) => void;
-  onAddToCart: (product: FavoriteItem) => void;
+  onAddToCart: (product: Product) => void;
 }
 
 const Favorites: React.FC<FavoritesProps> = ({ items, isOpen, onClose, onRemoveItem, onAddToCart }) => {

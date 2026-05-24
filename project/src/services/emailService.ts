@@ -1,124 +1,88 @@
-import emailjs from '@emailjs/browser';
-import { emailConfig } from '../config/emailjs';
+import { getSupabaseConfigMessage, supabase } from '../lib/supabase';
 
-export const sendPasswordResetEmail = async (email: string, resetLink: string) => {
+type OrderEmailType = 'order_received' | 'order_confirmed' | 'order_cancelled';
+
+const getClient = () => {
+  if (!supabase) {
+    throw new Error(getSupabaseConfigMessage());
+  }
+
+  return supabase;
+};
+
+const invokeTransactionalEmail = async (body: Record<string, unknown>) => {
+  const client = getClient();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await client.auth.getSession();
+
+  if (sessionError) {
+    throw sessionError;
+  }
+
+  if (!session?.access_token) {
+    throw new Error('No hay una sesion activa para enviar el email.');
+  }
+
+  const { data, error } = await client.functions.invoke('send-transactional-email', {
+    body,
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const sendOrderEmailSafely = async (type: OrderEmailType, orderId: string) => {
   try {
-    const templateParams = {
-      to_email: email,
-      reset_link: resetLink,
-      user_name: email.split('@')[0]
-    };
+    if (!orderId) {
+      return { success: false, skipped: true };
+    }
 
-    await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templates.passwordReset,
-      templateParams,
-      emailConfig.publicKey
-    );
-
-    return { success: true };
+    const result = await invokeTransactionalEmail({ type, orderId });
+    return { success: true, result };
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    if (import.meta.env.DEV) {
+      console.warn('No se pudo enviar email transaccional:', { type, orderId, error });
+    }
     return { success: false, error };
   }
 };
 
-export const sendOrderConfirmationEmail = async (orderData: any) => {
+export const sendOrderReceivedEmail = (orderId: string) => sendOrderEmailSafely('order_received', orderId);
+
+export const sendOrderConfirmedEmail = (orderId: string) => sendOrderEmailSafely('order_confirmed', orderId);
+
+export const sendOrderCancelledEmail = (orderId: string) => sendOrderEmailSafely('order_cancelled', orderId);
+
+export const sendPasswordChangedEmail = async () => {
   try {
-    const templateParams = {
-      customer_name: orderData.customerName,
-      customer_email: orderData.email,
-      order_id: orderData.orderId,
-      order_total: orderData.total,
-      order_items: orderData.items.map((item: any) => 
-        `${item.name} x${item.quantity} - $${item.price}`
-      ).join('\n'),
-      delivery_address: orderData.address
-    };
-
-    await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templates.orderConfirmation,
-      templateParams,
-      emailConfig.publicKey
-    );
-
-    return { success: true };
+    const result = await invokeTransactionalEmail({ type: 'password_changed' });
+    return { success: true, result };
   } catch (error) {
-    console.error('Error sending order confirmation email:', error);
+    if (import.meta.env.DEV) {
+      console.warn('No se pudo enviar email de cambio de contrasena:', error);
+    }
     return { success: false, error };
   }
 };
 
-export const sendInternalNotification = async (type: string, data: any) => {
-  try {
-    const templateParams = {
-      notification_type: type,
-      customer_name: data.customerName || 'N/A',
-      customer_email: data.email || 'N/A',
-      message: data.message || '',
-      timestamp: new Date().toLocaleString(),
-      additional_info: JSON.stringify(data, null, 2)
-    };
+export const sendOrderConfirmationEmail = async (orderData: { orderId?: string }) =>
+  sendOrderReceivedEmail(orderData.orderId || '');
 
-    await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templates.internalNotification,
-      templateParams,
-      emailConfig.publicKey
-    );
+export const sendInternalNotification = async (_type?: string, _data?: unknown) => ({ success: true, skipped: true });
 
-    return { success: true };
-  } catch (error) {
-    console.error('Error sending internal notification:', error);
-    return { success: false, error };
-  }
-};
+export const sendPasswordResetEmail = async (_email?: string, _resetLink?: string) => ({ success: true, skipped: true });
 
-export const sendProductAvailabilityEmail = async (email: string, productName: string) => {
-  try {
-    const templateParams = {
-      customer_email: email,
-      customer_name: email.split('@')[0],
-      product_name: productName,
-      store_url: window.location.origin
-    };
+export const sendProductAvailabilityEmail = async (_email?: string, _productName?: string) => ({
+  success: true,
+  skipped: true,
+});
 
-    await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templates.productAvailability,
-      templateParams,
-      emailConfig.publicKey
-    );
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error sending product availability email:', error);
-    return { success: false, error };
-  }
-};
-
-export const sendSubscriptionConfirmationEmail = async (customerData: any) => {
-  try {
-    const templateParams = {
-      customer_name: customerData.name,
-      customer_email: customerData.email,
-      plan_name: customerData.planName,
-      plan_price: customerData.planPrice,
-      expiry_date: customerData.expiryDate,
-      company_name: 'Club de Las Orquídeas'
-    };
-
-    await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templates.subscriptionConfirmation,
-      templateParams,
-      emailConfig.publicKey
-    );
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error sending subscription confirmation email:', error);
-    return { success: false, error };
-  }
-};
+export const sendSubscriptionConfirmationEmail = async (_customerData?: unknown) => ({ success: true, skipped: true });

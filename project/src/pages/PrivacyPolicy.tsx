@@ -36,7 +36,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
                   <span className="font-semibold text-blue-800">Datos Personales</span>
                 </div>
                 <p className="text-blue-700">
-                  Recopilamos información que usted nos proporciona directamente cuando crea una cuenta, 
+                  Recopilamos información que usted nos proporciona directamente 
                   realiza una compra o se comunica con nosotros.
                 </p>
               </div>

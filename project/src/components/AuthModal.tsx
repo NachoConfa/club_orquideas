@@ -1,417 +1,271 @@
-import React, { useState } from 'react';
-import { X, User, Mail, Lock, Eye, EyeOff, LogOut, Settings, RefreshCw, Shield } from 'lucide-react';
-import { sendPasswordResetEmail } from '../services/emailService';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { X, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import TurnstileWidget from './TurnstileWidget';
+import {
+  TURNSTILE_FAILED_MESSAGE,
+  isTurnstileEnabled,
+  verifyTurnstileToken,
+} from '../services/turnstileService';
+import {
+  isSupabaseReady,
+  sendSupabasePasswordReset,
+  signInWithSupabase,
+  signUpWithSupabase,
+  type AuthenticatedUser,
+} from '../services/supabaseService';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, password: string) => void;
-  onRegister: (name: string, email: string, password: string) => void;
-  user: { name: string; email: string } | null;
+  onLogin: (user: AuthenticatedUser | { name: string; email: string }) => void;
+  user: { name: string; email: string; isAdmin?: boolean } | null;
   onLogout: () => void;
   onNavigateToSettings?: () => void;
+  onNavigateToAdmin?: () => void;
+  initialMode?: 'login' | 'register';
+  notice?: string;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onRegister, user, onLogout, onNavigateToSettings }) => {
-  const [isLogin, setIsLogin] = useState(true);
+const emptyForm = {
+  name: '',
+  email: '',
+  resetEmail: '',
+};
+
+const AUTH_FLOW_TIMEOUT_MS = 20000;
+
+const withAuthFlowTimeout = <T,>(operation: Promise<T>): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error('El inicio de sesión tardó demasiado. Verificá tu conexión e intentá nuevamente.')),
+      AUTH_FLOW_TIMEOUT_MS
+    );
+
+    operation
+      .then(resolve, reject)
+      .finally(() => window.clearTimeout(timeoutId));
+  });
+
+const AuthModal = ({
+  isOpen,
+  onClose,
+  onLogin,
+  user,
+  initialMode = 'login',
+  notice = '',
+}: AuthModalProps) => {
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [captcha, setCaptcha] = useState({
-    verified: false,
-    isLoading: false,
-    showMathChallenge: false,
-    mathQuestion: '',
-    mathAnswer: 0,
-    userAnswer: ''
-  });
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    resetEmail: ''
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [formData, setFormData] = useState(emptyForm);
+  const [password, setPassword] = useState('');
+  const shouldShowCaptcha = isTurnstileEnabled();
 
-  // Simular verificación inicial de "No soy un robot"
-  const handleInitialCaptchaClick = () => {
-    setCaptcha(prev => ({ ...prev, isLoading: true }));
-    
-    // Simular verificación (en producción sería una llamada real a reCAPTCHA)
-    setTimeout(() => {
-      const needsChallenge = Math.random() > 0.5; // 50% de probabilidad de necesitar desafío
-      
-      if (needsChallenge) {
-        generateMathChallenge();
-      } else {
-        setCaptcha(prev => ({ 
-          ...prev, 
-          verified: true, 
-          isLoading: false,
-          showMathChallenge: false 
-        }));
-      }
-    }, 2000);
-  };
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken('');
+    setTurnstileResetKey((current) => current + 1);
+  }, []);
 
-  // Generar desafío matemático
-  const generateMathChallenge = () => {
-    const operations = ['+', '-', '×'];
-    const operation = operations[Math.floor(Math.random() * operations.length)];
-    
-    let num1, num2, answer, question;
-    
-    switch (operation) {
-      case '+':
-        num1 = Math.floor(Math.random() * 20) + 1;
-        num2 = Math.floor(Math.random() * 20) + 1;
-        answer = num1 + num2;
-        question = `${num1} + ${num2} = ?`;
-        break;
-      case '-':
-        num1 = Math.floor(Math.random() * 20) + 10;
-        num2 = Math.floor(Math.random() * 10) + 1;
-        answer = num1 - num2;
-        question = `${num1} - ${num2} = ?`;
-        break;
-      case '×':
-        num1 = Math.floor(Math.random() * 10) + 1;
-        num2 = Math.floor(Math.random() * 10) + 1;
-        answer = num1 * num2;
-        question = `${num1} × ${num2} = ?`;
-        break;
-      default:
-        num1 = 5;
-        num2 = 3;
-        answer = 8;
-        question = '5 + 3 = ?';
-    }
-    
-    setCaptcha({
-      verified: false,
-      isLoading: false,
-      showMathChallenge: true,
-      mathQuestion: question,
-      mathAnswer: answer,
-      userAnswer: ''
-    });
-  };
+  const resetForm = useCallback(() => {
+    setFormData(emptyForm);
+    setPassword('');
+    setShowPassword(false);
+    resetTurnstile();
+  }, [resetTurnstile]);
 
-  // Reiniciar captcha
-  const resetCaptcha = () => {
-    setCaptcha({
-      verified: false,
-      isLoading: false,
-      showMathChallenge: false,
-      mathQuestion: '',
-      mathAnswer: 0,
-      userAnswer: ''
-    });
-  };
-
-  // Verificar respuesta matemática
-  const handleMathSubmit = () => {
-    const userAnswerNum = parseInt(captcha.userAnswer);
-    if (userAnswerNum === captcha.mathAnswer) {
-      setCaptcha(prev => ({
-        ...prev,
-        verified: true,
-        showMathChallenge: false,
-        userAnswer: ''
-      }));
-    } else {
-      // Generar nuevo desafío si falla
-      generateMathChallenge();
-    }
-  };
-
-  // Manejar cambio en input de respuesta
-  const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCaptcha(prev => ({ ...prev, userAnswer: e.target.value }));
-  };
-
-  // Resetear captcha al abrir el modal
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && !user) {
-      resetCaptcha();
+      setAuthMode(initialMode);
+      setShowForgotPassword(false);
+      resetTurnstile();
     }
-  }, [isOpen, user]);
+  }, [initialMode, isOpen, resetTurnstile, user]);
 
-  // Limpiar formulario cuando cambia entre login y registro
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setShowForgotPassword(false);
-    setFormData({ name: '', email: '', password: '', confirmPassword: '', resetEmail: '' });
-    setShowPassword(false);
-    resetCaptcha();
+  const verifySecurity = async () => {
+    try {
+      const verification = await verifyTurnstileToken(turnstileToken);
+
+      if (!verification.success) {
+        alert(verification.error || TURNSTILE_FAILED_MESSAGE);
+        resetTurnstile();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error verificando Turnstile:', error);
+      alert(TURNSTILE_FAILED_MESSAGE);
+      resetTurnstile();
+      return false;
+    }
   };
 
-  // Limpiar formulario cuando se cierra el modal
   const handleClose = () => {
-    setFormData({ name: '', email: '', password: '', confirmPassword: '', resetEmail: '' });
-    setShowPassword(false);
+    resetForm();
+    setAuthMode('login');
     setShowForgotPassword(false);
     setIsResettingPassword(false);
+    setIsSubmitting(false);
     onClose();
   };
 
-  // Manejar recuperación de contraseña
-  const handlePasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Verificar captcha
-    if (!captcha.verified) {
-      alert('❌ Por favor completa la verificación de captcha correctamente.');
-      return;
-    }
-    
-    setIsResettingPassword(true);
-
-    // Verificar si el email existe
-    const users = JSON.parse(localStorage.getItem('orchid-users') || '[]');
-    const user = users.find((u: any) => u.email === formData.resetEmail);
-    
-    if (!user) {
-      alert('❌ No encontramos una cuenta con este email.');
-      setIsResettingPassword(false);
-      return;
-    }
-
-    // Generar token de recuperación
-    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const resetExpiry = new Date(Date.now() + 3600000).toISOString(); // 1 hora
-    
-    // Guardar token en localStorage
-    const updatedUsers = users.map((u: any) => 
-      u.email === formData.resetEmail 
-        ? { ...u, resetToken, resetExpiry, resetRequestedAt: new Date().toISOString() }
-        : u
-    );
-    localStorage.setItem('orchid-users', JSON.stringify(updatedUsers));
-
-    // Enviar email real con link de recuperación
-    try {
-      const resetLink = `${window.location.origin}/#/reset-password?token=${resetToken}&email=${encodeURIComponent(formData.resetEmail)}`;
-      
-      const emailSent = await sendPasswordResetEmail({
-        customerEmail: formData.resetEmail,
-        customerName: user.name,
-        resetLink
-      });
-
-      if (emailSent) {
-        alert(`✅ Se ha enviado un enlace de recuperación a ${formData.resetEmail}.\n\n📧 Revisa tu bandeja de entrada y haz clic en el enlace para cambiar tu contraseña.\n\n⏰ El enlace expira en 1 hora.`);
-      } else {
-        alert('❌ Error al enviar el email. Por favor intenta nuevamente.');
-      }
-    } catch (error) {
-      console.error('Error enviando email de recuperación:', error);
-      alert('❌ Error al enviar el email. Por favor intenta nuevamente.');
-    }
-    
-    setIsResettingPassword(false);
+  const toggleAuthMode = () => {
+    setAuthMode((currentMode) => (currentMode === 'login' ? 'register' : 'login'));
     setShowForgotPassword(false);
-    setFormData(prev => ({ ...prev, resetEmail: '' }));
+    resetForm();
   };
 
-  if (!isOpen) return null;
+  const handlePasswordReset = async (event: FormEvent) => {
+    event.preventDefault();
+    setIsResettingPassword(true);
 
-  // Si el usuario ya está logueado, mostrar perfil
-  if (user) {
-    return (
-      <div className="fixed inset-0 z-50 overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-2xl shadow-2xl">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Mi Perfil</h2>
-              <button
-                onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+    try {
+      const isVerified = await verifySecurity();
+      if (!isVerified) {
+        return;
+      }
 
-            <div className="text-center mb-6">
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User className="h-10 w-10 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-1">¡Hola, {user.name}!</h3>
-              <p className="text-gray-600">{user.email}</p>
-            </div>
+      if (!isSupabaseReady()) {
+        throw new Error('El servicio de autenticacion no esta configurado.');
+      }
 
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-lg mb-6 border-l-4 border-emerald-500">
-              <p className="text-emerald-700 text-sm">
-                🌺 ¡Bienvenido de vuelta al Club de Las Orquídeas! Disfruta explorando nuestras hermosas orquídeas y encuentra la perfecta para ti.
-              </p>
-            </div>
+      await sendSupabasePasswordReset(formData.resetEmail);
+      alert(`Se envió un enlace de recuperación a ${formData.resetEmail}. Revisá tu email para cambiar la contraseña.`);
+      setShowForgotPassword(false);
+      setFormData((current) => ({ ...current, resetEmail: '' }));
+      resetTurnstile();
+    } catch (error) {
+      console.error('Error enviando recuperacion:', error);
+      alert(error instanceof Error ? error.message : 'Error al enviar el email. Por favor intenta nuevamente.');
+      resetTurnstile();
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
 
-            <div className="space-y-3">
-              <button 
-                onClick={() => {
-                  if (onNavigateToSettings) {
-                    onNavigateToSettings();
-                    handleClose();
-                  }
-                }}
-                className="w-full flex items-center justify-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg transition-colors"
-              >
-                <Settings className="h-5 w-5" />
-                <span>Configuración de Cuenta</span>
-              </button>
-              
-              <button 
-                onClick={() => {
-                  onLogout();
-                  handleClose();
-                }}
-                className="w-full flex items-center justify-center space-x-2 bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Cerrar Sesión</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (authMode === 'register' && password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await withAuthFlowTimeout((async () => {
+        const isVerified = await verifySecurity();
+        if (!isVerified) {
+          return;
+        }
+
+        if (!isSupabaseReady()) {
+          throw new Error('El servicio de autenticacion no esta configurado.');
+        }
+
+        if (authMode === 'login') {
+          const authenticatedUser = await signInWithSupabase(formData.email, password);
+          onLogin(authenticatedUser);
+          handleClose();
+          return;
+        }
+
+        const result = await signUpWithSupabase(formData.name, formData.email, password);
+
+        if (result.needsEmailConfirmation) {
+          alert('Cuenta creada. Revisá tu email para confirmar la cuenta antes de iniciar sesión.');
+          handleClose();
+          return;
+        }
+
+        if (result.user) {
+          onLogin(result.user);
+          handleClose();
+        }
+      })());
+    } catch (error) {
+      console.error('Error de autenticacion:', error);
+      alert(error instanceof Error ? error.message : 'No se pudo completar la autenticación.');
+      resetTurnstile();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) {
+    return null;
   }
 
-  // Mostrar formulario de recuperación de contraseña
+  if (user) {
+    return null;
+  }
+
   if (showForgotPassword) {
     return (
       <div className="fixed inset-0 z-50 overflow-hidden">
         <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-2xl shadow-2xl">
+
+        <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-2xl">
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Recuperar Contraseña</h2>
-              <button
-                onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-800">Recuperar contraseña</h2>
+              <button onClick={handleClose} className="text-gray-400 transition-colors hover:text-gray-600">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-              <p className="text-blue-700 text-sm">
-                📧 Ingresa tu email y te enviaremos una contraseña temporal para que puedas acceder a tu cuenta.
+            <div className="mb-6 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+              <p className="text-sm text-blue-700">
+                Ingresá tu email y te enviaremos un enlace para cambiar tu contraseña.
               </p>
             </div>
 
             <form onSubmit={handlePasswordReset} className="space-y-4">
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
                   placeholder="Tu correo electrónico"
+                  name="resetEmail"
                   value={formData.resetEmail}
-                  onChange={(e) => setFormData({ ...formData, resetEmail: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  onChange={(event) => setFormData((current) => ({ ...current, resetEmail: event.target.value }))}
+                  autoComplete="email"
+                  className="relative z-10 w-full rounded-lg border border-gray-300 py-3 pl-10 pr-4 transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                   required
                 />
               </div>
 
-              {/* Captcha Anti-Bot */}
-              <div className="mb-4">
-                {!captcha.showMathChallenge ? (
-                  // Captcha inicial estilo reCAPTCHA
-                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          checked={captcha.verified}
-                          onChange={handleInitialCaptchaClick}
-                          disabled={captcha.isLoading || captcha.verified}
-                          className="w-6 h-6 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer disabled:cursor-not-allowed"
-                        />
-                        {captcha.isLoading && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      <label className="text-sm font-medium text-gray-700 cursor-pointer">
-                        No soy un robot
-                      </label>
-                    </div>
-                    
-                    {captcha.verified && (
-                      <div className="mt-3 flex items-center text-green-600 text-sm">
-                        <Shield className="h-4 w-4 mr-2" />
-                        <span>Verificación completada ✓</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // Desafío matemático
-                  <div className="bg-white border border-gray-300 rounded-lg p-4">
-                    <div className="mb-4">
-                      <h3 className="font-medium text-gray-800 mb-2">Resuelve esta operación para continuar:</h3>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600 mb-3">{captcha.mathQuestion}</div>
-                        <input
-                          type="number"
-                          value={captcha.userAnswer}
-                          onChange={handleAnswerChange}
-                          placeholder="Tu respuesta"
-                          className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              handleMathSubmit();
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                      
-                    <div className="flex justify-between items-center">
-                      <button
-                        type="button"
-                        onClick={resetCaptcha}
-                        className="text-gray-600 hover:text-gray-800 text-sm transition-colors"
-                      >
-                        ← Volver
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleMathSubmit}
-                        disabled={!captcha.userAnswer}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Verificar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 mb-4">
-                <p className="text-blue-700 text-xs">
-                  💡 {!captcha.showMathChallenge ? 'Marca la casilla para verificar que no eres un bot.' : 'Resuelve la operación matemática para continuar.'}
-                </p>
-              </div>
+              {shouldShowCaptcha && (
+                <TurnstileWidget
+                  key={`reset-${turnstileResetKey}`}
+                  action="password_reset"
+                  onVerify={setTurnstileToken}
+                />
+              )}
 
               <button
                 type="submit"
-                disabled={isResettingPassword || !captcha.verified}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isResettingPassword}
+                className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-semibold text-white transition-all duration-200 hover:from-emerald-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isResettingPassword ? 'Enviando...' : 'Enviar Enlace de Recuperación'}
+                {isResettingPassword ? 'Enviando...' : 'Enviar enlace de recuperación'}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button
-                onClick={() => setShowForgotPassword(false)}
-                className="text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  resetTurnstile();
+                }}
+                className="font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
               >
-                ← Volver al inicio de sesión
+                Volver al inicio de sesión
               </button>
             </div>
           </div>
@@ -420,248 +274,122 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, onRegis
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Verificar captcha
-    if (!captcha.verified) {
-      alert('❌ Por favor completa la verificación de captcha correctamente.');
-      return;
-    }
-    
-    if (isLogin) {
-      // Verificar si el usuario existe en localStorage
-      const users = JSON.parse(localStorage.getItem('orchid-users') || '[]');
-      const user = users.find((u: any) => u.email === formData.email && u.password === formData.password);
-      
-      if (user) {
-        onLogin(formData.email, formData.password);
-        handleClose();
-      } else {
-        alert('❌ Credenciales incorrectas. Verifica tu email y contraseña.');
-        return;
-      }
-    } else {
-      if (formData.password !== formData.confirmPassword) {
-        alert('❌ Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente.');
-        return;
-      }
-      
-      if (formData.password.length < 6) {
-        alert('❌ La contraseña debe tener al menos 6 caracteres.');
-        return;
-      }
-      
-      // Guardar usuario en localStorage
-      const users = JSON.parse(localStorage.getItem('orchid-users') || '[]');
-      
-      // Verificar si el email ya existe
-      const existingUser = users.find((u: any) => u.email === formData.email);
-      if (existingUser) {
-        alert('❌ Ya existe una cuenta con este email. Intenta iniciar sesión.');
-        return;
-      }
-      
-      const newUser = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        createdAt: new Date().toISOString()
-      };
-      users.push(newUser);
-      localStorage.setItem('orchid-users', JSON.stringify(users));
-      
-      onRegister(formData.name, formData.email, formData.password);
-      handleClose();
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-2xl shadow-2xl">
+
+      <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-2xl">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-800">
-              {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
             </h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
+            <button onClick={handleClose} className="text-gray-400 transition-colors hover:text-gray-600">
               <X className="h-6 w-6" />
             </button>
           </div>
 
+          {notice && (
+            <div className="mb-5 rounded-lg border border-[#EADBC8] bg-[#FFF8EF] p-4">
+              <p className="text-sm font-medium leading-6 text-[#2F3A35]">{notice}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+            {authMode === 'register' && (
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
+                  name="name"
                   placeholder="Nombre completo"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
+                  autoComplete="name"
+                  className="relative z-10 w-full rounded-lg border border-gray-300 py-3 pl-10 pr-4 transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                   required
                 />
               </div>
             )}
 
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Mail className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 placeholder="Correo electrónico"
+                name="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+                autoComplete="email"
+                className="relative z-10 w-full rounded-lg border border-gray-300 py-3 pl-10 pr-4 transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 required
               />
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Contraseña"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                name="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                disabled={false}
+                readOnly={false}
+                className="relative w-full rounded-lg border border-gray-300 py-3 pl-10 pr-12 transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 required
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showPassword ? 'Ocultar contraseÃ±a' : 'Mostrar contraseÃ±a'}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
 
-            {!isLogin && (
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Confirmar contraseña"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  required
-                />
-              </div>
+            {shouldShowCaptcha && (
+              <TurnstileWidget
+                key={`${authMode}-${turnstileResetKey}`}
+                action={authMode}
+                onVerify={setTurnstileToken}
+              />
             )}
-
-            {/* Captcha Anti-Bot */}
-            <div className="mb-4">
-              {!captcha.showMathChallenge ? (
-                // Captcha inicial estilo reCAPTCHA
-                <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={captcha.verified}
-                        onChange={handleInitialCaptchaClick}
-                        disabled={captcha.isLoading || captcha.verified}
-                        className="w-6 h-6 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer disabled:cursor-not-allowed"
-                      />
-                      {captcha.isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    <label className="text-sm font-medium text-gray-700 cursor-pointer">
-                      No soy un robot
-                    </label>
-                  </div>
-                  
-                  {captcha.verified && (
-                    <div className="mt-3 flex items-center text-green-600 text-sm">
-                      <Shield className="h-4 w-4 mr-2" />
-                      <span>Verificación completada ✓</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Desafío matemático
-                <div className="bg-white border border-gray-300 rounded-lg p-4">
-                  <div className="mb-4">
-                    <h3 className="font-medium text-gray-800 mb-2">Resuelve esta operación para continuar:</h3>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600 mb-3">{captcha.mathQuestion}</div>
-                      <input
-                        type="number"
-                        value={captcha.userAnswer}
-                        onChange={handleAnswerChange}
-                        placeholder="Tu respuesta"
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleMathSubmit();
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                    
-                  <div className="flex justify-between items-center">
-                    <button
-                      type="button"
-                      onClick={resetCaptcha}
-                      className="text-gray-600 hover:text-gray-800 text-sm transition-colors"
-                    >
-                      ← Volver
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMathSubmit}
-                      disabled={!captcha.userAnswer}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Verificar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 mb-4">
-              <p className="text-blue-700 text-xs">
-                💡 {!captcha.showMathChallenge ? 'Marca la casilla para verificar que no eres un bot.' : 'Resuelve la operación matemática para continuar.'}
-              </p>
-            </div>
 
             <button
               type="submit"
-              disabled={!captcha.verified}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+              className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-semibold text-white transition-all duration-200 hover:from-emerald-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              {isSubmitting ? 'Procesando...' : authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            {isLogin && (
+            {authMode === 'login' && (
               <div className="mb-4">
                 <button
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-gray-600 hover:text-emerald-600 transition-colors"
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    resetTurnstile();
+                  }}
+                  className="text-sm text-gray-600 transition-colors hover:text-emerald-600"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
             )}
+
             <p className="text-gray-600">
-              {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+              {authMode === 'login' ? 'No tenes cuenta?' : 'Ya tenes cuenta?'}
               <button
-                onClick={toggleMode}
-                className="ml-2 text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                onClick={toggleAuthMode}
+                className="ml-2 font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
               >
-                {isLogin ? 'Crear cuenta' : 'Iniciar sesión'}
+                {authMode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
               </button>
             </p>
           </div>

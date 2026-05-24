@@ -20,10 +20,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, searchQuery }) => {
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className={`flex items-center bg-white rounded-full px-4 py-2 shadow-md transition-all duration-300 ${
+      <div className={`flex items-center rounded-full border border-[#EADBC8] bg-white/90 px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#7FAF9B] ${
         isExpanded ? 'min-w-[400px]' : 'min-w-[300px]'
       }`}>
-        <Search className="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" />
+        <Search className="mr-3 h-5 w-5 flex-shrink-0 text-[#7FAF9B]" />
         <input
           type="text"
           placeholder="Buscar orquídeas, macetas, accesorios..."
@@ -31,13 +31,13 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, searchQuery }) => {
           onChange={(e) => onSearch(e.target.value)}
           onFocus={() => setIsExpanded(true)}
           onBlur={() => setIsExpanded(false)}
-          className="flex-1 outline-none text-gray-700 placeholder-gray-400"
+          className="flex-1 bg-transparent text-[#2F3A35] outline-none placeholder:text-[#6B756F]/70"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={clearSearch}
-            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="ml-2 text-[#6B756F] transition-colors hover:text-[#D96C9F]"
           >
             <X className="h-4 w-4" />
           </button>

@@ -10,7 +10,7 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
     {
       id: 1,
       title: "Riego Adecuado",
-      icon: <Droplets className="h-8 w-8 text-blue-500" />,
+      icon: <Droplets className="h-8 w-8 text-[#7FAF9B]" />,
       content: [
         "Riega una vez por semana en promedio",
         "Usa agua destilada o de lluvia cuando sea posible",
@@ -23,7 +23,7 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
     {
       id: 2,
       title: "Iluminación Perfecta",
-      icon: <Sun className="h-8 w-8 text-yellow-500" />,
+      icon: <Sun className="h-8 w-8 text-[#D96C9F]" />,
       content: [
         "Luz brillante pero indirecta es ideal",
         "Evita la luz solar directa que puede quemar las hojas",
@@ -36,7 +36,7 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
     {
       id: 3,
       title: "Temperatura y Humedad",
-      icon: <Thermometer className="h-8 w-8 text-red-500" />,
+      icon: <Thermometer className="h-8 w-8 text-[#D96C9F]" />,
       content: [
         "Temperatura diurna: 20-25°C",
         "Temperatura nocturna: 15-20°C",
@@ -49,7 +49,7 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
     {
       id: 4,
       title: "Poda y Mantenimiento",
-      icon: <Scissors className="h-8 w-8 text-green-500" />,
+      icon: <Scissors className="h-8 w-8 text-[#5FAE9B]" />,
       content: [
         "Corta las flores marchitas para estimular nueva floración",
         "Poda raíces muertas o podridas durante el trasplante",
@@ -188,12 +188,12 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
+    <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <button
             onClick={onBack}
-            className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 transition-colors mb-6"
+            className="mb-6 flex items-center space-x-2 text-[#5FAE9B] transition-colors hover:text-[#4D9A88]"
           >
             <ArrowLeft className="h-5 w-5" />
             <span>Volver al catálogo</span>
@@ -201,12 +201,12 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
           
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-4">
-              <Heart className="h-12 w-12 text-pink-500 mr-3" />
-              <h1 className="text-4xl font-bold text-gray-800">
+              <Heart className="mr-3 h-12 w-12 text-[#D96C9F]" />
+              <h1 className="text-4xl font-semibold text-[#2F3A35]">
                 Guía de Cuidados para Orquídeas
               </h1>
             </div>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            <p className="mx-auto max-w-3xl text-xl text-[#6B756F]">
               Todo lo que necesitas saber para mantener tus orquídeas saludables y florecientes. 
               Desde principiantes hasta expertos, aquí encontrarás consejos profesionales.
             </p>
@@ -215,26 +215,26 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
 
         {/* Cuidados Básicos */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Cuidados Esenciales</h2>
+          <h2 className="mb-8 text-center text-3xl font-semibold text-[#2F3A35]">Cuidados Esenciales</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {careTopics.map((topic) => (
-              <div key={topic.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+              <div key={topic.id} className="rounded-xl border border-[#EADBC8]/70 bg-white/90 p-6 shadow-sm transition-shadow hover:shadow-md">
                 <div className="flex items-center mb-4">
                   {topic.icon}
-                  <h3 className="text-xl font-bold text-gray-800 ml-3">{topic.title}</h3>
+                  <h3 className="ml-3 text-xl font-semibold text-[#2F3A35]">{topic.title}</h3>
                 </div>
                 
                 <ul className="space-y-2 mb-4">
                   {topic.content.map((item, index) => (
                     <li key={index} className="flex items-start">
-                      <span className="text-emerald-500 mr-2 mt-1">•</span>
-                      <span className="text-gray-700">{item}</span>
+                      <span className="mr-2 mt-1 text-[#5FAE9B]">•</span>
+                      <span className="text-[#6B756F]">{item}</span>
                     </li>
                   ))}
                 </ul>
                 
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-3 rounded-lg border-l-4 border-emerald-500">
-                  <p className="text-sm text-gray-700">{topic.tips}</p>
+                <div className="rounded-lg border-l-4 border-[#7FAF9B] bg-[#CFE3D4]/45 p-3">
+                  <p className="text-sm text-[#2F3A35]">{topic.tips}</p>
                 </div>
               </div>
             ))}
@@ -243,10 +243,10 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
 
         {/* Cuidados Específicos por Tipo */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Cuidados Específicos por Tipo de Orquídea</h2>
+          <h2 className="mb-8 text-center text-3xl font-semibold text-[#2F3A35]">Cuidados Específicos por Tipo de Orquídea</h2>
           <div className="space-y-8">
             {orchidTypes.map((orchid) => (
-              <div key={orchid.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div key={orchid.id} className="overflow-hidden rounded-xl border border-[#EADBC8]/70 bg-white/90 shadow-sm">
                 <div className="md:flex">
                   <div className="md:w-1/3">
                     <img
@@ -258,13 +258,13 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
                   <div className="md:w-2/3 p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-2xl font-bold text-gray-800">{orchid.name}</h3>
-                        <p className="text-emerald-600 font-medium">{orchid.commonName}</p>
+                        <h3 className="text-2xl font-semibold text-[#2F3A35]">{orchid.name}</h3>
+                        <p className="font-medium text-[#5FAE9B]">{orchid.commonName}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        orchid.difficulty === 'Principiante' ? 'bg-green-100 text-green-800' :
-                        orchid.difficulty === 'Intermedio' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        orchid.difficulty === 'Principiante' ? 'bg-[#CFE3D4] text-[#2F3A35]' :
+                        orchid.difficulty === 'Intermedio' ? 'bg-[#F8DDEB] text-[#2F3A35]' :
+                        'bg-red-50 text-red-700'
                       }`}>
                         {orchid.difficulty}
                       </span>
@@ -273,57 +273,57 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                       <div className="space-y-3">
                         <div>
-                          <h4 className="font-semibold text-gray-700 flex items-center">
-                            <Sun className="h-4 w-4 mr-2 text-yellow-500" />
+                          <h4 className="flex items-center font-semibold text-[#2F3A35]">
+                            <Sun className="mr-2 h-4 w-4 text-[#D96C9F]" />
                             Iluminación
                           </h4>
-                          <p className="text-sm text-gray-600">{orchid.care.light}</p>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.light}</p>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-700 flex items-center">
-                            <Droplets className="h-4 w-4 mr-2 text-blue-500" />
+                          <h4 className="flex items-center font-semibold text-[#2F3A35]">
+                            <Droplets className="mr-2 h-4 w-4 text-[#7FAF9B]" />
                             Riego
                           </h4>
-                          <p className="text-sm text-gray-600">{orchid.care.water}</p>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.water}</p>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-700 flex items-center">
-                            <Thermometer className="h-4 w-4 mr-2 text-red-500" />
+                          <h4 className="flex items-center font-semibold text-[#2F3A35]">
+                            <Thermometer className="mr-2 h-4 w-4 text-[#D96C9F]" />
                             Temperatura
                           </h4>
-                          <p className="text-sm text-gray-600">{orchid.care.temperature}</p>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.temperature}</p>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-700">💧 Humedad</h4>
-                          <p className="text-sm text-gray-600">{orchid.care.humidity}</p>
+                          <h4 className="font-semibold text-[#2F3A35]">💧 Humedad</h4>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.humidity}</p>
                         </div>
                       </div>
                       
                       <div className="space-y-3">
                         <div>
-                          <h4 className="font-semibold text-gray-700">🌱 Fertilización</h4>
-                          <p className="text-sm text-gray-600">{orchid.care.fertilizer}</p>
+                          <h4 className="font-semibold text-[#2F3A35]">🌱 Fertilización</h4>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.fertilizer}</p>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-700">🪴 Trasplante</h4>
-                          <p className="text-sm text-gray-600">{orchid.care.repotting}</p>
+                          <h4 className="font-semibold text-[#2F3A35]">🪴 Trasplante</h4>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.repotting}</p>
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-700 flex items-center">
-                            <Flower2 className="h-4 w-4 mr-2 text-pink-500" />
+                          <h4 className="flex items-center font-semibold text-[#2F3A35]">
+                            <Flower2 className="mr-2 h-4 w-4 text-[#D96C9F]" />
                             Floración
                           </h4>
-                          <p className="text-sm text-gray-600">{orchid.care.blooming}</p>
+                          <p className="text-sm text-[#6B756F]">{orchid.care.blooming}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-blue-800 mb-2">💡 Consejos Especiales</h4>
+                    <div className="rounded-lg bg-[#F8DDEB]/45 p-4">
+                      <h4 className="mb-2 font-semibold text-[#2F3A35]">💡 Consejos Especiales</h4>
                       <ul className="space-y-1">
                         {orchid.tips.map((tip, index) => (
-                          <li key={index} className="text-sm text-blue-700 flex items-start">
-                            <span className="text-blue-500 mr-2 mt-0.5">•</span>
+                          <li key={index} className="flex items-start text-sm text-[#6B756F]">
+                            <span className="mr-2 mt-0.5 text-[#D96C9F]">•</span>
                             {tip}
                           </li>
                         ))}
@@ -338,35 +338,35 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
 
         {/* Problemas Comunes */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Problemas Comunes y Soluciones</h2>
+          <h2 className="mb-8 text-center text-3xl font-semibold text-[#2F3A35]">Problemas Comunes y Soluciones</h2>
           <div className="space-y-6">
             {commonProblems.map((item, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-lg p-6">
+              <div key={index} className="rounded-xl border border-[#EADBC8]/70 bg-white/90 p-6 shadow-sm">
                 <div className="flex items-center mb-4">
-                  <AlertCircle className="h-6 w-6 text-orange-500 mr-3" />
-                  <h3 className="text-xl font-bold text-gray-800">{item.problem}</h3>
+                  <AlertCircle className="mr-3 h-6 w-6 text-[#D96C9F]" />
+                  <h3 className="text-xl font-semibold text-[#2F3A35]">{item.problem}</h3>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-semibold text-red-600 mb-2">Posibles Causas:</h4>
+                    <h4 className="mb-2 font-semibold text-[#D96C9F]">Posibles Causas:</h4>
                     <ul className="space-y-1">
                       {item.causes.map((cause, i) => (
                         <li key={i} className="flex items-start">
-                          <span className="text-red-500 mr-2">⚠</span>
-                          <span className="text-gray-700">{cause}</span>
+                          <span className="mr-2 text-[#D96C9F]">⚠</span>
+                          <span className="text-[#6B756F]">{cause}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                   
                   <div>
-                    <h4 className="font-semibold text-green-600 mb-2">Soluciones:</h4>
+                    <h4 className="mb-2 font-semibold text-[#5FAE9B]">Soluciones:</h4>
                     <ul className="space-y-1">
                       {item.solutions.map((solution, i) => (
                         <li key={i} className="flex items-start">
-                          <span className="text-green-500 mr-2">✓</span>
-                          <span className="text-gray-700">{solution}</span>
+                          <span className="mr-2 text-[#5FAE9B]">✓</span>
+                          <span className="text-[#6B756F]">{solution}</span>
                         </li>
                       ))}
                     </ul>
@@ -378,35 +378,35 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
         </div>
 
         {/* Calendario de Cuidados */}
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl p-8 text-white">
-          <h2 className="text-3xl font-bold mb-6 text-center">Calendario Anual de Cuidados</h2>
+        <div className="rounded-xl bg-[#CFE3D4] p-8 text-[#2F3A35]">
+          <h2 className="mb-6 text-center text-3xl font-semibold">Calendario Anual de Cuidados</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <h3 className="font-bold mb-2">Primavera (Mar-May)</h3>
+            <div className="rounded-lg bg-white/55 p-4">
+              <h3 className="mb-2 font-semibold">Primavera (Mar-May)</h3>
               <ul className="text-sm space-y-1">
                 <li>• Aumenta el riego</li>
                 <li>• Inicia fertilización</li>
                 <li>• Trasplanta si es necesario</li>
               </ul>
             </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <h3 className="font-bold mb-2">Verano (Jun-Ago)</h3>
+            <div className="rounded-lg bg-white/55 p-4">
+              <h3 className="mb-2 font-semibold">Verano (Jun-Ago)</h3>
               <ul className="text-sm space-y-1">
                 <li>• Riego regular</li>
                 <li>• Fertiliza cada 2 semanas</li>
                 <li>• Aumenta la humedad</li>
               </ul>
             </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <h3 className="font-bold mb-2">Otoño (Sep-Nov)</h3>
+            <div className="rounded-lg bg-white/55 p-4">
+              <h3 className="mb-2 font-semibold">Otoño (Sep-Nov)</h3>
               <ul className="text-sm space-y-1">
                 <li>• Reduce el riego</li>
                 <li>• Disminuye fertilización</li>
                 <li>• Prepara para floración</li>
               </ul>
             </div>
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <h3 className="font-bold mb-2">Invierno (Dec-Feb)</h3>
+            <div className="rounded-lg bg-white/55 p-4">
+              <h3 className="mb-2 font-semibold">Invierno (Dec-Feb)</h3>
               <ul className="text-sm space-y-1">
                 <li>• Riego mínimo</li>
                 <li>• Sin fertilizante</li>

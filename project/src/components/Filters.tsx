@@ -1,155 +1,183 @@
-import React, { useState } from 'react';
-import { Filter, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Filter, SlidersHorizontal, X } from 'lucide-react';
+import type { CatalogFilterGroup, CatalogFilterState, PriceBounds } from '../utils/catalogFilters';
+import { sanitizePriceInput } from '../utils/catalogFilters';
 
 interface FiltersProps {
-  filters: {
-    colors: string[];
-    sizes: string[];
-    types: string[];
-    priceRange: [number, number];
-  };
-  onFilterChange: (filterType: string, value: any) => void;
+  filters: CatalogFilterState;
+  filterGroups: CatalogFilterGroup[];
+  priceBounds: PriceBounds;
+  priceError: string;
+  onOptionToggle: (filterKey: string, value: string, checked: boolean) => void;
+  onPriceRangeChange: (priceRange: [string, string]) => void;
   onClearFilters: () => void;
   className?: string;
 }
 
-const Filters: React.FC<FiltersProps> = ({ filters, onFilterChange, onClearFilters, className = '' }) => {
+const swatchColors: Record<string, string> = {
+  blanco: 'bg-white border border-gray-300',
+  blanca: 'bg-white border border-gray-300',
+  rosa: 'bg-pink-400',
+  rosado: 'bg-pink-400',
+  fucsia: 'bg-fuchsia-500',
+  purpura: 'bg-purple-500',
+  violeta: 'bg-violet-500',
+  amarillo: 'bg-yellow-400',
+  amarilla: 'bg-yellow-400',
+  naranja: 'bg-orange-400',
+  rojo: 'bg-red-500',
+  roja: 'bg-red-500',
+  verde: 'bg-emerald-500',
+  negro: 'bg-gray-900',
+  negra: 'bg-gray-900',
+  gris: 'bg-gray-400',
+  transparente: 'bg-white border border-dashed border-gray-400',
+  variado: 'bg-gradient-to-br from-pink-400 via-yellow-300 to-emerald-400',
+  mixto: 'bg-gradient-to-br from-pink-400 via-yellow-300 to-emerald-400',
+  mixta: 'bg-gradient-to-br from-pink-400 via-yellow-300 to-emerald-400',
+};
+
+const normalizeColorLabel = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const getSwatchClass = (label: string) => swatchColors[normalizeColorLabel(label)] || 'bg-gray-200';
+
+const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
+
+const Filters: React.FC<FiltersProps> = ({
+  filters,
+  filterGroups,
+  priceBounds,
+  priceError,
+  onOptionToggle,
+  onPriceRangeChange,
+  onClearFilters,
+  className = '',
+}) => {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [minPriceInput, setMinPriceInput] = useState(filters.priceRange[0]);
+  const [maxPriceInput, setMaxPriceInput] = useState(filters.priceRange[1]);
+  const hasPriceFilter = priceBounds.max > 0;
+  const activeOptionCount = Object.values(filters.values).reduce((sum, values) => sum + values.length, 0);
+  const hasTypedPrice = Boolean(minPriceInput || maxPriceInput);
+  const activeFiltersCount = activeOptionCount + (hasTypedPrice ? 1 : 0);
 
-  const colors = [
-    { name: 'Rosa', value: 'pink', bg: 'bg-pink-400' },
-    { name: 'Púrpura', value: 'purple', bg: 'bg-purple-400' },
-    { name: 'Blanco', value: 'white', bg: 'bg-white border' },
-    { name: 'Amarillo', value: 'yellow', bg: 'bg-yellow-400' },
-    { name: 'Naranja', value: 'orange', bg: 'bg-orange-400' },
-    { name: 'Rojo', value: 'red', bg: 'bg-red-400' },
-  ];
+  useEffect(() => {
+    setMinPriceInput(filters.priceRange[0]);
+    setMaxPriceInput(filters.priceRange[1]);
+  }, [filters.priceRange]);
 
-  const sizes = ['Pequeña', 'Mediana', 'Grande', 'Extra Grande'];
-  const types = ['Phalaenopsis', 'Cattleya', 'Dendrobium', 'Oncidium', 'Vanda', 'Macetas'];
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (minPriceInput !== filters.priceRange[0] || maxPriceInput !== filters.priceRange[1]) {
+        onPriceRangeChange([minPriceInput, maxPriceInput]);
+      }
+    }, 250);
 
-  // Contar filtros activos
-  const activeFiltersCount = filters.colors.length + filters.sizes.length + filters.types.length + 
-    (filters.priceRange[0] > 0 || filters.priceRange[1] < 50000 ? 1 : 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [filters.priceRange, maxPriceInput, minPriceInput, onPriceRangeChange]);
 
-  const FilterContent = () => (
+  const updateMinPrice = (value: string) => {
+    setMinPriceInput(sanitizePriceInput(value));
+  };
+
+  const updateMaxPrice = (value: string) => {
+    setMaxPriceInput(sanitizePriceInput(value));
+  };
+
+  const clearAllFilters = () => {
+    setMinPriceInput('');
+    setMaxPriceInput('');
+    onClearFilters();
+  };
+
+  const renderFilterContent = () => (
     <>
-      {/* Filtro de Colores */}
-      <div className="mb-6">
-        <h4 className="font-medium text-gray-700 mb-3">Colores</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {colors.map((color) => (
-            <label key={color.value} className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.colors.includes(color.value)}
-                onChange={(e) => {
-                  const newColors = e.target.checked
-                    ? [...filters.colors, color.value]
-                    : filters.colors.filter(c => c !== color.value);
-                  onFilterChange('colors', newColors);
-                }}
-                className="sr-only"
-              />
-              <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full ${color.bg} ${
-                filters.colors.includes(color.value) ? 'ring-2 ring-emerald-500 ring-offset-1 sm:ring-offset-2' : ''
-              } transition-all`} />
-              <span className="text-xs sm:text-sm text-gray-600">{color.name}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+      {filterGroups.map((group) => (
+        <div key={group.key} className="mb-6">
+          <h4 className="mb-3 font-medium text-[#2F3A35]">{group.label}</h4>
+          <div className={group.display === 'swatch' ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+            {group.options.map((option) => {
+              const checked = filters.values[group.key]?.includes(option.value) ?? false;
 
-      {/* Filtro de Tamaños */}
-      <div className="mb-6">
-        <h4 className="font-medium text-gray-700 mb-3">Tamaños</h4>
-        <div className="space-y-2">
-          {sizes.map((size) => (
-            <label key={size} className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.sizes.includes(size)}
-                onChange={(e) => {
-                  const newSizes = e.target.checked
-                    ? [...filters.sizes, size]
-                    : filters.sizes.filter(s => s !== size);
-                  onFilterChange('sizes', newSizes);
-                }}
-                className="rounded text-emerald-500 focus:ring-emerald-500"
-              />
-              <span className="text-xs sm:text-sm text-gray-600">{size}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Filtro de Tipos */}
-      <div className="mb-6">
-        <h4 className="font-medium text-gray-700 mb-3">Tipos</h4>
-        <div className="space-y-2">
-          {types.map((type) => (
-            <label key={type} className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.types.includes(type)}
-                onChange={(e) => {
-                  const newTypes = e.target.checked
-                    ? [...filters.types, type]
-                    : filters.types.filter(t => t !== type);
-                  onFilterChange('types', newTypes);
-                }}
-                className="rounded text-emerald-500 focus:ring-emerald-500"
-              />
-              <span className="text-xs sm:text-sm text-gray-600">{type}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Filtro de Precio */}
-      <div className="mb-6">
-        <h4 className="font-medium text-gray-700 mb-3">Rango de Precio</h4>
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">$</span>
-            <input
-              type="number"
-              value={filters.priceRange[0]}
-              onChange={(e) => {
-                const value = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
-                onFilterChange('priceRange', [value, filters.priceRange[1]]);
-              }}
-              className="w-20 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Min"
-              min="0"
-            />
-            <span className="text-gray-400">-</span>
-            <input
-              type="number"
-              value={filters.priceRange[1]}
-              onChange={(e) => {
-                const value = e.target.value === '' ? 50000 : Math.max(0, parseInt(e.target.value) || 50000);
-                onFilterChange('priceRange', [filters.priceRange[0], value]);
-              }}
-              className="w-20 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Max"
-              min="0"
-            />
+              return (
+                <label key={option.value} className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => onOptionToggle(group.key, option.value, event.target.checked)}
+                    className={group.display === 'swatch' ? 'sr-only' : 'rounded text-[#5FAE9B] focus:ring-[#7FAF9B]'}
+                  />
+                  {group.display === 'swatch' && (
+                    <span
+                      className={`h-5 w-5 rounded-full ${getSwatchClass(option.label)} ${
+                        checked ? 'ring-2 ring-[#7FAF9B] ring-offset-2' : ''
+                      }`}
+                    />
+                  )}
+                  <span className="min-w-0 flex-1 text-sm text-[#6B756F]">
+                    {option.label}
+                    <span className="ml-1 text-xs text-[#6B756F]/70">({option.count})</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
-      </div>
+      ))}
 
-      {/* Botón limpiar filtros - versión móvil */}
+      {hasPriceFilter && (
+        <div className="mb-6">
+          <h4 className="mb-3 font-medium text-[#2F3A35]">Rango de precio</h4>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={minPriceInput}
+                onChange={(event) => updateMinPrice(event.target.value)}
+                className="w-24 rounded border border-[#EADBC8] px-2 py-1 text-sm focus:border-[#7FAF9B] focus:ring-2 focus:ring-[#7FAF9B]"
+                placeholder="Min"
+              />
+              <span className="text-gray-400">-</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={maxPriceInput}
+                onChange={(event) => updateMaxPrice(event.target.value)}
+                className="w-28 rounded border border-[#EADBC8] px-2 py-1 text-sm focus:border-[#7FAF9B] focus:ring-2 focus:ring-[#7FAF9B]"
+                placeholder="Max"
+              />
+            </div>
+            <p className="text-xs text-[#6B756F]/75">
+              Disponible: {formatMoney(priceBounds.min)} - {formatMoney(priceBounds.max)}
+            </p>
+            {priceError && <p className="text-xs font-medium text-red-600">{priceError}</p>}
+          </div>
+        </div>
+      )}
+
+      {filterGroups.length === 0 && !hasPriceFilter && (
+        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+          No hay filtros disponibles para estos productos.
+        </p>
+      )}
+
       <div className="lg:hidden">
         <button
           onClick={() => {
-            onClearFilters();
+            clearAllFilters();
             setIsMobileDrawerOpen(false);
           }}
-          className="w-full bg-red-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center justify-center space-x-2"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
         >
           <X className="h-4 w-4" />
-          <span>Limpiar Filtros</span>
+          <span>Limpiar filtros</span>
         </button>
       </div>
     </>
@@ -157,72 +185,67 @@ const Filters: React.FC<FiltersProps> = ({ filters, onFilterChange, onClearFilte
 
   return (
     <>
-      {/* Botón de filtros móvil */}
-      <div className="lg:hidden mb-4">
+      <div className="mb-4 lg:hidden">
         <button
           onClick={() => setIsMobileDrawerOpen(true)}
-          className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-4 rounded-lg font-medium hover:from-emerald-600 hover:to-teal-600 transition-all flex items-center justify-center space-x-2 shadow-md"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#5FAE9B] px-4 py-3 font-medium text-white shadow-sm transition-all hover:bg-[#4D9A88]"
         >
           <SlidersHorizontal className="h-5 w-5" />
           <span>Filtros</span>
           {activeFiltersCount > 0 && (
-            <span className="bg-white text-emerald-600 text-xs font-bold px-2 py-1 rounded-full">
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#5FAE9B]">
               {activeFiltersCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* Filtros Desktop */}
-      <div className={`hidden lg:block bg-white rounded-xl shadow-lg p-6 sticky top-24 ${className}`}>
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-emerald-500" />
-            <h3 className="text-lg font-semibold text-gray-800">Filtros</h3>
+      <div className={`hidden rounded-xl border border-[#EADBC8]/70 bg-white/90 p-6 shadow-sm lg:block lg:sticky lg:top-24 ${className}`}>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-[#5FAE9B]" />
+            <h3 className="text-lg font-semibold text-[#2F3A35]">Filtros</h3>
           </div>
           <button
-            onClick={onClearFilters}
-            className="text-sm text-gray-500 hover:text-red-500 transition-colors flex items-center space-x-1"
+            onClick={clearAllFilters}
+            className="flex items-center gap-1 text-sm text-[#6B756F] transition-colors hover:text-[#D96C9F]"
           >
             <X className="h-4 w-4" />
             <span>Limpiar</span>
           </button>
         </div>
 
-        <FilterContent />
+        {renderFilterContent()}
       </div>
 
-      {/* Drawer móvil */}
       {isMobileDrawerOpen && (
         <>
-          {/* Overlay */}
-          <div 
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
             onClick={() => setIsMobileDrawerOpen(false)}
           />
-          
-          {/* Drawer */}
-          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <div className="flex items-center space-x-2">
-                <Filter className="h-5 w-5 text-emerald-500" />
-                <h3 className="text-lg font-semibold text-gray-800">Filtros</h3>
+
+          <div className="fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] bg-[#FFF8EF] shadow-xl lg:hidden">
+            <div className="flex items-center justify-between border-b border-[#EADBC8] p-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-[#5FAE9B]" />
+                <h3 className="text-lg font-semibold text-[#2F3A35]">Filtros</h3>
                 {activeFiltersCount > 0 && (
-                  <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded-full">
+                  <span className="rounded-full bg-[#CFE3D4] px-2 py-1 text-xs font-bold text-[#2F3A35]">
                     {activeFiltersCount}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setIsMobileDrawerOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="rounded-full p-2 transition-colors hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            
-            <div className="p-4 overflow-y-auto h-full pb-20">
-              <FilterContent />
+
+            <div className="h-full overflow-y-auto p-4 pb-20">
+              {renderFilterContent()}
             </div>
           </div>
         </>

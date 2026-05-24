@@ -1,38 +1,37 @@
 import React from 'react';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  rating: number;
-  reviews: number;
-  category: string;
-  color: string;
-  size: string;
-  inStock: boolean;
-}
+import type { Product } from '../types/product';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product) => void;
+  onOpenDetails: (product: Product) => void;
   onToggleFavorite: (product: Product) => void;
   isFavorite: boolean;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onToggleFavorite, isFavorite }) => {
-  const handleAddToCart = () => {
-    onAddToCart(product);
+const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onToggleFavorite, isFavorite }) => {
+  const handleOpenDetails = () => {
+    onOpenDetails(product);
   };
 
-  const handleToggleFavorite = () => {
+  const handleToggleFavorite = (event: React.MouseEvent) => {
+    event.stopPropagation();
     onToggleFavorite(product);
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group">
+    <div
+      onClick={handleOpenDetails}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleOpenDetails();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="group cursor-pointer overflow-hidden rounded-xl border border-[#EADBC8]/70 bg-white/95 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#7FAF9B]"
+    >
       <div className="relative overflow-hidden">
         <img
           src={product.image}
@@ -42,16 +41,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onToggl
         <div className="absolute top-2 sm:top-3 right-2 sm:right-3 space-y-2">
           <button 
             onClick={handleToggleFavorite}
-            className={`bg-white p-1.5 sm:p-2 rounded-full shadow-md transition-colors ${
-              isFavorite ? 'bg-pink-50' : 'hover:bg-pink-50'
+            className={`rounded-full bg-white p-1.5 shadow-sm transition-colors sm:p-2 ${
+              isFavorite ? 'bg-[#F8DDEB]' : 'hover:bg-[#F8DDEB]'
             }`}
           >
             <Heart className={`h-3 w-3 sm:h-4 sm:w-4 transition-colors ${
-              isFavorite ? 'text-pink-500 fill-current' : 'text-gray-400 hover:text-pink-500'
+              isFavorite ? 'text-[#D96C9F] fill-current' : 'text-[#6B756F] hover:text-[#D96C9F]'
             }`} />
           </button>
           {product.originalPrice && (
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+            <div className="rounded-full bg-[#D96C9F] px-2 py-1 text-xs font-bold text-white">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </div>
           )}
@@ -65,12 +64,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onToggl
 
       <div className="p-3 sm:p-4">
         <div className="mb-2">
-          <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">
+          <span className="rounded-full bg-[#CFE3D4] px-2 py-1 text-xs font-medium text-[#2F3A35]">
             {product.category}
           </span>
         </div>
         
-        <h3 className="font-semibold text-sm sm:text-base text-gray-800 mb-2 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+        <h3 className="mb-2 line-clamp-2 text-sm font-semibold text-[#2F3A35] transition-colors group-hover:text-[#5FAE9B] sm:text-base">
           {product.name}
         </h3>
 
@@ -85,28 +84,31 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onToggl
               />
             ))}
           </div>
-          <span className="text-xs sm:text-sm text-gray-500 ml-1 sm:ml-2">({product.reviews})</span>
+          <span className="ml-1 text-xs text-[#6B756F] sm:ml-2 sm:text-sm">({product.reviews})</span>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 space-y-1 sm:space-y-0">
           <div className="flex items-center space-x-1 sm:space-x-2">
-            <span className="text-lg sm:text-xl font-bold text-gray-800">${product.price.toLocaleString('es-AR')}</span>
+            <span className="text-lg font-bold text-[#2F3A35] sm:text-xl">${product.price.toLocaleString('es-AR')}</span>
             {product.originalPrice && (
-              <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice.toLocaleString('es-AR')}</span>
+              <span className="text-xs text-[#6B756F] line-through sm:text-sm">${product.originalPrice.toLocaleString('es-AR')}</span>
             )}
           </div>
-          <div className="text-xs sm:text-sm text-gray-500">
+          <div className="text-xs text-[#6B756F] sm:text-sm">
             {product.size} • {product.color}
           </div>
         </div>
 
         <button
-          onClick={handleAddToCart}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleOpenDetails();
+          }}
           disabled={!product.inStock}
           className={`w-full py-2 px-3 sm:px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-1 sm:space-x-2 text-sm sm:text-base ${
             product.inStock
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-[#5FAE9B] text-white hover:bg-[#4D9A88] transform hover:scale-105'
+              : 'cursor-not-allowed bg-[#EADBC8] text-[#6B756F]'
           }`}
         >
           <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />

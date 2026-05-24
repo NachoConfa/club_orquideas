@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, FileText, Shield, AlertCircle } from 'lucide-react';
+import { ArrowLeft, FileText, AlertCircle } from 'lucide-react';
 
 interface TermsAndConditionsProps {
   onBack: () => void;
