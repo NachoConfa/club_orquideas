@@ -71,25 +71,38 @@ const loadTurnstileScript = () => {
 const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', className = '' }) => {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  const callbacksRef = useRef({ onVerify, onExpire, onError });
   const [configError, setConfigError] = useState('');
   const [loadError, setLoadError] = useState('');
   const turnstileEnabled = isTurnstileEnabled();
 
   useEffect(() => {
+    callbacksRef.current = { onVerify, onExpire, onError };
+  }, [onError, onExpire, onVerify]);
+
+  useEffect(() => {
     if (!turnstileEnabled) {
-      onVerify(getDisabledTurnstileToken());
+      callbacksRef.current.onVerify(getDisabledTurnstileToken());
       return undefined;
     }
 
     const siteKey = getTurnstileSiteKey();
 
     if (!siteKey) {
-      onVerify('');
+      callbacksRef.current.onVerify('');
       setConfigError(TURNSTILE_LOAD_FAILED_MESSAGE);
       return undefined;
     }
 
     let isMounted = true;
+
+    if (import.meta.env.DEV) {
+      console.info('Turnstile config:', {
+        action,
+        turnstileLoaded: Boolean(window.turnstile),
+        siteKeyExists: Boolean(siteKey),
+      });
+    }
 
     const renderWidget = () => {
       if (!isMounted || !containerRef.current || !window.turnstile || widgetIdRef.current !== null) {
@@ -102,28 +115,28 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
           action,
           callback: (token) => {
             setLoadError('');
-            onVerify(token);
+            callbacksRef.current.onVerify(token);
           },
           'expired-callback': () => {
-            onVerify('');
-            onExpire?.();
+            callbacksRef.current.onVerify('');
+            callbacksRef.current.onExpire?.();
           },
           'error-callback': () => {
-            onVerify('');
+            callbacksRef.current.onVerify('');
             setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
-            onError?.();
+            callbacksRef.current.onError?.();
           },
           'unsupported-callback': () => {
-            onVerify('');
+            callbacksRef.current.onVerify('');
             setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
-            onError?.();
+            callbacksRef.current.onError?.();
           },
         });
       } catch (error) {
         console.error('Error renderizando Turnstile:', error);
-        onVerify('');
+        callbacksRef.current.onVerify('');
         setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
-        onError?.();
+        callbacksRef.current.onError?.();
       }
     };
 
@@ -132,6 +145,14 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
 
     loadTurnstileScript()
       .then(() => {
+        if (import.meta.env.DEV) {
+          console.info('Turnstile script listo:', {
+            action,
+            turnstileLoaded: Boolean(window.turnstile),
+            siteKeyExists: Boolean(siteKey),
+          });
+        }
+
         if (isMounted) {
           renderWidget();
         }
@@ -142,9 +163,9 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
         }
 
         console.error('Error cargando Turnstile:', error);
-        onVerify('');
+        callbacksRef.current.onVerify('');
         setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
-        onError?.();
+        callbacksRef.current.onError?.();
       });
 
     return () => {
@@ -160,7 +181,7 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
         widgetIdRef.current = null;
       }
     };
-  }, [action, onError, onExpire, onVerify, turnstileEnabled]);
+  }, [action, turnstileEnabled]);
 
   if (!turnstileEnabled) {
     return null;

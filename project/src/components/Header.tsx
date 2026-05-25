@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, User, Menu, Flower, Heart, Package, Shield, X } from 'lucide-react';
+import { ShoppingCart, User, Menu, Heart, Package, Shield, X } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 interface HeaderProps {
@@ -37,15 +37,19 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between">
           {/* Logo y Nombre */}
           <div className="flex items-center space-x-2 flex-shrink-0">
-            <div className="rounded-full bg-[#F8DDEB] p-1.5 shadow-sm ring-1 ring-white/80">
-              <Flower className="h-6 w-6 text-[#D96C9F] sm:h-8 sm:w-8" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF8EF] shadow-sm ring-1 ring-white/80 sm:h-14 sm:w-14">
+              <img
+                src="/modo-plantas-logo-icono-512.png"
+                alt="Modo Plantas"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="hidden sm:block">
               <h1 className="text-lg font-semibold text-[#2F3A35] sm:text-2xl">Modo Plantas</h1>
               <p className="text-xs text-[#6B756F] sm:text-sm">Pasión por las Orquídeas</p>
             </div>
             <div className="sm:hidden">
-              <h1 className="text-lg font-semibold text-[#2F3A35]">Club Orquídeas</h1>
+              <h1 className="text-lg font-semibold text-[#2F3A35]">Modo Plantas</h1>
             </div>
           </div>
 

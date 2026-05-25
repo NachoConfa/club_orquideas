@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       auto_return: 'approved',
       external_reference: order.id,
       notification_url: `${supabaseUrl}/functions/v1/mercadopago-webhook`,
-      statement_descriptor: 'CLUB ORQUIDEAS',
+      statement_descriptor: 'MODO PLANTAS',
       metadata: {
         order_id: order.id,
         order_number: order.order_number,

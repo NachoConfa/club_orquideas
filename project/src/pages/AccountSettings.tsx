@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
   Calendar,
@@ -135,6 +135,8 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
   const [passwordResetCaptchaToken, setPasswordResetCaptchaToken] = useState('');
   const [passwordResetCaptchaKey, setPasswordResetCaptchaKey] = useState(0);
   const shouldShowPasswordCaptcha = isTurnstileEnabled();
+  const isPasswordResetButtonDisabled =
+    isSendingPasswordEmail || (shouldShowPasswordCaptcha && !passwordResetCaptchaToken);
 
   useEffect(() => {
     setProfileData({
@@ -202,12 +204,12 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     setSuccessMessage('');
   };
 
-  const resetPasswordCaptcha = () => {
+  const resetPasswordCaptcha = useCallback(() => {
     setPasswordResetCaptchaToken('');
     setPasswordResetCaptchaKey((current) => current + 1);
-  };
+  }, []);
 
-  const handlePasswordCaptchaVerify = (token: string) => {
+  const handlePasswordCaptchaVerify = useCallback((token: string) => {
     if (import.meta.env.DEV) {
       console.info('Captcha de cambio de contraseña completado:', {
         hasCaptchaToken: Boolean(token),
@@ -216,11 +218,11 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     }
 
     setPasswordResetCaptchaToken(token);
-  };
+  }, []);
 
-  const clearPasswordCaptchaToken = () => {
+  const clearPasswordCaptchaToken = useCallback(() => {
     setPasswordResetCaptchaToken('');
-  };
+  }, []);
 
   const getPasswordResetErrorMessage = (error: unknown) => {
     const rawMessage = error instanceof Error ? error.message : String(error);
@@ -522,13 +524,18 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
                   onExpire={clearPasswordCaptchaToken}
                   onError={clearPasswordCaptchaToken}
                 />
+                {!passwordResetCaptchaToken && (
+                  <p className="mt-2 text-sm text-[#6B756F]">
+                    Completá la verificación de seguridad para continuar.
+                  </p>
+                )}
               </div>
             )}
 
             <button
               type="button"
               onClick={handlePasswordResetEmail}
-              disabled={isSendingPasswordEmail}
+              disabled={isPasswordResetButtonDisabled}
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5FAE9B] px-5 py-3 font-semibold text-white hover:bg-[#4D9A88] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Mail className="h-5 w-5" />
