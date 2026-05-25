@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import {
   sendOrderTransactionalEmail,
   sendPasswordChangedEmail,
@@ -10,11 +10,11 @@ type EmailRequest =
   | { type: OrderEmailType; orderId: string }
   | { type: 'password_changed' };
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
     },
   });
@@ -32,11 +32,11 @@ const isOrderEmailType = (value: unknown): value is OrderEmailType =>
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405);
+    return json(req, { error: 'Method not allowed' }, 405);
   }
 
   try {
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const userJwt = authorization.replace('Bearer ', '').trim();
 
     if (!userJwt) {
-      return json({ error: 'Missing user session' }, 401);
+      return json(req, { error: 'Missing user session' }, 401);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     } = await adminClient.auth.getUser(userJwt);
 
     if (userError || !user) {
-      return json({ error: 'Invalid user session' }, 401);
+      return json(req, { error: 'Invalid user session' }, 401);
     }
 
     const body = (await req.json().catch(() => ({}))) as EmailRequest;
@@ -74,11 +74,11 @@ Deno.serve(async (req) => {
 
     if (body.type === 'password_changed') {
       const result = await sendPasswordChangedEmail(env, user);
-      return json(result);
+      return json(req, result);
     }
 
     if (!isOrderEmailType(body.type) || !body.orderId) {
-      return json({ error: 'Invalid email request' }, 400);
+      return json(req, { error: 'Invalid email request' }, 400);
     }
 
     const { data: order, error: orderError } = await adminClient
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (orderError || !order) {
-      return json({ error: 'Order not found' }, 404);
+      return json(req, { error: 'Order not found' }, 404);
     }
 
     let canSend = order.user_id === user.id;
@@ -102,14 +102,15 @@ Deno.serve(async (req) => {
     }
 
     if (!canSend) {
-      return json({ error: 'Forbidden' }, 403);
+      return json(req, { error: 'Forbidden' }, 403);
     }
 
     const result = await sendOrderTransactionalEmail(adminClient, env, body.type, body.orderId);
-    return json(result);
+    return json(req, result);
   } catch (error) {
     console.error('send-transactional-email error:', error);
     return json(
+      req,
       { error: error instanceof Error ? error.message : 'Unexpected email error' },
       500
     );

@@ -19,7 +19,7 @@ export const isTurnstileEnabled = () => {
   const enabled = isTurnstileFlagEnabled();
   const hasSiteKey = Boolean(getTurnstileSiteKey());
 
-  if (enabled && !hasSiteKey && !hasWarnedAboutMissingSiteKey) {
+  if (enabled && !hasSiteKey && !hasWarnedAboutMissingSiteKey && import.meta.env.DEV) {
     console.warn('VITE_ENABLE_CAPTCHA=true pero falta VITE_TURNSTILE_SITE_KEY. Turnstile no se va a renderizar.');
     hasWarnedAboutMissingSiteKey = true;
   }
@@ -28,7 +28,9 @@ export const isTurnstileEnabled = () => {
 };
 
 const disabledCaptchaResponse = (reason) => {
-  console.warn(`Turnstile desactivado: ${reason}`);
+  if (import.meta.env.DEV) {
+    console.warn(`Turnstile desactivado: ${reason}`);
+  }
   return {
     success: true,
     captchaDisabled: true,

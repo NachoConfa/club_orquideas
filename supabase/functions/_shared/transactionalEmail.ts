@@ -47,8 +47,25 @@ type OrderItemRow = {
   total_price: number | null;
 };
 
-const STORE_NAME = 'Modo Plantas';
+const BRAND_NAME = 'Modo Plantas';
+const BRAND_SUBTITLE = 'Pasión por la naturaleza';
 const WHATSAPP = '+54 9 11 2290 6442';
+const DEFAULT_FROM_EMAIL = 'no-reply@modoplantas.com';
+
+const COLORS = {
+  background: '#fff8ef',
+  card: '#ffffff',
+  brandGreen: '#0f8f61',
+  brandGreenHover: '#0c7a52',
+  greenSoft: '#e8f7ef',
+  text: '#1f2933',
+  mutedText: '#6b7280',
+  border: '#f1e3d4',
+  warning: '#fff3cd',
+  error: '#fdecec',
+};
+
+const formatSenderEmail = (_fromEmail: string) => `${BRAND_NAME} <${DEFAULT_FROM_EMAIL}>`;
 
 const EMAIL_CONFIG: Record<
   OrderEmailType,
@@ -60,29 +77,37 @@ const EMAIL_CONFIG: Record<
     subject: string;
     title: string;
     preheader: string;
+    mainText: string;
+    buttonLabel: string;
   }
 > = {
   order_received: {
     sentAtColumn: 'order_received_email_sent_at',
     subject: 'Recibimos tu pedido en Modo Plantas',
     title: 'Pedido recibido',
-    preheader: 'Tu pedido queda pendiente de confirmacion.',
+    preheader: 'Recibimos tu pedido y quedó pendiente de confirmación.',
+    mainText: 'Recibimos tu pedido y quedó pendiente de confirmación.',
+    buttonLabel: 'Ver mis pedidos',
   },
   order_confirmed: {
     sentAtColumn: 'order_confirmed_email_sent_at',
     subject: 'Tu pedido fue confirmado',
     title: 'Pedido confirmado',
-    preheader: 'Estamos preparando todo para coordinar la entrega o retiro.',
+    preheader: 'Tu pedido ya fue confirmado.',
+    mainText: 'Tu pedido ya fue confirmado. Estamos preparando todo para coordinar la entrega o retiro.',
+    buttonLabel: 'Ver mi pedido',
   },
   order_cancelled: {
     sentAtColumn: 'order_cancelled_email_sent_at',
     subject: 'Tu pedido fue cancelado',
     title: 'Pedido cancelado',
     preheader: 'Tu pedido fue cancelado correctamente.',
+    mainText: 'Tu pedido fue cancelado correctamente.',
+    buttonLabel: 'Volver a la tienda',
   },
 };
 
-const money = (value: unknown) => {
+const formatCurrency = (value: unknown) => {
   const amount = Number(value ?? 0);
   return `$${amount.toLocaleString('es-AR')}`;
 };
@@ -107,7 +132,7 @@ const deliveryLabel = (order: OrderRow) => {
     return 'Retiro en local';
   }
 
-  const method = order.shipping_method === 'uber' ? 'Uber' : 'Envio a domicilio';
+  const method = order.shipping_method === 'uber' ? 'Uber' : 'Envío a domicilio';
   return order.shipping_zone_name ? `${method} - ${order.shipping_zone_name}` : method;
 };
 
@@ -124,40 +149,112 @@ const deliveryAddress = (order: OrderRow) => {
 const itemTotal = (item: OrderItemRow) =>
   Number(item.total_price ?? item.subtotal ?? Number(item.unit_price ?? 0) * Number(item.quantity ?? 0));
 
-const renderItemsTable = (items: OrderItemRow[]) =>
-  items
-    .map(
-      (item) => `
+const emailHeader = () => `
+  <div style="text-align:center;margin-bottom:24px;">
+    <h1 style="margin:0;color:${COLORS.brandGreen};font-size:26px;line-height:1.2;font-weight:700;">${BRAND_NAME}</h1>
+    <p style="margin:6px 0 0;color:${COLORS.text};font-size:14px;">${BRAND_SUBTITLE}</p>
+  </div>`;
+
+const emailFooter = () => `
+  <div style="border-top:1px solid ${COLORS.border};margin-top:30px;padding-top:20px;text-align:center;color:${COLORS.mutedText};font-size:13px;line-height:1.6;">
+    <p style="margin:0 0 6px;">WhatsApp: ${WHATSAPP}</p>
+    <p style="margin:0;">Este email fue enviado automáticamente. Por favor, no respondas a este mensaje.</p>
+  </div>`;
+
+const primaryButton = (label: string, href?: string) => {
+  if (!href) return '';
+
+  return `
+    <div style="text-align:center;margin:26px 0 6px;">
+      <a href="${escapeHtml(href)}" style="display:inline-block;border-radius:999px;background:${COLORS.brandGreen};color:#ffffff;text-decoration:none;padding:13px 24px;font-weight:700;font-size:14px;">
+        ${escapeHtml(label)}
+      </a>
+    </div>`;
+};
+
+const infoBox = (content: string, background = COLORS.greenSoft) => `
+  <div style="border:1px solid ${COLORS.border};border-radius:14px;background:${background};padding:16px;margin:20px 0;">
+    ${content}
+  </div>`;
+
+const baseEmailLayout = ({
+  preheader,
+  title,
+  children,
+}: {
+  preheader: string;
+  title: string;
+  children: string;
+}) => `
+  <!doctype html>
+  <html>
+    <body style="margin:0;background:${COLORS.background};font-family:Arial,Helvetica,sans-serif;color:${COLORS.text};">
+      <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>
+      <table role="presentation" width="100%" style="border-collapse:collapse;background:${COLORS.background};padding:24px 0;">
         <tr>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;">${escapeHtml(item.product_name || 'Producto')}</td>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;text-align:center;">${Number(item.quantity ?? 0)}</td>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;text-align:right;">${money(item.unit_price)}</td>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;text-align:right;font-weight:700;">${money(itemTotal(item))}</td>
-        </tr>`
-    )
+          <td align="center" style="padding:24px 12px;">
+            <table role="presentation" width="100%" style="max-width:680px;border-collapse:collapse;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:18px;overflow:hidden;">
+              <tr>
+                <td style="padding:30px 28px 28px;">
+                  ${emailHeader()}
+                  <h2 style="margin:0 0 16px;color:${COLORS.text};font-size:24px;line-height:1.25;">${escapeHtml(title)}</h2>
+                  ${children}
+                  ${emailFooter()}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>`;
+
+const orderItemsTable = (items: OrderItemRow[], compact = false) => {
+  const header = compact
+    ? '<th style="padding:12px;text-align:left;">Producto</th><th style="padding:12px;text-align:center;">Cant.</th><th style="padding:12px;text-align:right;">Total</th>'
+    : '<th style="padding:12px;text-align:left;">Producto</th><th style="padding:12px;text-align:center;">Cant.</th><th style="padding:12px;text-align:right;">Unitario</th><th style="padding:12px;text-align:right;">Total</th>';
+
+  const rows = items
+    .map((item) => {
+      const commonCells = `
+        <td style="padding:12px;border-bottom:1px solid ${COLORS.border};">${escapeHtml(item.product_name || 'Producto')}</td>
+        <td style="padding:12px;border-bottom:1px solid ${COLORS.border};text-align:center;">${Number(item.quantity ?? 0)}</td>`;
+
+      if (compact) {
+        return `
+          <tr>
+            ${commonCells}
+            <td style="padding:12px;border-bottom:1px solid ${COLORS.border};text-align:right;font-weight:700;">${formatCurrency(itemTotal(item))}</td>
+          </tr>`;
+      }
+
+      return `
+        <tr>
+          ${commonCells}
+          <td style="padding:12px;border-bottom:1px solid ${COLORS.border};text-align:right;">${formatCurrency(item.unit_price)}</td>
+          <td style="padding:12px;border-bottom:1px solid ${COLORS.border};text-align:right;font-weight:700;">${formatCurrency(itemTotal(item))}</td>
+        </tr>`;
+    })
     .join('');
 
-const renderConfirmedItems = (items: OrderItemRow[]) =>
-  items
-    .map(
-      (item) => `
-        <tr>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;">${escapeHtml(item.product_name || 'Producto')}</td>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;text-align:center;">${Number(item.quantity ?? 0)}</td>
-          <td style="padding:12px;border-bottom:1px solid #eadbc8;text-align:right;font-weight:700;">${money(itemTotal(item))}</td>
-        </tr>`
-    )
-    .join('');
+  return `
+    <table role="presentation" width="100%" style="border-collapse:collapse;border:1px solid ${COLORS.border};border-radius:12px;overflow:hidden;margin-top:18px;">
+      <thead style="background:${COLORS.background};color:${COLORS.mutedText};font-size:13px;">
+        <tr>${header}</tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+};
 
-const orderMessage = (type: OrderEmailType, order: OrderRow) => {
+const orderContextMessage = (type: OrderEmailType, order: OrderRow) => {
   if (type === 'order_confirmed') {
     return order.delivery_method === 'pickup'
-      ? 'Tu pedido ya fue confirmado. Podes retirar por Av. De los Lagos 7000, Nordelta, coordinando previamente.'
-      : 'Tu pedido ya fue confirmado. Estamos preparando todo y te vamos a contactar para coordinar la entrega.';
+      ? 'Podés retirar por Av. De los Lagos 7000, Nordelta, coordinando previamente.'
+      : 'Te vamos a contactar para coordinar la entrega.';
   }
 
   if (type === 'order_cancelled') {
-    return 'Tu pedido fue cancelado correctamente. Si fue un error o queres volver a comprar, podes contactarnos por WhatsApp.';
+    return 'Si fue un error o querés volver a comprar, podés contactarnos por WhatsApp.';
   }
 
   if (order.payment_method === 'cash') {
@@ -169,95 +266,92 @@ const orderMessage = (type: OrderEmailType, order: OrderRow) => {
   }
 
   if (order.payment_method === 'mercadopago') {
-    return 'Tu pago se confirma automaticamente cuando Mercado Pago lo aprueba.';
+    return 'Tu pago se confirma automáticamente cuando Mercado Pago lo aprueba.';
   }
 
-  return 'Tu pedido queda pendiente de confirmacion.';
+  return 'Te vamos a contactar por WhatsApp para coordinar los próximos pasos.';
+};
+
+const orderDetails = (order: OrderRow, type: OrderEmailType) => {
+  const total = Number(order.total_amount ?? order.total ?? 0);
+  const shipping = Number(order.shipping_total ?? order.shipping ?? 0);
+  const paymentFee = Number(order.payment_fee ?? 0);
+
+  const totals =
+    type === 'order_cancelled'
+      ? ''
+      : `
+        <table role="presentation" width="100%" style="margin-top:18px;border-collapse:collapse;">
+          <tr>
+            <td style="padding:7px 0;color:${COLORS.mutedText};">Subtotal</td>
+            <td style="padding:7px 0;text-align:right;">${formatCurrency(order.subtotal)}</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0;color:${COLORS.mutedText};">Envío</td>
+            <td style="padding:7px 0;text-align:right;">${shipping > 0 ? formatCurrency(shipping) : order.delivery_method === 'pickup' ? 'Gratis' : 'A coordinar'}</td>
+          </tr>
+          ${
+            paymentFee > 0
+              ? `<tr><td style="padding:7px 0;color:${COLORS.mutedText};">Recargo Mercado Pago (10%)</td><td style="padding:7px 0;text-align:right;">${formatCurrency(paymentFee)}</td></tr>`
+              : ''
+          }
+          <tr>
+            <td style="padding:14px 0 0;border-top:1px solid ${COLORS.border};font-size:18px;font-weight:700;">Total final</td>
+            <td style="padding:14px 0 0;border-top:1px solid ${COLORS.border};text-align:right;font-size:18px;font-weight:700;color:${COLORS.text};">${formatCurrency(total)}</td>
+          </tr>
+        </table>`;
+
+  return `
+    ${totals}
+    <div style="margin-top:22px;border-top:1px solid ${COLORS.border};padding-top:18px;color:${COLORS.mutedText};font-size:14px;line-height:1.7;">
+      <p style="margin:0;"><strong style="color:${COLORS.text};">Pago:</strong> ${escapeHtml(paymentLabel(order.payment_method))}</p>
+      <p style="margin:4px 0 0;"><strong style="color:${COLORS.text};">Entrega:</strong> ${escapeHtml(deliveryLabel(order))}</p>
+      <p style="margin:4px 0 0;"><strong style="color:${COLORS.text};">Dirección/Zona:</strong> ${escapeHtml(deliveryAddress(order) || order.shipping_zone_name || 'A coordinar')}</p>
+    </div>`;
 };
 
 const renderOrderEmail = (type: OrderEmailType, order: OrderRow, items: OrderItemRow[], siteUrl?: string) => {
   const config = EMAIL_CONFIG[type];
   const customerName = order.customer_name?.trim() || 'Cliente';
   const total = Number(order.total_amount ?? order.total ?? 0);
-  const shipping = Number(order.shipping_total ?? order.shipping ?? 0);
-  const paymentFee = Number(order.payment_fee ?? 0);
-  const isConfirmed = type === 'order_confirmed';
-  const rows = isConfirmed ? renderConfirmedItems(items) : renderItemsTable(items);
-  const columns = isConfirmed
-    ? '<th style="padding:12px;text-align:left;">Producto</th><th style="padding:12px;text-align:center;">Cant.</th><th style="padding:12px;text-align:right;">Total</th>'
-    : '<th style="padding:12px;text-align:left;">Producto</th><th style="padding:12px;text-align:center;">Cant.</th><th style="padding:12px;text-align:right;">Unitario</th><th style="padding:12px;text-align:right;">Total</th>';
-  const button = siteUrl
-    ? `<a href="${escapeHtml(siteUrl)}" style="display:inline-block;margin-top:20px;border-radius:999px;background:#d96c9f;color:#ffffff;text-decoration:none;padding:12px 20px;font-weight:700;">Ver mis pedidos</a>`
-    : '';
+  const orderHref = siteUrl ? `${siteUrl.replace(/\/$/, '')}/?profile=orders` : undefined;
+  const buttonHref = type === 'order_cancelled' ? siteUrl : orderHref;
 
-  const totals = type === 'order_cancelled'
-    ? ''
-    : `
-      <table role="presentation" width="100%" style="margin-top:18px;border-collapse:collapse;">
-        <tr><td style="padding:6px 0;color:#6b756f;">Subtotal</td><td style="padding:6px 0;text-align:right;">${money(order.subtotal)}</td></tr>
-        <tr><td style="padding:6px 0;color:#6b756f;">Envio</td><td style="padding:6px 0;text-align:right;">${shipping > 0 ? money(shipping) : order.delivery_method === 'pickup' ? 'Gratis' : 'A coordinar'}</td></tr>
-        ${paymentFee > 0 ? `<tr><td style="padding:6px 0;color:#6b756f;">Recargo Mercado Pago (10%)</td><td style="padding:6px 0;text-align:right;">${money(paymentFee)}</td></tr>` : ''}
-        <tr><td style="padding:12px 0 0;border-top:1px solid #eadbc8;font-size:18px;font-weight:700;">Total final</td><td style="padding:12px 0 0;border-top:1px solid #eadbc8;text-align:right;font-size:18px;font-weight:700;color:#2f3a35;">${money(total)}</td></tr>
-      </table>`;
+  const statusBadge =
+    type === 'order_received'
+      ? `<p style="display:inline-block;margin:10px 0 0;border-radius:999px;background:${COLORS.warning};color:#7a5a00;padding:7px 12px;font-size:13px;font-weight:700;">Pendiente de confirmación</p>`
+      : '';
 
-  const html = `
-    <!doctype html>
-    <html>
-      <body style="margin:0;background:#fff8ef;font-family:Arial,Helvetica,sans-serif;color:#2f3a35;">
-        <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(config.preheader)}</div>
-        <table role="presentation" width="100%" style="border-collapse:collapse;background:#fff8ef;padding:24px 0;">
-          <tr>
-            <td align="center" style="padding:24px 12px;">
-              <table role="presentation" width="100%" style="max-width:680px;border-collapse:collapse;background:#ffffff;border:1px solid #eadbc8;border-radius:18px;overflow:hidden;">
-                <tr>
-                  <td style="padding:28px 28px 18px;background:#f8ddeb;">
-                    <p style="margin:0 0 8px;color:#6b756f;font-size:13px;letter-spacing:.12em;text-transform:uppercase;">${STORE_NAME}</p>
-                    <h1 style="margin:0;font-size:28px;line-height:1.2;color:#2f3a35;">${escapeHtml(config.title)}</h1>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:28px;">
-                    <p style="margin:0 0 16px;font-size:16px;">Hola ${escapeHtml(customerName)},</p>
-                    <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">${escapeHtml(orderMessage(type, order))}</p>
-                    <div style="border:1px solid #eadbc8;border-radius:14px;padding:16px;background:#fff8ef;margin-bottom:20px;">
-                      <p style="margin:0 0 8px;color:#6b756f;font-size:13px;">Pedido</p>
-                      <p style="margin:0;font-size:20px;font-weight:700;">#${escapeHtml(order.order_number || order.id)}</p>
-                      ${type === 'order_received' ? '<p style="margin:8px 0 0;color:#b88746;font-weight:700;">Pendiente de confirmacion</p>' : ''}
-                    </div>
-                    <table role="presentation" width="100%" style="border-collapse:collapse;border:1px solid #eadbc8;border-radius:12px;overflow:hidden;">
-                      <thead style="background:#fff8ef;color:#6b756f;font-size:13px;"><tr>${columns}</tr></thead>
-                      <tbody>${rows}</tbody>
-                    </table>
-                    ${totals}
-                    <div style="margin-top:22px;border-top:1px solid #eadbc8;padding-top:18px;color:#6b756f;font-size:14px;line-height:1.6;">
-                      <p style="margin:0;"><strong>Pago:</strong> ${escapeHtml(paymentLabel(order.payment_method))}</p>
-                      <p style="margin:4px 0 0;"><strong>Entrega:</strong> ${escapeHtml(deliveryLabel(order))}</p>
-                      <p style="margin:4px 0 0;"><strong>Direccion/Zona:</strong> ${escapeHtml(deliveryAddress(order) || order.shipping_zone_name || 'A coordinar')}</p>
-                    </div>
-                    ${type === 'order_received' ? '<p style="margin:22px 0 0;font-size:15px;line-height:1.6;">Te vamos a contactar por WhatsApp para coordinar los proximos pasos.</p>' : ''}
-                    ${button}
-                    <p style="margin:28px 0 0;color:#6b756f;font-size:14px;line-height:1.6;">
-                      ${STORE_NAME}<br />
-                      WhatsApp: ${WHATSAPP}
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>`;
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">Hola ${escapeHtml(customerName)},</p>
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">${escapeHtml(config.mainText)}</p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:${COLORS.mutedText};">${escapeHtml(orderContextMessage(type, order))}</p>
+    ${infoBox(`
+      <p style="margin:0 0 8px;color:${COLORS.mutedText};font-size:13px;">Número de pedido</p>
+      <p style="margin:0;font-size:20px;font-weight:700;color:${COLORS.text};">#${escapeHtml(order.order_number || order.id)}</p>
+      ${statusBadge}
+    `)}
+    ${orderItemsTable(items, type === 'order_confirmed')}
+    ${orderDetails(order, type)}
+    ${type === 'order_received' ? '<p style="margin:22px 0 0;font-size:15px;line-height:1.65;">Te vamos a contactar por WhatsApp para coordinar los próximos pasos.</p>' : ''}
+    ${primaryButton(config.buttonLabel, buttonHref)}`;
+
+  const html = baseEmailLayout({
+    preheader: config.preheader,
+    title: config.title,
+    children: content,
+  });
 
   const text = [
-    `${STORE_NAME}`,
+    BRAND_NAME,
     config.title,
     `Hola ${customerName},`,
-    orderMessage(type, order),
+    config.mainText,
+    orderContextMessage(type, order),
     `Pedido: #${order.order_number || order.id}`,
     `Pago: ${paymentLabel(order.payment_method)}`,
     `Entrega: ${deliveryLabel(order)}`,
-    `Total: ${money(total)}`,
+    `Total: ${formatCurrency(total)}`,
     `WhatsApp: ${WHATSAPP}`,
   ].join('\n');
 
@@ -284,7 +378,7 @@ const sendResendEmail = async ({
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: env.fromEmail,
+      from: formatSenderEmail(env.fromEmail),
       to: [to],
       subject,
       html,
@@ -411,23 +505,16 @@ export const sendPasswordChangedEmail = async (
     email.split('@')[0] ||
     'Cliente';
   const subject = 'Tu contraseña fue actualizada';
-  const html = `
-    <!doctype html>
-    <html>
-      <body style="margin:0;background:#fff8ef;font-family:Arial,Helvetica,sans-serif;color:#2f3a35;">
-        <table role="presentation" width="100%" style="border-collapse:collapse;background:#fff8ef;padding:24px 0;">
-          <tr>
-            <td align="center" style="padding:24px 12px;">
-              <table role="presentation" width="100%" style="max-width:620px;border-collapse:collapse;background:#ffffff;border:1px solid #eadbc8;border-radius:18px;overflow:hidden;">
-                <tr><td style="padding:28px;background:#f8ddeb;"><p style="margin:0 0 8px;color:#6b756f;font-size:13px;letter-spacing:.12em;text-transform:uppercase;">${STORE_NAME}</p><h1 style="margin:0;font-size:26px;">Contraseña actualizada</h1></td></tr>
-                <tr><td style="padding:28px;font-size:16px;line-height:1.6;"><p>Hola ${escapeHtml(name)},</p><p>Te confirmamos que la contraseña de tu cuenta fue actualizada correctamente.</p><p>Si no realizaste este cambio, contactanos lo antes posible.</p><p style="margin-top:28px;color:#6b756f;">${STORE_NAME}<br />WhatsApp: ${WHATSAPP}</p></td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>`;
-  const text = `Hola ${name},\nTe confirmamos que la contraseña de tu cuenta fue actualizada correctamente.\nSi no realizaste este cambio, contactanos lo antes posible.\n${STORE_NAME}\nWhatsApp: ${WHATSAPP}`;
+  const html = baseEmailLayout({
+    preheader: 'La contraseña de tu cuenta fue actualizada correctamente.',
+    title: 'Contraseña actualizada',
+    children: `
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">Hola ${escapeHtml(name)},</p>
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">Te confirmamos que la contraseña de tu cuenta fue actualizada correctamente.</p>
+      ${infoBox('<p style="margin:0;font-size:14px;line-height:1.6;color:#7a5a00;">Si no realizaste este cambio, contactanos lo antes posible.</p>', COLORS.warning)}
+    `,
+  });
+  const text = `Hola ${name},\nTe confirmamos que la contraseña de tu cuenta fue actualizada correctamente.\nSi no realizaste este cambio, contactanos lo antes posible.\n${BRAND_NAME}\nWhatsApp: ${WHATSAPP}`;
 
   const resend = await sendResendEmail({ to: email, subject, html, text, env });
   return { sent: true, resend };

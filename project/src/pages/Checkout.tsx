@@ -145,6 +145,35 @@ const getCheckoutErrorMessage = (error: unknown) => {
     : 'No pudimos completar tu pedido. Revisa el carrito e intenta nuevamente.';
 };
 
+const redactEmailForDebug = (email?: string) => {
+  if (!email) {
+    return '';
+  }
+
+  const [localPart, domain] = email.split('@');
+  return `${localPart?.slice(0, 2) || '**'}***@${domain || '***'}`;
+};
+
+const redactUserForDebug = (user: CheckoutProps['user']) =>
+  user
+    ? {
+        idPrefix: user.id?.slice(0, 8),
+        email: redactEmailForDebug(user.email),
+        hasPhone: Boolean(user.phone),
+        hasAddress: Boolean(user.address),
+      }
+    : null;
+
+const redactCartItemsForDebug = (items: CartItem[]) =>
+  items.map((item) => ({
+    cartKey: item.cartKey,
+    id: item.id,
+    hasSourceId: Boolean(item.sourceId),
+    hasVariantId: Boolean(item.variantId),
+    quantity: item.quantity,
+    price: item.price,
+  }));
+
 const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, user }) => {
   const [paymentMethod, setPaymentMethod] = useState<SelectedPaymentMethod>('');
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
@@ -194,7 +223,9 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
           setShippingZones(zones);
         }
       } catch (error) {
-        console.error('Error cargando zonas de envio:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error cargando zonas de envio:', error);
+        }
         if (isMounted) {
           setShippingZones([]);
           setShippingZoneError(
@@ -329,7 +360,9 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
       const emailResult = await sendOrderReceivedEmail(orderId);
       return emailResult.success;
     } catch (error) {
-      console.error('Error enviando email:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error enviando email:', error);
+      }
       return false;
     }
   };
@@ -481,7 +514,9 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
           const preference = await createMercadoPagoPreference(savedOrder.id);
           window.location.assign(preference.initPoint);
         } catch (preferenceError) {
-          console.error('Pedido creado, pero no se pudo generar la preferencia de Mercado Pago:', preferenceError);
+          if (import.meta.env.DEV) {
+            console.error('Pedido creado, pero no se pudo generar la preferencia de Mercado Pago:', preferenceError);
+          }
           alert('Recibimos tu pedido, pero no pudimos abrir Mercado Pago. Revisalo en Mis pedidos para coordinar el pago.');
           onOrderComplete({
             status: 'pending',
@@ -522,16 +557,17 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         code?: string;
       };
 
-      console.error('Checkout submit error original:', error);
-      console.error('Checkout submit error message:', supabaseError?.message);
-      console.error('Checkout submit error details:', supabaseError?.details);
-      console.error('Checkout submit error hint:', supabaseError?.hint);
-      console.error('Checkout submit error code:', supabaseError?.code);
-      console.error('Cart items al fallar:', items);
-      console.error('Usuario actual:', user);
-      console.error('Método entrega:', deliveryMethod);
-      console.error('Método pago:', paymentMethod);
-      console.error('Error guardando pedido en Supabase:', error);
+      if (import.meta.env.DEV) {
+        console.error('Checkout submit error original:', error);
+        console.error('Checkout submit error message:', supabaseError?.message);
+        console.error('Checkout submit error details:', supabaseError?.details);
+        console.error('Checkout submit error hint:', supabaseError?.hint);
+        console.error('Checkout submit error code:', supabaseError?.code);
+        console.error('Cart items al fallar redacted:', redactCartItemsForDebug(items));
+        console.error('Usuario actual redacted:', redactUserForDebug(user));
+        console.error('Método entrega:', deliveryMethod);
+        console.error('Método pago:', paymentMethod);
+      }
       alert(getCheckoutErrorMessage(error));
       resetTurnstile();
     } finally {

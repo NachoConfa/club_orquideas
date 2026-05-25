@@ -374,7 +374,7 @@ const AuthModal = ({
               />
               <button
                 type="button"
-                aria-label={showPassword ? 'Ocultar contraseÃ±a' : 'Mostrar contraseÃ±a'}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setShowPassword((current) => !current)}
                 className="absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:text-gray-600"

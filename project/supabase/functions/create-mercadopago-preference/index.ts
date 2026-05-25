@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
 type OrderItemRow = {
   product_name: string | null;
@@ -28,7 +28,10 @@ type OrderRow = {
   subtotal: number | null;
   shipping: number | null;
   payment_fee: number | null;
+  total: number | null;
   total_amount: number | null;
+  status: string | null;
+  payment_status: string | null;
   payment_method: string | null;
   delivery_method: string | null;
   customer_email: string | null;
@@ -39,13 +42,14 @@ type OrderRow = {
   province: string | null;
   postal_code: string | null;
   shipping_requires_quote: boolean | null;
+  stock_deducted: boolean | null;
 };
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
     },
   });
@@ -58,25 +62,92 @@ const getRequiredEnv = (name: string) => {
   return value;
 };
 
+const allowedBackUrlOrigins = new Set([
+  'https://www.modoplantas.com',
+  'https://modoplantas.com',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]);
+
+const getSiteUrl = (req: Request) => {
+  const configuredSiteUrl = Deno.env.get('SITE_URL');
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
+  }
+
+  const requestOrigin = req.headers.get('origin') || '';
+  return allowedBackUrlOrigins.has(requestOrigin) ? requestOrigin : 'https://www.modoplantas.com';
+};
+
+const normalizeStatus = (value: unknown) => String(value ?? '').trim().toLowerCase();
+
+const CANCELLED_STATUSES = new Set(['cancelled', 'cancelado']);
+const PAID_STATUSES = new Set(['paid', 'approved', 'confirmed', 'processing', 'completed', 'delivered']);
+const PENDING_STATUSES = new Set([
+  'pending',
+  'pending_cash_payment',
+  'awaiting_transfer',
+  'awaiting_payment',
+  'payment_pending',
+  'received',
+]);
+
+const getOrderPaymentGuardError = (order: OrderRow) => {
+  const orderStatus = normalizeStatus(order.status);
+  const paymentStatus = normalizeStatus(order.payment_status);
+  const paymentMethod = normalizeStatus(order.payment_method);
+
+  if (CANCELLED_STATUSES.has(orderStatus) || CANCELLED_STATUSES.has(paymentStatus)) {
+    return 'ORDER_ALREADY_CANCELLED';
+  }
+
+  if (orderStatus === 'requires_review' || paymentStatus === 'requires_review') {
+    return 'ORDER_REQUIRES_REVIEW';
+  }
+
+  if (order.stock_deducted) {
+    return 'ORDER_ALREADY_PAID';
+  }
+
+  if (PAID_STATUSES.has(orderStatus) || PAID_STATUSES.has(paymentStatus)) {
+    return 'ORDER_ALREADY_PAID';
+  }
+
+  if (paymentMethod && paymentMethod !== 'mercadopago') {
+    return 'ORDER_NOT_PAYABLE';
+  }
+
+  if (!PENDING_STATUSES.has(orderStatus) && !PENDING_STATUSES.has(paymentStatus)) {
+    return 'ORDER_NOT_PAYABLE';
+  }
+
+  const total = Number(order.total_amount ?? order.total ?? 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return 'ORDER_NOT_PAYABLE';
+  }
+
+  return null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405);
+    return json(req, { error: 'Method not allowed' }, 405);
   }
 
   try {
     const mercadopagoAccessToken = getRequiredEnv('MERCADOPAGO_ACCESS_TOKEN');
     const supabaseUrl = getRequiredEnv('SUPABASE_URL');
     const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-    const siteUrl = Deno.env.get('SITE_URL') || req.headers.get('origin') || '';
+    const siteUrl = getSiteUrl(req);
     const authorization = req.headers.get('authorization') || '';
     const userJwt = authorization.replace('Bearer ', '').trim();
 
     if (!userJwt) {
-      return json({ error: 'Missing user session' }, 401);
+      return json(req, { error: 'Missing user session' }, 401);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -92,12 +163,12 @@ Deno.serve(async (req) => {
     } = await adminClient.auth.getUser(userJwt);
 
     if (userError || !user) {
-      return json({ error: 'Invalid user session' }, 401);
+      return json(req, { error: 'Invalid user session' }, 401);
     }
 
     const { orderId } = await req.json();
     if (!orderId || typeof orderId !== 'string') {
-      return json({ error: 'Missing orderId' }, 400);
+      return json(req, { error: 'Missing orderId' }, 400);
     }
 
     const { data: order, error: orderError } = await adminClient
@@ -110,7 +181,10 @@ Deno.serve(async (req) => {
           'subtotal',
           'shipping',
           'payment_fee',
+          'total',
           'total_amount',
+          'status',
+          'payment_status',
           'payment_method',
           'delivery_method',
           'customer_email',
@@ -121,20 +195,27 @@ Deno.serve(async (req) => {
           'province',
           'postal_code',
           'shipping_requires_quote',
+          'stock_deducted',
         ].join(', ')
       )
       .eq('id', orderId)
       .single();
 
     if (orderError || !order) {
-      return json({ error: 'Order not found' }, 404);
+      return json(req, { error: 'ORDER_NOT_FOUND' }, 404);
     }
 
     if (order.user_id !== user.id) {
-      return json({ error: 'Order does not belong to this user' }, 403);
+      return json(req, { error: 'ORDER_NOT_FOUND' }, 404);
     }
 
     const orderRow = order as OrderRow;
+    const guardError = getOrderPaymentGuardError(orderRow);
+    if (guardError) {
+      const status = guardError === 'ORDER_NOT_PAYABLE' ? 400 : 409;
+      return json(req, { error: guardError }, status);
+    }
+
     const nameParts = String(orderRow.customer_name ?? '').trim().split(/\s+/).filter(Boolean);
     const customerInfo: CustomerInfo = {
       email: orderRow.customer_email ?? undefined,
@@ -151,7 +232,7 @@ Deno.serve(async (req) => {
     };
 
     if (customerInfo.shipping?.requires_quote) {
-      return json({ error: 'This order requires a manual shipping quote before online payment' }, 400);
+      return json(req, { error: 'ORDER_REQUIRES_REVIEW' }, 400);
     }
 
     const { data: orderItems, error: itemsError } = await adminClient
@@ -165,7 +246,7 @@ Deno.serve(async (req) => {
 
     const items = (orderItems ?? []) as OrderItemRow[];
     if (items.length === 0) {
-      return json({ error: 'Order has no items' }, 400);
+      return json(req, { error: 'ORDER_NOT_PAYABLE' }, 400);
     }
 
     const preferenceItems = items.map((item) => ({
@@ -236,7 +317,7 @@ Deno.serve(async (req) => {
 
     const preference = await preferenceResponse.json();
     if (!preferenceResponse.ok) {
-      return json({ error: preference.message || 'Mercado Pago preference error', details: preference }, 502);
+      return json(req, { error: preference.message || 'Mercado Pago preference error', details: preference }, 502);
     }
 
     await adminClient
@@ -259,13 +340,14 @@ Deno.serve(async (req) => {
       })
       .eq('order_id', order.id);
 
-    return json({
+    return json(req, {
       id: preference.id,
       initPoint: preference.init_point,
     });
   } catch (error) {
     console.error(error);
     return json(
+      req,
       { error: error instanceof Error ? error.message : 'Unexpected Mercado Pago error' },
       500
     );

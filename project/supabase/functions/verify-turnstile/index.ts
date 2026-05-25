@@ -1,14 +1,13 @@
 const allowedOrigins = new Set([
   'https://www.modoplantas.com',
   'https://modoplantas.com',
-  'https://club-orquideas.vercel.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ]);
 
 const getCorsHeaders = (request: Request) => {
   const origin = request.headers.get('origin') || '';
-  const allowOrigin = allowedOrigins.has(origin) ? origin : '*';
+  const allowOrigin = allowedOrigins.has(origin) ? origin : 'https://www.modoplantas.com';
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -43,7 +42,7 @@ Deno.serve(async (request) => {
   }
 
   if (request.method !== 'POST') {
-    return jsonResponse(request, { success: false, error: 'Metodo no permitido.' }, 405);
+    return jsonResponse(request, { success: false, error: 'Método no permitido.' }, 405);
   }
 
   const secretKey = Deno.env.get('TURNSTILE_SECRET_KEY') || Deno.env.get('CLOUDFLARE_TURNSTILE_SECRET_KEY');
@@ -57,7 +56,7 @@ Deno.serve(async (request) => {
   try {
     body = await request.json();
   } catch {
-    return jsonResponse(request, { success: false, error: 'Body invalido.' }, 400);
+    return jsonResponse(request, { success: false, error: 'Body inválido.' }, 400);
   }
 
   if (!body.token) {

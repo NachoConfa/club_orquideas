@@ -1,12 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendOrderTransactionalEmail } from '../_shared/transactionalEmail.ts';
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
+      ...getCorsHeaders(req),
       'Content-Type': 'application/json',
     },
   });
@@ -62,7 +62,7 @@ const sendConfirmedEmailIfConfigured = async (adminClient: any, orderId: string,
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   try {
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const paymentId = body.data?.id || url.searchParams.get('id');
 
     if (topic !== 'payment' || !paymentId) {
-      return json({ received: true });
+      return json(req, { received: true });
     }
 
     const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
@@ -86,12 +86,12 @@ Deno.serve(async (req) => {
 
     const payment = await paymentResponse.json();
     if (!paymentResponse.ok) {
-      return json({ error: payment.message || 'Mercado Pago payment lookup failed' }, 502);
+      return json(req, { error: payment.message || 'Mercado Pago payment lookup failed' }, 502);
     }
 
     const orderId = payment.external_reference || payment.metadata?.order_id;
     if (!orderId) {
-      return json({ received: true, ignored: 'payment without order reference' });
+      return json(req, { received: true, ignored: 'payment without order reference' });
     }
 
     const paymentStatus = String(payment.status || 'pending');
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
           })
           .eq('id', orderId);
 
-        return json({ received: true, error: 'STOCK_CONFIRMATION_FAILED' }, 409);
+        return json(req, { received: true, error: 'STOCK_CONFIRMATION_FAILED' }, 409);
       }
 
       const confirmation = Array.isArray(confirmationData) ? confirmationData[0] : confirmationData;
@@ -150,12 +150,12 @@ Deno.serve(async (req) => {
         .eq('id', orderId);
 
       if (confirmation && confirmation.stock_deducted === false) {
-        return json({ received: true, warning: 'ORDER_REQUIRES_STOCK_REVIEW' });
+        return json(req, { received: true, warning: 'ORDER_REQUIRES_STOCK_REVIEW' });
       }
 
       await sendConfirmedEmailIfConfigured(adminClient, orderId, supabaseUrl);
 
-      return json({ received: true });
+      return json(req, { received: true });
     }
 
     await adminClient
@@ -169,9 +169,9 @@ Deno.serve(async (req) => {
       })
       .eq('id', orderId);
 
-    return json({ received: true });
+    return json(req, { received: true });
   } catch (error) {
     console.error(error);
-    return json({ error: error instanceof Error ? error.message : 'Unexpected webhook error' }, 500);
+    return json(req, { error: error instanceof Error ? error.message : 'Unexpected webhook error' }, 500);
   }
 });

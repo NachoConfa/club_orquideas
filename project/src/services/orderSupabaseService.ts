@@ -209,29 +209,73 @@ const getKnownRpcErrorCode = (error: unknown) =>
 
 const normalizePublicErrorMessage = (message: string) =>
   message
-    .replace(/mÃ¡s/g, 'mas')
-    .replace(/RevisÃ¡/g, 'Revisa')
-    .replace(/intentÃ¡/g, 'intenta');
+    .replace(/más/g, 'mas')
+    .replace(/Revisá/g, 'Revisa')
+    .replace(/intentá/g, 'intenta');
 
 const createPublicOrderError = (error: unknown, fallback: string) => {
-  console.error(fallback, getSupabaseErrorMessage(error));
+  if (import.meta.env.DEV) {
+    console.error(fallback, getSupabaseErrorMessage(error));
+  }
   return new Error(normalizePublicErrorMessage(fallback));
 };
 
 const createInvalidCartProductError = (items: CheckoutOrderItem[]) => {
-  console.warn(
-    'Hay items del carrito sin product_id UUID real. El carrito debe rearmarse antes de llamar a create_order_with_stock.',
-    items.map((item) => ({
-      id: item.id,
-      sourceId: item.sourceId,
-      variantId: item.variantId,
-      name: item.name,
-      quantity: item.quantity,
-    }))
-  );
+  if (import.meta.env.DEV) {
+    console.warn(
+      'Hay items del carrito sin product_id UUID real. El carrito debe rearmarse antes de llamar a create_order_with_stock.',
+      items.map((item) => ({
+        id: item.id,
+        hasSourceId: Boolean(item.sourceId),
+        hasVariantId: Boolean(item.variantId),
+        quantity: item.quantity,
+      }))
+    );
+  }
 
   return new Error('Hay productos antiguos en el carrito. Eliminalos y agregalos nuevamente.');
 };
+
+const redactOrderPayloadForDebug = (payload: Record<string, unknown>) => ({
+  id: payload.id,
+  userIdPrefix: typeof payload.user_id === 'string' ? payload.user_id.slice(0, 8) : null,
+  order_number: payload.order_number,
+  subtotal: payload.subtotal,
+  shipping: payload.shipping,
+  shipping_total: payload.shipping_total,
+  payment_fee: payload.payment_fee,
+  total_amount: payload.total_amount,
+  status: payload.status,
+  payment_method: payload.payment_method,
+  payment_status: payload.payment_status,
+  delivery_method: payload.delivery_method,
+  shipping_method: payload.shipping_method,
+  shipping_zone_id: payload.shipping_zone_id,
+  shipping_zone_name: payload.shipping_zone_name,
+  shipping_requires_quote: payload.shipping_requires_quote,
+  hasCustomerEmail: Boolean(payload.customer_email),
+  hasCustomerPhone: Boolean(payload.customer_phone),
+  hasShippingAddress: Boolean(payload.shipping_address),
+});
+
+const redactItemsPayloadForDebug = (items: Record<string, unknown>[]) =>
+  items.map((item) => ({
+    product_id: item.product_id,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total_price: item.total_price,
+    hasProductImage: Boolean(item.product_image),
+    hasProductDetails: Boolean(item.product_details),
+  }));
+
+const redactPaymentPayloadForDebug = (payload: Record<string, unknown>) => ({
+  amount: payload.amount,
+  method: payload.method,
+  status: payload.status,
+  payment_status: payload.payment_status,
+  hasPreferenceId: Boolean(payload.preference_id),
+  hasProviderPaymentId: Boolean(payload.provider_payment_id),
+});
 
 const logCreateOrderRpcError = (
   error: unknown,
@@ -243,6 +287,10 @@ const logCreateOrderRpcError = (
     deliveryMethod: CreateOrderInput['deliveryMethod'];
   }
 ) => {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
   const supabaseError = error as {
     message?: string;
     details?: string;
@@ -255,9 +303,9 @@ const logCreateOrderRpcError = (
   console.error('RPC error details:', supabaseError?.details);
   console.error('RPC error hint:', supabaseError?.hint);
   console.error('RPC error code:', supabaseError?.code);
-  console.error('RPC payload p_order:', context.orderPayload);
-  console.error('RPC payload p_items:', context.itemsPayload);
-  console.error('RPC payload p_payment:', context.paymentPayload);
+  console.error('RPC payload p_order redacted:', redactOrderPayloadForDebug(context.orderPayload));
+  console.error('RPC payload p_items redacted:', redactItemsPayloadForDebug(context.itemsPayload));
+  console.error('RPC payload p_payment redacted:', redactPaymentPayloadForDebug(context.paymentPayload));
   console.error('Checkout delivery_method seleccionado:', context.deliveryMethod);
   console.error('Checkout payment_method seleccionado:', context.paymentMethod);
 
@@ -360,15 +408,19 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
   } = await client.auth.getUser();
 
   if (sessionError || !sessionUser?.id) {
-    console.error('No hay sesion real de Supabase para crear el pedido:', sessionError);
+    if (import.meta.env.DEV) {
+      console.error('No hay sesion real de Supabase para crear el pedido:', sessionError);
+    }
     throw new Error('Inicia sesion nuevamente antes de completar el pedido.');
   }
 
   if (sessionUser.id !== input.userId) {
-    console.error('ORDER_USER_MISMATCH antes de llamar a la RPC:', {
-      sessionUserId: sessionUser.id,
-      inputUserId: input.userId,
-    });
+    if (import.meta.env.DEV) {
+      console.error('ORDER_USER_MISMATCH antes de llamar a la RPC:', {
+        sessionUserIdPrefix: sessionUser.id.slice(0, 8),
+        inputUserIdPrefix: input.userId.slice(0, 8),
+      });
+    }
     throw new Error('Tu sesion no coincide con el pedido. Cerra sesion e inicia nuevamente.');
   }
 
@@ -464,7 +516,9 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
       p_payment: paymentPayload,
     });
   } catch (error) {
-    console.error('Error original en createSupabaseOrder:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error original en createSupabaseOrder:', error);
+    }
     logCreateOrderRpcError(error, {
       orderPayload,
       itemsPayload,
@@ -478,7 +532,9 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
   const { data, error } = rpcResult;
 
   if (error) {
-    console.error('Error original en createSupabaseOrder:', error);
+    if (import.meta.env.DEV) {
+      console.error('Error original en createSupabaseOrder:', error);
+    }
     logCreateOrderRpcError(error, {
       orderPayload,
       itemsPayload,
