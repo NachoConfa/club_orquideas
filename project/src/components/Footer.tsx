@@ -2,7 +2,7 @@ import React from 'react';
 import { Instagram, Phone, MapPin, Flower } from 'lucide-react';
 
 interface FooterProps {
-  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy') => void;
+  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy') => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
@@ -52,6 +52,8 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul className="space-y-2">
               <li><button onClick={() => onNavigate('home')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Inicio</button></li>
               <li><button onClick={() => onNavigate('orchids')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Orquídeas</button></li>
+              <li><button onClick={() => onNavigate('interior')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Plantas de interior</button></li>
+              <li><button onClick={() => onNavigate('exterior')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Plantas de exterior</button></li>
               <li><button onClick={() => onNavigate('arrangements')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Arreglos</button></li>
               <li><button onClick={() => onNavigate('pots')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Macetas</button></li>
               <li><button onClick={() => onNavigate('accessories')} className="text-left text-[#FFF8EF]/75 transition-colors hover:text-white">Accesorios</button></li>

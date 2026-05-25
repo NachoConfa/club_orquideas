@@ -328,7 +328,7 @@ const ProductForm = ({
         </label>
 
         <label className="text-sm font-medium text-gray-700">
-          Tipo
+          Tipo / categoria
           <input
             list="admin-product-type-options"
             value={form.orchid_type}
@@ -342,8 +342,11 @@ const ProductForm = ({
             <option value="Dendrobium" />
             <option value="Oncidium" />
             <option value="Vanda" />
+            <option value="interior" label="Plantas de interior" />
+            <option value="exterior" label="Plantas de exterior" />
             <option value="Arreglos" />
             <option value="Macetas" />
+            <option value="Accesorios" />
           </datalist>
         </label>
 

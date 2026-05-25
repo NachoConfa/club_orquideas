@@ -8,7 +8,7 @@ interface HeaderProps {
   onCartClick: () => void;
   onFavoritesClick: () => void;
   onUserClick: () => void;
-  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'account-settings' | 'admin') => void;
+  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'account-settings' | 'admin') => void;
   searchQuery: string;
   onSearch: (query: string) => void;
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -66,6 +66,18 @@ const Header: React.FC<HeaderProps> = ({
               className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
             >
               Orquídeas
+            </button>
+            <button
+              onClick={() => onNavigate('interior')}
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
+            >
+              Plantas de interior
+            </button>
+            <button
+              onClick={() => onNavigate('exterior')}
+              className="text-[#2F3A35] transition-colors hover:text-[#D96C9F] font-medium text-sm"
+            >
+              Plantas de exterior
             </button>
             <button
               onClick={() => onNavigate('arrangements')}
@@ -194,6 +206,18 @@ const Header: React.FC<HeaderProps> = ({
                 className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
               >
                 Orquídeas
+              </button>
+              <button
+                onClick={() => handleMobileNavClick('interior')}
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
+              >
+                Plantas de interior
+              </button>
+              <button
+                onClick={() => handleMobileNavClick('exterior')}
+                className="block w-full rounded px-3 py-2 text-left font-medium text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/55 hover:text-[#D96C9F]"
+              >
+                Plantas de exterior
               </button>
               <button
                 onClick={() => handleMobileNavClick('arrangements')}

@@ -1,6 +1,6 @@
 import type { Product } from '../types/product';
 
-export type CatalogCategory = 'orchids' | 'pots' | 'arrangements';
+export type CatalogCategory = 'orchids' | 'pots' | 'arrangements' | 'interior' | 'exterior';
 
 export interface CatalogFilterState {
   values: Record<string, string[]>;
@@ -115,6 +115,52 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       key: 'occasion',
       label: 'Ocasion',
       sources: ['attributes.occasion'],
+    },
+  ],
+  interior: [
+    {
+      key: 'plantType',
+      label: 'Tipo de planta',
+      sources: ['attributes.plant_type', 'attributes.product_type', 'type'],
+    },
+    {
+      key: 'size',
+      label: 'Tamano',
+      sources: ['attributes.size', 'size', 'variants.size'],
+    },
+    {
+      key: 'color',
+      label: 'Color',
+      display: 'swatch',
+      sources: ['attributes.color', 'color', 'colors', 'variants.color'],
+    },
+    {
+      key: 'light',
+      label: 'Luz',
+      sources: ['attributes.light', 'attributes.light_requirement'],
+    },
+  ],
+  exterior: [
+    {
+      key: 'plantType',
+      label: 'Tipo de planta',
+      sources: ['attributes.plant_type', 'attributes.product_type', 'type'],
+    },
+    {
+      key: 'size',
+      label: 'Tamano',
+      sources: ['attributes.size', 'size', 'variants.size'],
+    },
+    {
+      key: 'color',
+      label: 'Color',
+      display: 'swatch',
+      sources: ['attributes.color', 'color', 'colors', 'variants.color'],
+    },
+    {
+      key: 'sun',
+      label: 'Sol',
+      sources: ['attributes.sun', 'attributes.sun_exposure', 'attributes.light'],
     },
   ],
 };

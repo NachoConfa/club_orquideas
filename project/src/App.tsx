@@ -64,6 +64,8 @@ type AppPage =
   | 'accessories'
   | 'care'
   | 'orchids'
+  | 'interior'
+  | 'exterior'
   | 'arrangements'
   | 'pots'
   | 'checkout'
@@ -122,8 +124,30 @@ const isArrangementProduct = (product: Product) =>
   productHasCatalogTag(product, ['arreglo', 'arreglos', 'arrangement', 'arrangements']);
 const isAccessoryProduct = (product: Product) =>
   productHasCatalogTag(product, ['accesorio', 'accesorios', 'accessory', 'accessories']);
+const isInteriorProduct = (product: Product) =>
+  productHasCatalogTag(product, [
+    'interior',
+    'planta de interior',
+    'plantas de interior',
+    'indoor',
+    'indoor plants',
+  ]);
+const isExteriorProduct = (product: Product) =>
+  productHasCatalogTag(product, [
+    'exterior',
+    'planta de exterior',
+    'plantas de exterior',
+    'outdoor',
+    'outdoor plants',
+  ]);
 const isOrchidProduct = (product: Product) => {
-  if (isPotProduct(product) || isArrangementProduct(product) || isAccessoryProduct(product)) {
+  if (
+    isPotProduct(product) ||
+    isArrangementProduct(product) ||
+    isAccessoryProduct(product) ||
+    isInteriorProduct(product) ||
+    isExteriorProduct(product)
+  ) {
     return false;
   }
 
@@ -132,9 +156,29 @@ const isOrchidProduct = (product: Product) => {
 
 const getCatalogCategoryFromPage = (page: AppPage): CatalogCategory | null => {
   if (page === 'orchids') return 'orchids';
+  if (page === 'interior') return 'interior';
+  if (page === 'exterior') return 'exterior';
   if (page === 'pots') return 'pots';
   if (page === 'arrangements') return 'arrangements';
   return null;
+};
+
+const getCatalogPageTitle = (page: AppPage) => {
+  if (page === 'orchids') return 'Nuestras Orquídeas';
+  if (page === 'arrangements') return 'Arreglos';
+  if (page === 'pots') return 'Macetas Artesanales';
+  if (page === 'interior') return 'Plantas de interior';
+  if (page === 'exterior') return 'Plantas de exterior';
+  return 'Productos';
+};
+
+const getCatalogPageDescription = (page: AppPage) => {
+  if (page === 'orchids') return 'Descubrí nuestra colección completa de orquídeas exóticas';
+  if (page === 'arrangements') return 'Arreglos con orquídeas listos para regalar, decorar o encargar';
+  if (page === 'pots') return 'Macetas únicas diseñadas especialmente para orquídeas';
+  if (page === 'interior') return 'Plantas seleccionadas para llenar tus espacios interiores de vida y frescura';
+  if (page === 'exterior') return 'Plantas resistentes para balcones, patios, jardines y espacios al aire libre';
+  return '';
 };
 
 const ProductGridSkeleton = ({ count = 6 }: { count?: number }) => (
@@ -160,6 +204,14 @@ const getProductsByCatalogCategory = (category: CatalogCategory, products: Produ
 
   if (category === 'arrangements') {
     return products.filter(isArrangementProduct);
+  }
+
+  if (category === 'interior') {
+    return products.filter(isInteriorProduct);
+  }
+
+  if (category === 'exterior') {
+    return products.filter(isExteriorProduct);
   }
 
   return products.filter(isOrchidProduct);
@@ -1330,7 +1382,11 @@ function App() {
       )}
 
       {/* Products Page */}
-      {(currentPage === 'orchids' || currentPage === 'arrangements' || currentPage === 'pots') && (
+      {(currentPage === 'orchids' ||
+        currentPage === 'arrangements' ||
+        currentPage === 'pots' ||
+        currentPage === 'interior' ||
+        currentPage === 'exterior') && (
         <div className="container mx-auto px-4 py-4 sm:py-6 lg:py-8">
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
             <div className="lg:w-1/4 lg:flex-shrink-0">
@@ -1347,19 +1403,10 @@ function App() {
             <div className="lg:w-3/4 min-w-0">
               <div className="mb-6 sm:mb-8">
                 <h1 className="mb-2 text-2xl font-semibold text-[#2F3A35] sm:mb-4 sm:text-3xl">
-                  {currentPage === 'orchids'
-                    ? 'Nuestras Orquídeas'
-                    : currentPage === 'arrangements'
-                      ? 'Arreglos'
-                      : 'Macetas Artesanales'}
+                  {getCatalogPageTitle(currentPage)}
                 </h1>
                 <p className="text-sm text-[#6B756F] sm:text-base">
-                  {currentPage === 'orchids' 
-                    ? 'Descubre nuestra colección completa de orquídeas exóticas'
-                    : currentPage === 'arrangements'
-                      ? 'Arreglos con orquídeas listos para regalar, decorar o encargar'
-                      : 'Macetas únicas diseñadas especialmente para orquídeas'
-                  }
+                  {getCatalogPageDescription(currentPage)}
                 </p>
               </div>
 
@@ -1381,7 +1428,9 @@ function App() {
 
               {!isLoadingProducts && currentCatalogProducts.length === 0 && (
                 <div className="mt-6 rounded-lg border border-dashed border-[#EADBC8] bg-white px-6 py-10 text-center text-[#6B756F]">
-                  No hay productos para mostrar con los filtros actuales.
+                  {currentUnsearchedBaseProducts.length === 0
+                    ? 'Todavía no hay productos en esta categoría.'
+                    : 'No hay productos para mostrar con los filtros actuales.'}
                 </div>
               )}
             </div>
