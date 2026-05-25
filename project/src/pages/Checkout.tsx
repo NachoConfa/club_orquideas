@@ -352,7 +352,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
           ? 'Mercado Pago'
           : 'Transferencia bancaria';
     const message =
-      `NUEVA ORDEN - Club de Las Orquideas\n\n` +
+      `NUEVA ORDEN - Modo Plantas\n\n` +
       `Cliente: ${formData.firstName} ${formData.lastName}\n` +
       `Email: ${formData.email}\n` +
       `Telefono: ${formData.phone}\n` +

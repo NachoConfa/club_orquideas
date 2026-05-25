@@ -1,4 +1,4 @@
--- Supabase setup for the current Club de Las Orquideas schema.
+-- Supabase setup for the current Modo Plantas schema.
 -- This script is non-destructive: it does not drop tables or delete data.
 
 -- Expected existing tables:

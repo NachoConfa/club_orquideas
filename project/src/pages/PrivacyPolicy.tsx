@@ -161,7 +161,7 @@ const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
                   Si tiene preguntas sobre esta política de privacidad o desea ejercer sus derechos, contáctenos:
                 </p>
                 <ul className="text-gray-700 space-y-1">
-                  <li>📧 Email: privacidad@clubdelasorquideas.com</li>
+                  <li>📧 Email: privacidad@modoplantas.com</li>
                   <li>📱 WhatsApp: +54 9 11 7032 6665</li>
                   <li>📍 Dirección: Av. De los Lagos 7000, Nordelta, CP 1670</li>
                   <li>🕒 Horario: Lunes a Viernes 9:00-18:00</li>

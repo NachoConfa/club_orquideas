@@ -47,7 +47,7 @@ type OrderItemRow = {
   total_price: number | null;
 };
 
-const STORE_NAME = 'Club de Las Orquideas';
+const STORE_NAME = 'Modo Plantas';
 const WHATSAPP = '+54 9 11 2290 6442';
 
 const EMAIL_CONFIG: Record<
@@ -64,7 +64,7 @@ const EMAIL_CONFIG: Record<
 > = {
   order_received: {
     sentAtColumn: 'order_received_email_sent_at',
-    subject: 'Recibimos tu pedido en Club de Las Orquideas',
+    subject: 'Recibimos tu pedido en Modo Plantas',
     title: 'Pedido recibido',
     preheader: 'Tu pedido queda pendiente de confirmacion.',
   },

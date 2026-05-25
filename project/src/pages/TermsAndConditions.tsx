@@ -31,7 +31,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onBack }) => {
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">1. Aceptación de los Términos</h2>
               <p className="text-gray-700 mb-4">
-                Al acceder y utilizar el sitio web del Club de Las Orquídeas, usted acepta estar sujeto a estos términos y condiciones de uso. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar nuestro servicio.
+                Al acceder y utilizar el sitio web de Modo Plantas, usted acepta estar sujeto a estos términos y condiciones de uso. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar nuestro servicio.
               </p>
             </section>
 
@@ -102,7 +102,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onBack }) => {
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">7. Limitación de Responsabilidad</h2>
               <p className="text-gray-700 mb-4">
-                Club de Las Orquídeas no será responsable por daños indirectos, incidentales o consecuentes que resulten del uso de nuestros productos o servicios. Nuestra responsabilidad se limita al valor de los productos adquiridos.
+                Modo Plantas no será responsable por daños indirectos, incidentales o consecuentes que resulten del uso de nuestros productos o servicios. Nuestra responsabilidad se limita al valor de los productos adquiridos.
               </p>
             </section>
 

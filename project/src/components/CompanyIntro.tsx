@@ -5,14 +5,14 @@ const CompanyIntro = () => {
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)] lg:items-center">
           <div>
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-[#D96C9F]">
-              Club de Las Orquídeas
+              Modo Plantas
             </p>
             <h2 className="max-w-3xl text-4xl font-semibold leading-tight text-[#2F3A35] sm:text-5xl">
               Orquídeas que cuentan historias
             </h2>
             <div className="mt-6 max-w-3xl space-y-5 text-base leading-8 text-[#6B756F] sm:text-lg">
               <p>
-                En Club de Las Orquídeas creemos que cada planta puede transformar un espacio.
+                En Modo Plantas creemos que cada planta puede transformar un espacio.
                 Trabajamos con orquídeas seleccionadas, macetas y arreglos pensados para acompañar
                 hogares, regalos y momentos especiales con elegancia y vida.
               </p>

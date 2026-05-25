@@ -41,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({
               <Flower className="h-6 w-6 text-[#D96C9F] sm:h-8 sm:w-8" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg font-semibold text-[#2F3A35] sm:text-2xl">Club de Las Orquídeas</h1>
+              <h1 className="text-lg font-semibold text-[#2F3A35] sm:text-2xl">Modo Plantas</h1>
               <p className="text-xs text-[#6B756F] sm:text-sm">Pasión por las Orquídeas</p>
             </div>
             <div className="sm:hidden">

@@ -17,7 +17,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <Flower className="h-8 w-8 text-[#D96C9F]" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold">Club de Las Orquídeas</h3>
+                <h3 className="text-2xl font-bold">Modo Plantas</h3>
                 <p className="text-[#CFE3D4]">Pasión por las Orquídeas</p>
               </div>
             </div>
@@ -28,7 +28,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </p>
             <div className="flex space-x-4">
               <a 
-                href="https://www.instagram.com/clubdelasorquideas/?hl=es-la" 
+                href="https://www.instagram.com/modoplantas/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="rounded-full bg-[#D96C9F] p-2 transition-colors hover:bg-[#C8568B]"
@@ -105,7 +105,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         {/* Copyright */}
         <div className="border-t border-white/10 mt-8 pt-6 text-center">
           <p className="text-sm text-[#FFF8EF]/60">
-            © 2025 Club de Las Orquídeas. Todos los derechos reservados. 
+            © 2025 Modo Plantas. Todos los derechos reservados. 
             <span className="mx-2">|</span>
             <button onClick={() => onNavigate('privacy')} className="hover:text-white transition-colors">Política de Privacidad</button>
             <span className="mx-2">|</span>
