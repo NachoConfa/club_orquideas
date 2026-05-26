@@ -1,0 +1,16 @@
+{
+  "name": "Modo Plantas",
+  "short_name": "Modo Plantas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8ef",
+  "theme_color": "#0f8f61",
+  "icons": [
+    {
+      "src": "/modo-plantas-logo-icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
