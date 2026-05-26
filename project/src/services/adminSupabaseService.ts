@@ -43,7 +43,7 @@ export interface AdminProductVariantInput {
   id?: string;
   color: string;
   size: string;
-  flowering_stems: number;
+  flowering_stems: number | '';
   price: AdminMoneyInput;
   stock: number;
   image_url: string;
@@ -299,17 +299,38 @@ const createUuid = () => {
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${(8 + Math.floor(Math.random() * 4)).toString(16)}${randomHex(3)}-${randomHex(12)}`;
 };
 
-const toVariantPayload = (productId: string, variant: AdminProductVariantInput) => ({
-  product_id: productId,
-  color: variant.color.trim() || null,
-  size: variant.size.trim() || null,
-  flowering_stems: Number(variant.flowering_stems || 0),
-  price: parseAdminMoneyValue(variant.price, 'precio de variante'),
-  stock: Number(variant.stock || 0),
-  image_url: variant.image_url.trim() || null,
-  is_active: variant.is_active,
-  sort_order: Number(variant.sort_order || 0),
-});
+const toVariantPayload = (productId: string, variant: AdminProductVariantInput) => {
+  const stock = Number(variant.stock ?? 0);
+  const sortOrder = Number(variant.sort_order ?? 0);
+  const floweringStems =
+    variant.flowering_stems === '' || variant.flowering_stems === null || variant.flowering_stems === undefined
+      ? null
+      : Number(variant.flowering_stems);
+
+  if (!Number.isFinite(stock) || stock < 0) {
+    throw new Error('El stock de variante no puede ser negativo.');
+  }
+
+  if (floweringStems !== null && (!Number.isFinite(floweringStems) || floweringStems <= 0)) {
+    throw new Error('Las varas de una variante deben ser un numero positivo o quedar vacias.');
+  }
+
+  if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+    throw new Error('El orden de variante no puede ser negativo.');
+  }
+
+  return {
+    product_id: productId,
+    color: variant.color.trim() || null,
+    size: variant.size.trim() || null,
+    flowering_stems: floweringStems,
+    price: parseAdminMoneyValue(variant.price, 'precio de variante'),
+    stock,
+    image_url: variant.image_url.trim() || null,
+    is_active: variant.is_active,
+    sort_order: sortOrder,
+  };
+};
 
 const getVariantsForProducts = async (productIds: string[]) => {
   if (productIds.length === 0) {
@@ -422,7 +443,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
     id: variant.id,
     color: variant.color || '',
     size: variant.size || '',
-    flowering_stems: Number(variant.flowering_stems || 0),
+    flowering_stems: variant.flowering_stems == null ? '' : Number(variant.flowering_stems),
     price: String(variant.price ?? ''),
     stock: Number(variant.stock || 0),
     image_url: variant.image_url || '',

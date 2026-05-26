@@ -311,7 +311,7 @@ const ProductForm = ({
         {
           color: form.color || 'Variado',
           size: form.size || 'Mediana',
-          flowering_stems: Number(form.flowering_stems || 0),
+          flowering_stems: Number(form.flowering_stems || 0) > 0 ? Number(form.flowering_stems) : '',
           price: form.price || '',
           stock: Number(form.stock || 0),
           image_url: form.image_url || '',
@@ -493,7 +493,7 @@ const ProductForm = ({
           <div>
             <h4 className="font-semibold text-gray-800">Variantes del producto</h4>
             <p className="text-xs text-gray-500">
-              Si agregas variantes, la pagina de producto usa precio, stock e imagen de la variante seleccionada.
+              Producto principal = contenedor general. Variantes = opciones reales vendibles.
             </p>
           </div>
           <button
@@ -505,6 +505,13 @@ const ProductForm = ({
             Agregar variante
           </button>
         </div>
+
+        {form.variants.length > 0 && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Este producto usa variantes. En la página del producto se usará el precio, stock e imagen de la variante
+            seleccionada. El precio y stock principal quedan como respaldo para productos sin variantes.
+          </div>
+        )}
 
         {form.variants.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
@@ -547,10 +554,13 @@ const ProductForm = ({
                     Varas
                     <input
                       type="number"
-                      min="0"
+                      min="1"
                       value={variant.flowering_stems}
-                      onChange={(event) => updateVariant(index, 'flowering_stems', Number(event.target.value))}
+                      onChange={(event) =>
+                        updateVariant(index, 'flowering_stems', event.target.value === '' ? '' : Number(event.target.value))
+                      }
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Ej: 1"
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">

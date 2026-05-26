@@ -127,6 +127,7 @@ type OrderItemRow = {
     color?: string;
     size?: string;
     flowering_stems?: number | null;
+    image_url?: string;
   } | null;
 };
 
@@ -497,6 +498,7 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
         color: item.color,
         size: item.size,
         flowering_stems: item.floweringStems ?? null,
+        image_url: item.image,
       },
     };
   });

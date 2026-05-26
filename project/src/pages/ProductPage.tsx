@@ -30,19 +30,23 @@ const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
 const uniqueValues = <T,>(values: Array<T | null | undefined>) =>
   Array.from(new Set(values.filter((value): value is T => value !== null && value !== undefined && String(value).trim() !== '')));
 
-const getProductVariants = (product: Product): ProductVariant[] =>
-  product.variants && product.variants.length > 0
-    ? product.variants
-    : [
-        {
-          size: product.size,
-          color: product.color,
-          floweringStems: product.floweringStems,
-          price: product.price,
-          stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
-          image: product.image,
-        },
-      ];
+const getBaseProductVariant = (product: Product): ProductVariant => ({
+  size: product.size,
+  color: product.color,
+  floweringStems: product.floweringStems,
+  price: product.price,
+  stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
+  image: product.image,
+});
+
+const getActiveProductVariants = (product: Product): ProductVariant[] =>
+  (product.variants ?? [])
+    .filter((variant) => Boolean(variant.id) && variant.isActive !== false)
+    .slice()
+    .sort((first, second) => Number(first.sortOrder ?? 0) - Number(second.sortOrder ?? 0));
+
+const hasSelectionValue = (value: string | number | null | undefined) =>
+  value !== null && value !== undefined && String(value).trim() !== '';
 
 type VariantSelection = {
   color?: string;
@@ -67,8 +71,12 @@ const ProductPage = ({
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState('');
 
-  const variants = useMemo(() => (product ? getProductVariants(product) : []), [product]);
-  const hasRealVariants = variants.some((variant) => Boolean(variant.id));
+  const activeVariants = useMemo(() => (product ? getActiveProductVariants(product) : []), [product]);
+  const hasRealVariants = activeVariants.length > 0;
+  const variants = useMemo(
+    () => (product ? (hasRealVariants ? activeVariants : [getBaseProductVariant(product)]) : []),
+    [activeVariants, hasRealVariants, product]
+  );
   const colors = useMemo(
     () =>
       product
@@ -99,15 +107,21 @@ const ProductPage = ({
 
   const findCompatibleVariant = (selection: VariantSelection, preferStock = true) => {
     const matchesSelection = (variant: ProductVariant) =>
-      (!selection.color || variant.color === selection.color) &&
-      (!selection.size || variant.size === selection.size) &&
-      (!selection.floweringStems || variant.floweringStems === selection.floweringStems);
+      (!hasSelectionValue(selection.color) || variant.color === selection.color) &&
+      (!hasSelectionValue(selection.size) || variant.size === selection.size) &&
+      (!hasSelectionValue(selection.floweringStems) || variant.floweringStems === selection.floweringStems);
 
     return (
       (preferStock ? variants.find((variant) => matchesSelection(variant) && Number(variant.stock) > 0) : null) ||
       variants.find(matchesSelection) ||
-      variants.find((variant) => (selection.color ? variant.color === selection.color : true) && Number(variant.stock) > 0) ||
-      variants.find((variant) => (selection.size ? variant.size === selection.size : true) && Number(variant.stock) > 0) ||
+      variants.find((variant) => (hasSelectionValue(selection.color) ? variant.color === selection.color : true) && Number(variant.stock) > 0) ||
+      variants.find((variant) => (hasSelectionValue(selection.size) ? variant.size === selection.size : true) && Number(variant.stock) > 0) ||
+      variants.find((variant) =>
+        hasSelectionValue(selection.floweringStems) ? variant.floweringStems === selection.floweringStems && Number(variant.stock) > 0 : false
+      ) ||
+      variants.find((variant) => (hasSelectionValue(selection.color) ? variant.color === selection.color : false)) ||
+      variants.find((variant) => (hasSelectionValue(selection.size) ? variant.size === selection.size : false)) ||
+      variants.find((variant) => (hasSelectionValue(selection.floweringStems) ? variant.floweringStems === selection.floweringStems : false)) ||
       variants.find((variant) => Number(variant.stock) > 0) ||
       variants[0] ||
       null
@@ -128,11 +142,11 @@ const ProductPage = ({
     return (
       variants.find(
         (variant) =>
-          (!selectedColor || !variant.color || variant.color === selectedColor) &&
-          (!selectedSize || variant.size === selectedSize) &&
-          (!selectedStems || !variant.floweringStems || variant.floweringStems === selectedStems)
+          (!hasSelectionValue(selectedColor) || !variant.color || variant.color === selectedColor) &&
+          (!hasSelectionValue(selectedSize) || variant.size === selectedSize) &&
+          (!hasSelectionValue(selectedStems) || !variant.floweringStems || variant.floweringStems === selectedStems)
       ) ||
-      variants.find((variant) => !selectedSize || variant.size === selectedSize) ||
+      variants.find((variant) => !hasSelectionValue(selectedSize) || variant.size === selectedSize) ||
       variants[0] ||
       null
     );
@@ -183,36 +197,25 @@ const ProductPage = ({
     if (!hasRealVariants) return true;
 
     return variants.some((variant) => {
-      const sameField =
-        field === 'color'
-          ? variant.color === value
-          : field === 'size'
-            ? variant.size === value
-            : variant.floweringStems === value;
+      if (Number(variant.stock) <= 0) return false;
 
-      if (!sameField || Number(variant.stock) <= 0) {
-        return false;
-      }
-
-      const compatibleColor = field === 'color' || !selectedColor || variant.color === selectedColor;
-      const compatibleSize = field === 'color' || field === 'size' || !selectedSize || variant.size === selectedSize;
-      const compatibleStems =
-        field === 'color' || field === 'size' || field === 'floweringStems' || !selectedStems || variant.floweringStems === selectedStems;
-
-      return compatibleColor && compatibleSize && compatibleStems;
+      if (field === 'color') return variant.color === value;
+      if (field === 'size') return variant.size === value;
+      return variant.floweringStems === value;
     });
   };
 
   useEffect(() => {
     if (!product) return;
 
-    const initialVariants = getProductVariants(product);
+    const realVariants = getActiveProductVariants(product);
+    const initialVariants = realVariants.length > 0 ? realVariants : [getBaseProductVariant(product)];
     const preferredVariant =
-      initialVariants.find((variant) => Boolean(variant.id) && Number(variant.stock) > 0) ||
-      initialVariants.find((variant) => Boolean(variant.id)) ||
+      initialVariants.find((variant) => Number(variant.stock) > 0) ||
+      initialVariants[0] ||
       null;
 
-    if (preferredVariant) {
+    if (realVariants.length > 0 && preferredVariant) {
       setSelectedImage(preferredVariant.image || product.image);
       setSelectedColor(preferredVariant.color || '');
       setSelectedSize(preferredVariant.size || '');
@@ -284,17 +287,17 @@ const ProductPage = ({
   }
 
   const handleAddToCart = () => {
-    if (colors.length > 1 && !selectedColor) {
+    if (colors.length > 1 && !hasSelectionValue(selectedColor)) {
       setMessage('Seleccioná un color antes de agregar el producto.');
       return;
     }
 
-    if (sizes.length > 1 && !selectedSize) {
+    if (sizes.length > 1 && !hasSelectionValue(selectedSize)) {
       setMessage('Seleccioná un tamaño antes de agregar el producto.');
       return;
     }
 
-    if (stemOptions.length > 1 && !selectedStems) {
+    if (stemOptions.length > 1 && !hasSelectionValue(selectedStems)) {
       setMessage('Seleccioná la cantidad de varas antes de agregar el producto.');
       return;
     }
@@ -386,6 +389,12 @@ const ProductPage = ({
               {product.description || 'Producto seleccionado de nuestro catálogo.'}
             </p>
 
+            {hasRealVariants && (
+              <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#e8f7ef] px-4 py-3 text-sm text-[#2F3A35]">
+                Este producto usa variantes reales. El precio, stock e imagen corresponden a la opción seleccionada.
+              </div>
+            )}
+
             <div className="mt-6 rounded-2xl border border-[#EADBC8]/70 bg-[#fff8ef] p-4">
               <p className="text-sm text-[#6B756F]">Precio</p>
               <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
@@ -399,9 +408,13 @@ const ProductPage = ({
             {colors.length > 0 && (
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Color</p>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map((color) => (
-                    (() => {
+                {colors.length === 1 ? (
+                  <span className="inline-flex rounded-full border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
+                    {colors[0]}
+                  </span>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map((color) => {
                       const isAvailable = isVariantOptionAvailable('color', color);
 
                       return (
@@ -417,20 +430,25 @@ const ProductPage = ({
                           }`}
                         >
                           {color}
+                          {!isAvailable ? ' - Sin stock' : ''}
                         </button>
                       );
-                    })()
-                  ))}
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             {sizes.length > 0 && (
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Tamaño</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {sizes.map((size) => (
-                    (() => {
+                {sizes.length === 1 ? (
+                  <span className="inline-flex rounded-lg border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
+                    {sizes[0]}
+                  </span>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {sizes.map((size) => {
                       const isAvailable = isVariantOptionAvailable('size', size);
 
                       return (
@@ -446,20 +464,25 @@ const ProductPage = ({
                           }`}
                         >
                           <span className="block font-semibold">{size}</span>
+                          {!isAvailable && <span className="mt-1 block text-xs text-red-600">Sin stock</span>}
                         </button>
                       );
-                    })()
-                  ))}
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             {stemOptions.length > 0 && (
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Cantidad de varas</p>
-                <div className="flex flex-wrap gap-2">
-                  {stemOptions.map((stems) => (
-                    (() => {
+                {stemOptions.length === 1 ? (
+                  <span className="inline-flex rounded-full border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
+                    {stemOptions[0]} {stemOptions[0] === 1 ? 'vara' : 'varas'}
+                  </span>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {stemOptions.map((stems) => {
                       const isAvailable = isVariantOptionAvailable('floweringStems', stems);
 
                       return (
@@ -475,11 +498,12 @@ const ProductPage = ({
                           }`}
                         >
                           {stems} {stems === 1 ? 'vara' : 'varas'}
+                          {!isAvailable ? ' - Sin stock' : ''}
                         </button>
                       );
-                    })()
-                  ))}
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
