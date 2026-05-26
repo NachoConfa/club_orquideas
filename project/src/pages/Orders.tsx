@@ -133,6 +133,13 @@ const getShippingText = (order: CustomerOrder) => {
     : `Encomienda${order.shippingZoneName ? ` - ${order.shippingZoneName}` : ''}`;
 };
 
+const getOrderItemDetails = (item: CustomerOrder['items'][number]) =>
+  [
+    item.color,
+    item.size,
+    item.floweringStems ? `${item.floweringStems} ${item.floweringStems === 1 ? 'vara' : 'varas'}` : '',
+  ].filter(Boolean);
+
 const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
@@ -297,6 +304,9 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
                     <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-800">{item.name}</h4>
+                      {getOrderItemDetails(item).length > 0 && (
+                        <p className="text-xs text-gray-500">{getOrderItemDetails(item).join(' · ')}</p>
+                      )}
                       <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
                     </div>
                     <p className="font-semibold text-gray-800">{formatMoney(item.price * item.quantity)}</p>

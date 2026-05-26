@@ -171,6 +171,7 @@ const ORDER_COLUMNS = [
 const PAYMENT_COLUMNS =
   'id, order_id, amount, method, status, payment_status, preference_id, provider_payment_id, created_at';
 const PROFILE_COLUMNS = 'id, full_name, phone, address, role, created_at';
+const ORDER_ITEM_SUMMARY_COLUMNS = 'order_id, product_name, quantity, product_details';
 const ADMIN_QUERY_TIMEOUT_MS = 12000;
 const ADMIN_PAGE_LIMIT = 120;
 const ADMIN_DASHBOARD_LIMIT = 8;
@@ -371,6 +372,52 @@ const attachVariantsToProducts = async (products: AdminProduct[]) => {
   }));
 };
 
+const getOrderItemsSummaryForOrders = async (orderIds: string[]) => {
+  if (orderIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const client = getClient();
+  const { data, error } = await client
+    .from('order_items')
+    .select(ORDER_ITEM_SUMMARY_COLUMNS)
+    .in('order_id', orderIds);
+
+  if (error) {
+    if (import.meta.env.DEV) {
+      console.error('Error cargando resumen de items de pedidos:', error);
+    }
+    return new Map<string, string>();
+  }
+
+  const summaryByOrder = new Map<string, string[]>();
+  ((data ?? []) as AdminRecord[]).forEach((item) => {
+    const orderId = String(item.order_id ?? '');
+    if (!orderId) return;
+
+    const details =
+      item.product_details && typeof item.product_details === 'object'
+        ? (item.product_details as Record<string, unknown>)
+        : {};
+    const variantDetails = [
+      details.color,
+      details.size,
+      details.flowering_stems ? `${details.flowering_stems} varas` : '',
+    ]
+      .filter(Boolean)
+      .join(' / ');
+    const itemSummary = `${item.product_name || 'Producto'} x${Number(item.quantity ?? 0)}${
+      variantDetails ? ` (${variantDetails})` : ''
+    }`;
+
+    summaryByOrder.set(orderId, [...(summaryByOrder.get(orderId) ?? []), itemSummary]);
+  });
+
+  return new Map(
+    Array.from(summaryByOrder.entries()).map(([orderId, summaries]) => [orderId, summaries.join(', ')])
+  );
+};
+
 const saveProductVariants = async (productId: string, product: AdminProductInput) => {
   const variants = product.variants ?? [];
   const deletedVariantIds = product.deletedVariantIds ?? [];
@@ -558,7 +605,13 @@ export const getAdminOrders = async (limit = ADMIN_PAGE_LIMIT) => {
     throw error;
   }
 
-  return (data ?? []) as AdminRecord[];
+  const orders = (data ?? []) as AdminRecord[];
+  const summariesByOrder = await getOrderItemsSummaryForOrders(orders.map((order) => String(order.id ?? '')).filter(Boolean));
+
+  return orders.map((order) => ({
+    ...order,
+    items_summary: summariesByOrder.get(String(order.id ?? '')) || '',
+  }));
 };
 
 export const updateAdminOrderStatus = async (id: string, status: string) => {

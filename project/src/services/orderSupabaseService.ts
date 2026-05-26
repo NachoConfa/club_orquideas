@@ -48,10 +48,14 @@ export interface CustomerOrder {
   date: string;
   items: Array<{
     id: number;
+    variantId?: string | null;
     name: string;
     price: number;
     quantity: number;
     image: string;
+    color?: string;
+    size?: string;
+    floweringStems?: number | null;
   }>;
   total: number;
   subtotal: number;
@@ -115,6 +119,7 @@ type OrderItemRow = {
   id: number | string;
   order_id: string;
   product_id?: string | null;
+  variant_id?: string | null;
   product_name: string | null;
   product_image?: string | null;
   quantity: number | null;
@@ -487,6 +492,7 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
 
     return {
       product_id: toNullableUuid(item.sourceId),
+      variant_id: toNullableUuid(item.variantId),
       product_name: item.name,
       product_image: item.image,
       quantity,
@@ -698,10 +704,14 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
 
     const orderItems = (itemsByOrder[order.id] ?? []).map((item) => ({
       id: Number(item.product_details?.display_id ?? item.id),
+      variantId: item.variant_id ?? item.product_details?.variant_id ?? null,
       name: item.product_name || 'Producto',
       price: Number(item.unit_price ?? 0),
       quantity: Number(item.quantity ?? 0),
       image: item.product_image || '',
+      color: item.product_details?.color,
+      size: item.product_details?.size,
+      floweringStems: item.product_details?.flowering_stems ?? null,
     }));
 
     const subtotal = Number(order.subtotal ?? orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0));

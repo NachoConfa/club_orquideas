@@ -1284,6 +1284,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                       </select>
                     ),
                   },
+                  {
+                    key: 'items_summary',
+                    label: 'Productos',
+                    render: (record) => (
+                      <span title={String(record.items_summary || '')}>
+                        {stringifyValue(record.items_summary)}
+                      </span>
+                    ),
+                  },
                   { key: 'total', label: 'Total', render: (record) => formatCurrency(getAmount(record)) },
                   {
                     key: 'payment_fee',
