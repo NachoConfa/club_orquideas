@@ -12,6 +12,7 @@ export interface CheckoutOrderItem {
   quantity: number;
   color: string;
   size: string;
+  floweringStems?: number;
 }
 
 export interface CheckoutCustomerInfo {
@@ -125,6 +126,7 @@ type OrderItemRow = {
     variant_id?: string | null;
     color?: string;
     size?: string;
+    flowering_stems?: number | null;
   } | null;
 };
 
@@ -494,6 +496,7 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
         variant_id: toNullableUuid(item.variantId),
         color: item.color,
         size: item.size,
+        flowering_stems: item.floweringStems ?? null,
       },
     };
   });

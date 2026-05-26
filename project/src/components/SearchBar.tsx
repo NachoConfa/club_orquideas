@@ -3,32 +3,43 @@ import { Search, X } from 'lucide-react';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
+  onSubmit?: (query: string) => void;
   searchQuery: string;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch, searchQuery }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSubmit, searchQuery }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    onSubmit?.(searchQuery);
   };
 
   const clearSearch = () => {
     onSearch('');
+    onSubmit?.('');
     setIsExpanded(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className={`flex items-center rounded-full border border-[#EADBC8] bg-white/90 px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#7FAF9B] ${
-        isExpanded ? 'min-w-[400px]' : 'min-w-[300px]'
-      }`}>
-        <Search className="mr-3 h-5 w-5 flex-shrink-0 text-[#7FAF9B]" />
+      <div
+        className={`flex items-center rounded-full border border-[#EADBC8] bg-white/90 px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#7FAF9B] ${
+          isExpanded ? 'min-w-[400px]' : 'min-w-[300px]'
+        }`}
+      >
+        <button
+          type="submit"
+          className="mr-3 flex-shrink-0 text-[#7FAF9B] transition-colors hover:text-[#0f8f61]"
+          aria-label="Buscar"
+        >
+          <Search className="h-5 w-5" />
+        </button>
         <input
           type="text"
-          placeholder="Buscar orquídeas, macetas, accesorios..."
+          placeholder="Buscar plantas, macetas, accesorios..."
           value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
+          onChange={(event) => onSearch(event.target.value)}
           onFocus={() => setIsExpanded(true)}
           onBlur={() => setIsExpanded(false)}
           className="flex-1 bg-transparent text-[#2F3A35] outline-none placeholder:text-[#6B756F]/70"
@@ -38,6 +49,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, searchQuery }) => {
             type="button"
             onClick={clearSearch}
             className="ml-2 text-[#6B756F] transition-colors hover:text-[#D96C9F]"
+            aria-label="Limpiar busqueda"
           >
             <X className="h-4 w-4" />
           </button>

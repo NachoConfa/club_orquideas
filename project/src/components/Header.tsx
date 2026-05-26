@@ -8,9 +8,10 @@ interface HeaderProps {
   onCartClick: () => void;
   onFavoritesClick: () => void;
   onUserClick: () => void;
-  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'account-settings' | 'admin') => void;
+  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy' | 'orders' | 'account-settings' | 'admin' | 'search') => void;
   searchQuery: string;
   onSearch: (query: string) => void;
+  onSearchSubmit?: (query: string) => void;
   user: { name: string; email: string; isAdmin?: boolean } | null;
 }
 
@@ -23,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({
   onNavigate, 
   searchQuery, 
   onSearch,
+  onSearchSubmit,
   user,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -118,7 +120,7 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center space-x-2 sm:space-x-3">
             {/* Barra de búsqueda - Hidden en móvil */}
             <div className="hidden md:flex">
-              <SearchBar searchQuery={searchQuery} onSearch={onSearch} />
+              <SearchBar searchQuery={searchQuery} onSearch={onSearch} onSubmit={onSearchSubmit} />
             </div>
 
             {user && (
@@ -188,7 +190,7 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Barra de búsqueda móvil */}
         <div className="md:hidden mt-3">
-          <SearchBar searchQuery={searchQuery} onSearch={onSearch} />
+          <SearchBar searchQuery={searchQuery} onSearch={onSearch} onSubmit={onSearchSubmit} />
         </div>
 
         {/* Menú Móvil */}

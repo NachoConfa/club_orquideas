@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Cart from './components/Cart';
@@ -6,6 +7,7 @@ import Favorites from './components/Favorites';
 import AuthModal from './components/AuthModal';
 import ProductCard from './components/ProductCard';
 import ProductDetailModal from './components/ProductDetailModal';
+import ScrollToTop from './components/ScrollToTop';
 import HeroCarousel from './components/HeroCarousel';
 import CompanyIntro from './components/CompanyIntro';
 import Filters from './components/Filters';
@@ -19,6 +21,7 @@ import TermsAndConditions from './pages/TermsAndConditions';
 import ResetPassword from './pages/ResetPassword';
 import AccountSettings from './pages/AccountSettings';
 import AdminDashboard from './pages/AdminDashboard';
+import ProductPage from './pages/ProductPage';
 import type { CartItem, CartItemInput } from './types/cart';
 import type { Product } from './types/product';
 import { sendProductAvailabilityEmail } from './services/emailService';
@@ -36,7 +39,11 @@ import {
   createEmptyCatalogFilters,
   getAvailableFilters,
   getPriceRangeError,
+  getProductPrices,
+  parsePriceInput,
+  productHasAvailableStock,
   type CatalogCategory,
+  type CatalogFilterGroup,
 } from './utils/catalogFilters';
 import {
   trackAddToCart,
@@ -45,6 +52,7 @@ import {
   trackProductView,
   trackRemoveFromFavorite,
 } from './services/analyticsService';
+import { getProductSlug } from './utils/productSlug';
 import { Flower, Star, Heart, ShoppingBag } from 'lucide-react';
 
 type AppUser = AuthenticatedUser | {
@@ -77,14 +85,55 @@ type AppPage =
   | 'orders'
   | 'reset-password'
   | 'account-settings'
-  | 'admin';
+  | 'admin'
+  | 'product'
+  | 'search';
+
+const APP_PAGE_PATHS: Record<AppPage, string> = {
+  home: '/',
+  accessories: '/accesorios',
+  care: '/cuidados',
+  orchids: '/orquideas',
+  interior: '/plantas-interior',
+  exterior: '/plantas-exterior',
+  arrangements: '/arreglos',
+  pots: '/macetas',
+  checkout: '/checkout',
+  'checkout-success': '/checkout/success',
+  'checkout-failure': '/checkout/failure',
+  'checkout-pending': '/checkout/pending',
+  terms: '/terminos',
+  privacy: '/privacidad',
+  orders: '/pedidos',
+  'reset-password': '/reset-password',
+  'account-settings': '/perfil',
+  admin: '/admin',
+  product: '/producto',
+  search: '/buscar',
+};
 
 const normalizeCatalogValue = (value: unknown) =>
   String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/[-_/.,;:()]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
+
+const SEARCH_TERM_ALIASES: Record<string, string[]> = {
+  phaleanopsis: ['phalaenopsis'],
+  phalenopsis: ['phalaenopsis'],
+  phalaenopsi: ['phalaenopsis'],
+  orquidea: ['orquidea', 'orquideas'],
+  orquideas: ['orquidea', 'orquideas'],
+  maceta: ['maceta', 'macetas'],
+  macetas: ['maceta', 'macetas'],
+  arreglo: ['arreglo', 'arreglos'],
+  arreglos: ['arreglo', 'arreglos'],
+};
+
+const expandSearchTerm = (term: string) => Array.from(new Set([term, ...(SEARCH_TERM_ALIASES[term] ?? [])]));
 
 const getAttributeText = (product: Product, key: string) => {
   const value = product.attributes?.[key];
@@ -116,6 +165,46 @@ const productHasCatalogTag = (product: Product, tags: string[]) => {
 
   return normalizedTags.some((tag) =>
     values.some((value) => value === tag || value.includes(tag) || tag.includes(value))
+  );
+};
+
+const getProductSearchValues = (product: Product) =>
+  [
+    product.name,
+    product.description,
+    product.category,
+    product.type,
+    product.color,
+    product.size,
+    getProductSlug(product),
+    product.floweringStems == null ? '' : `${product.floweringStems} varas`,
+    ...(product.colors ?? []),
+    ...(product.variants ?? []).flatMap((variant) => [
+      variant.color,
+      variant.size,
+      variant.floweringStems == null ? '' : `${variant.floweringStems} varas`,
+      variant.price == null ? '' : String(variant.price),
+    ]),
+    ...getAttributeText(product, 'category'),
+    ...getAttributeText(product, 'type'),
+    ...getAttributeText(product, 'product_type'),
+    ...getAttributeText(product, 'orchid_type'),
+  ]
+    .map(normalizeCatalogValue)
+    .filter(Boolean);
+
+const productMatchesSearchQuery = (product: Product, query: string) => {
+  const normalizedQuery = normalizeCatalogValue(query);
+
+  if (!normalizedQuery) {
+    return false;
+  }
+
+  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const values = getProductSearchValues(product);
+
+  return queryTerms.every((term) =>
+    expandSearchTerm(term).some((expandedTerm) => values.some((value) => value.includes(expandedTerm)))
   );
 };
 
@@ -152,6 +241,180 @@ const isOrchidProduct = (product: Product) => {
   }
 
   return true;
+};
+
+type SearchCategoryValue = 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'accessories';
+
+const SEARCH_CATEGORY_LABELS: Record<SearchCategoryValue, string> = {
+  orchids: 'Orquideas',
+  interior: 'Plantas de interior',
+  exterior: 'Plantas de exterior',
+  arrangements: 'Arreglos',
+  pots: 'Macetas',
+  accessories: 'Accesorios',
+};
+
+const getProductSearchCategory = (product: Product): SearchCategoryValue => {
+  if (isInteriorProduct(product)) return 'interior';
+  if (isExteriorProduct(product)) return 'exterior';
+  if (isArrangementProduct(product)) return 'arrangements';
+  if (isPotProduct(product)) return 'pots';
+  if (isAccessoryProduct(product)) return 'accessories';
+  return 'orchids';
+};
+
+const uniqueSearchOptions = (products: Product[], getValues: (product: Product) => Array<string | number | undefined | null>) => {
+  const options = new Map<string, { value: string; label: string; count: number }>();
+
+  products.forEach((product) => {
+    const seenValues = new Set<string>();
+    getValues(product).forEach((rawValue) => {
+      if (rawValue === null || rawValue === undefined || rawValue === '') return;
+      const label = String(rawValue).trim();
+      const value = normalizeCatalogValue(label);
+      if (!value || seenValues.has(value)) return;
+      seenValues.add(value);
+
+      const currentOption = options.get(value);
+      options.set(value, {
+        value,
+        label: currentOption?.label || label,
+        count: (currentOption?.count ?? 0) + 1,
+      });
+    });
+  });
+
+  return Array.from(options.values()).sort((first, second) => first.label.localeCompare(second.label, 'es'));
+};
+
+const getSearchFilterData = (products: Product[]) => {
+  const groups: CatalogFilterGroup[] = [];
+
+  const categoryOptions = Object.entries(SEARCH_CATEGORY_LABELS)
+    .map(([value, label]) => ({
+      value,
+      label,
+      count: products.filter((product) => getProductSearchCategory(product) === value).length,
+    }))
+    .filter((option) => option.count > 0);
+
+  if (categoryOptions.length > 0) {
+    groups.push({
+      key: 'category',
+      label: 'Categoria / tipo',
+      display: 'checkbox',
+      options: categoryOptions,
+    });
+  }
+
+  const colorOptions = uniqueSearchOptions(products, (product) => [
+    product.color,
+    ...(product.colors ?? []),
+    ...(product.variants ?? []).map((variant) => variant.color),
+  ]);
+  if (colorOptions.length > 0) {
+    groups.push({ key: 'color', label: 'Color', display: 'swatch', options: colorOptions });
+  }
+
+  const sizeOptions = uniqueSearchOptions(products, (product) => [
+    product.size,
+    ...(product.variants ?? []).map((variant) => variant.size),
+  ]);
+  if (sizeOptions.length > 0) {
+    groups.push({ key: 'size', label: 'Tamano', display: 'checkbox', options: sizeOptions });
+  }
+
+  const stemsOptions = uniqueSearchOptions(products, (product) => [
+    product.floweringStems,
+    ...(product.variants ?? []).map((variant) => variant.floweringStems),
+  ]);
+  if (stemsOptions.length > 0) {
+    groups.push({
+      key: 'floweringStems',
+      label: 'Varas florales',
+      display: 'checkbox',
+      options: stemsOptions.map((option) => ({
+        ...option,
+        label: `${option.label} ${option.label === '1' ? 'vara' : 'varas'}`,
+      })),
+    });
+  }
+
+  const inStockCount = products.filter(productHasAvailableStock).length;
+  if (inStockCount > 0 && inStockCount < products.length) {
+    groups.push({
+      key: 'stock',
+      label: 'Stock disponible',
+      display: 'checkbox',
+      options: [{ value: 'available', label: 'Solo disponibles', count: inStockCount }],
+    });
+  }
+
+  const prices = products.flatMap(getProductPrices);
+  const priceBounds = prices.length
+    ? { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) }
+    : { min: 0, max: 0 };
+
+  return { groups, priceBounds };
+};
+
+const applySearchFilters = (products: Product[], filters: ReturnType<typeof createEmptyCatalogFilters>) => {
+  const minPrice = parsePriceInput(filters.priceRange[0]);
+  const maxPrice = parsePriceInput(filters.priceRange[1]);
+  const hasPriceError = Boolean(getPriceRangeError(filters.priceRange));
+
+  return products.filter((product) => {
+    for (const [filterKey, selectedValues] of Object.entries(filters.values)) {
+      if (selectedValues.length === 0) continue;
+
+      if (filterKey === 'category') {
+        if (!selectedValues.includes(getProductSearchCategory(product))) return false;
+        continue;
+      }
+
+      if (filterKey === 'stock') {
+        if (selectedValues.includes('available') && !productHasAvailableStock(product)) return false;
+        continue;
+      }
+
+      if (filterKey === 'color') {
+        const productValues = uniqueSearchOptions([product], (currentProduct) => [
+          currentProduct.color,
+          ...(currentProduct.colors ?? []),
+          ...(currentProduct.variants ?? []).map((variant) => variant.color),
+        ]).map((option) => option.value);
+        if (!selectedValues.some((value) => productValues.includes(value))) return false;
+        continue;
+      }
+
+      if (filterKey === 'size') {
+        const productValues = uniqueSearchOptions([product], (currentProduct) => [
+          currentProduct.size,
+          ...(currentProduct.variants ?? []).map((variant) => variant.size),
+        ]).map((option) => option.value);
+        if (!selectedValues.some((value) => productValues.includes(value))) return false;
+        continue;
+      }
+
+      if (filterKey === 'floweringStems') {
+        const productValues = uniqueSearchOptions([product], (currentProduct) => [
+          currentProduct.floweringStems,
+          ...(currentProduct.variants ?? []).map((variant) => variant.floweringStems),
+        ]).map((option) => option.value);
+        if (!selectedValues.some((value) => productValues.includes(value))) return false;
+      }
+    }
+
+    if (!hasPriceError && (minPrice !== null || maxPrice !== null)) {
+      return getProductPrices(product).some((price) => {
+        if (minPrice !== null && price < minPrice) return false;
+        if (maxPrice !== null && price > maxPrice) return false;
+        return true;
+      });
+    }
+
+    return true;
+  });
 };
 
 const getCatalogCategoryFromPage = (page: AppPage): CatalogCategory | null => {
@@ -273,12 +536,15 @@ const readArrayStorage = <T,>(key: string): T[] => {
   return [];
 };
 
-const buildCartKey = (item: Pick<CartItemInput, 'id' | 'sourceId' | 'variantId' | 'size' | 'color' | 'price'>) =>
+const buildCartKey = (
+  item: Pick<CartItemInput, 'id' | 'sourceId' | 'variantId' | 'size' | 'color' | 'floweringStems' | 'price'>
+) =>
   [
     item.sourceId || item.id,
     item.variantId || 'base',
     item.size || 'sin-tamano',
     item.color || 'sin-color',
+    item.floweringStems || 'sin-varas',
     item.price,
   ].join('|');
 
@@ -293,6 +559,7 @@ const getMatchingVariantId = (product: Product, item: CartItem) =>
       variant.id &&
       variant.size === item.size &&
       (!variant.color || variant.color === item.color) &&
+      (!variant.floweringStems || variant.floweringStems === item.floweringStems) &&
       Number(variant.price) === Number(item.price)
   )?.id;
 
@@ -385,8 +652,11 @@ const mergeProfileUser = (currentUser: AppUser | null, profileUser: Authenticate
   };
 };
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<AppPage>('home');
+function AppShell({ routePage }: { routePage: AppPage }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { slug: routeProductSlug } = useParams();
+  const currentPage = routePage;
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [favoriteItems, setFavoriteItems] = useState<Product[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -404,8 +674,24 @@ function App() {
   const [productLoadNotice, setProductLoadNotice] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState(() => createEmptyCatalogFilters());
+  const [searchFilters, setSearchFilters] = useState(() => createEmptyCatalogFilters());
   const currentCatalogCategory = getCatalogCategoryFromPage(currentPage);
   const productLoadRequestIdRef = useRef(0);
+  const lastViewedProductKeyRef = useRef<string | null>(null);
+  const searchPageQuery = new URLSearchParams(location.search).get('q') ?? '';
+  const navigateToPage = useCallback((page: AppPage, options?: { replace?: boolean }) => {
+    navigate(APP_PAGE_PATHS[page], { replace: options?.replace });
+  }, [navigate]);
+
+  const submitGlobalSearch = useCallback((query: string) => {
+    const trimmedQuery = query.trim();
+    const searchPath = trimmedQuery
+      ? `${APP_PAGE_PATHS.search}?q=${encodeURIComponent(trimmedQuery)}`
+      : APP_PAGE_PATHS.search;
+
+    setSearchQuery(trimmedQuery);
+    navigate(searchPath);
+  }, [navigate]);
 
   // Cargar datos del usuario al iniciar
   useEffect(() => {
@@ -420,18 +706,17 @@ function App() {
       window.location.hash.includes('reset-password') ||
       window.location.hash.includes('type=recovery');
 
-    if (shouldOpenResetPassword) {
-      setCurrentPage('reset-password');
+    if (shouldOpenResetPassword && currentPage !== 'reset-password') {
+      navigate(`${APP_PAGE_PATHS['reset-password']}${window.location.search}${window.location.hash}`, { replace: true });
     }
 
     const mercadoPagoResult = getMercadoPagoResultFromUrl();
     if (mercadoPagoResult && !shouldOpenResetPassword) {
       setCheckoutResult(mercadoPagoResult);
-      setCurrentPage(getCheckoutPageFromResult(mercadoPagoResult.status));
+      navigateToPage(getCheckoutPageFromResult(mercadoPagoResult.status), { replace: true });
       if (mercadoPagoResult.orderId) {
         setCartItems([]);
       }
-      window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     const authSubscription = isSupabaseReady()
@@ -439,7 +724,7 @@ function App() {
           if (!isMounted) return;
 
           if (event === 'PASSWORD_RECOVERY') {
-            setCurrentPage('reset-password');
+            navigateToPage('reset-password');
             return;
           }
 
@@ -493,6 +778,13 @@ function App() {
   useEffect(() => {
     setFilters(createEmptyCatalogFilters());
   }, [currentCatalogCategory]);
+
+  useEffect(() => {
+    if (currentPage === 'search') {
+      setSearchQuery(searchPageQuery);
+      setSearchFilters(createEmptyCatalogFilters());
+    }
+  }, [currentPage, searchPageQuery]);
 
   const loadCatalogProducts = useCallback(async ({ preferCache = true } = {}) => {
     const requestId = productLoadRequestIdRef.current + 1;
@@ -587,7 +879,7 @@ function App() {
     setUser(userData);
 
     if (postAuthPage) {
-      setCurrentPage(postAuthPage);
+      navigateToPage(postAuthPage);
       setPostAuthPage(null);
     }
   };
@@ -632,8 +924,7 @@ function App() {
   };
 
   const openProductDetail = (product: Product) => {
-    setSelectedProduct(product);
-    trackProductView(product);
+    navigate(`/producto/${getProductSlug(product)}`);
   };
 
   const addSelectionToCart = (selection: CartItemInput) => {
@@ -674,7 +965,7 @@ function App() {
 
     setIsCartOpen(false);
     trackCheckoutStarted(cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0));
-    setCurrentPage('checkout');
+    navigateToPage('checkout');
   };
 
   const updateCartQuantity = (cartKey: string, quantity: number) => {
@@ -761,11 +1052,39 @@ function App() {
     setFilters(createEmptyCatalogFilters());
   };
 
+  const handleSearchFilterOptionToggle = (filterKey: string, value: string, checked: boolean) => {
+    setSearchFilters((current) => {
+      const currentValues = current.values[filterKey] ?? [];
+      const nextValues = checked
+        ? Array.from(new Set([...currentValues, value]))
+        : currentValues.filter((currentValue) => currentValue !== value);
+
+      return {
+        ...current,
+        values: {
+          ...current.values,
+          [filterKey]: nextValues,
+        },
+      };
+    });
+  };
+
+  const handleSearchPriceRangeChange = (priceRange: [string, string]) => {
+    setSearchFilters((current) => ({
+      ...current,
+      priceRange,
+    }));
+  };
+
+  const clearSearchFilters = () => {
+    setSearchFilters(createEmptyCatalogFilters());
+  };
+
   const getSearchFilteredProducts = () => {
     let products = catalogProducts;
     
     // Aplicar filtros de búsqueda
-    if (searchQuery) {
+    if (currentPage === 'search' && searchQuery) {
       products = products.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -782,12 +1101,77 @@ function App() {
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const favoritesCount = favoriteItems.length;
+  const productPageProduct =
+    currentPage === 'product' && routeProductSlug
+      ? catalogProducts.find((product) => getProductSlug(product) === routeProductSlug) ?? null
+      : null;
+  const productPageRelatedProducts = productPageProduct
+    ? catalogProducts
+        .filter((product) => product.id !== productPageProduct.id)
+        .filter((product) => product.category === productPageProduct.category || product.type === productPageProduct.type)
+        .slice(0, 4)
+    : [];
+  const normalizedSearchPageQuery = searchPageQuery.trim();
+  const globalSearchResults = normalizedSearchPageQuery
+    ? catalogProducts.filter((product) => productMatchesSearchQuery(product, normalizedSearchPageQuery))
+    : [];
+  const searchAvailableFilters = getSearchFilterData(globalSearchResults);
+  const searchPriceRangeError = getPriceRangeError(searchFilters.priceRange);
+  const filteredGlobalSearchResults = applySearchFilters(globalSearchResults, searchFilters);
+
+  useEffect(() => {
+    if (currentPage !== 'product' || !productPageProduct) {
+      return;
+    }
+
+    const productKey = productPageProduct.sourceId || String(productPageProduct.id);
+    if (lastViewedProductKeyRef.current === productKey) {
+      return;
+    }
+
+    lastViewedProductKeyRef.current = productKey;
+    trackProductView(productPageProduct);
+  }, [currentPage, productPageProduct]);
+
+  const navigateBackFromProduct = () => {
+    if (!productPageProduct) {
+      navigateToPage('home');
+      return;
+    }
+
+    if (isInteriorProduct(productPageProduct)) {
+      navigateToPage('interior');
+      return;
+    }
+
+    if (isExteriorProduct(productPageProduct)) {
+      navigateToPage('exterior');
+      return;
+    }
+
+    if (isArrangementProduct(productPageProduct)) {
+      navigateToPage('arrangements');
+      return;
+    }
+
+    if (isPotProduct(productPageProduct)) {
+      navigateToPage('pots');
+      return;
+    }
+
+    if (isAccessoryProduct(productPageProduct)) {
+      navigateToPage('accessories');
+      return;
+    }
+
+    navigateToPage('orchids');
+  };
 
   if (currentPage === 'admin') {
     return (
       <AdminDashboard
         user={user}
-        onBack={() => setCurrentPage('home')}
+        onBack={() => navigateToPage('home')}
         onProductsChanged={() => window.dispatchEvent(new Event('products-updated'))}
       />
     );
@@ -796,9 +1180,9 @@ function App() {
   if (currentPage === 'reset-password') {
     return (
       <ResetPassword 
-        onBack={() => setCurrentPage('home')}
+        onBack={() => navigateToPage('home')}
         onPasswordReset={() => {
-          setCurrentPage('home');
+          navigateToPage('home');
           openAuthModal();
         }}
       />
@@ -809,18 +1193,18 @@ function App() {
     return (
       <AccountSettings 
         user={user}
-        onBack={() => setCurrentPage('home')}
+        onBack={() => navigateToPage('home')}
         onUpdateUser={handleUpdateUser}
         onLogout={async () => {
           await handleLogout();
-          setCurrentPage('home');
+          navigateToPage('home');
         }}
       />
     );
   }
 
   if (currentPage === 'orders') {
-    return <Orders onBack={() => setCurrentPage('home')} user={user} />;
+    return <Orders onBack={() => navigateToPage('home')} user={user} />;
   }
 
   if (currentPage === 'checkout-success' || currentPage === 'checkout-failure' || currentPage === 'checkout-pending') {
@@ -836,30 +1220,31 @@ function App() {
           onFavoritesClick={() => setIsFavoritesOpen(true)}
           onUserClick={() => {
             if (user) {
-              setCurrentPage('account-settings');
+              navigateToPage('account-settings');
             } else {
               openAuthModal();
             }
           }}
-          onNavigate={setCurrentPage}
+          onNavigate={navigateToPage}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
           user={user}
         />
 
         <CheckoutResultPage
           result={checkoutResult ?? { status: fallbackStatus, source: 'url' }}
           items={cartItems}
-          onBackHome={() => setCurrentPage('home')}
+          onBackHome={() => navigateToPage('home')}
           onBackToCart={() => {
-            setCurrentPage('home');
+            navigateToPage('home');
             setIsCartOpen(true);
           }}
-          onBackToCheckout={() => setCurrentPage('checkout')}
-          onViewOrders={() => setCurrentPage('orders')}
+          onBackToCheckout={() => navigateToPage('checkout')}
+          onViewOrders={() => navigateToPage('orders')}
         />
 
-        <Footer onNavigate={setCurrentPage} />
+        <Footer onNavigate={navigateToPage} />
 
         <Cart
           items={cartItems}
@@ -888,11 +1273,11 @@ function App() {
           notice={authModalNotice}
           onNavigateToSettings={() => {
             closeAuthModal();
-            setCurrentPage('account-settings');
+            navigateToPage('account-settings');
           }}
           onNavigateToAdmin={() => {
             closeAuthModal();
-            setCurrentPage('admin');
+            navigateToPage('admin');
           }}
         />
       </div>
@@ -909,9 +1294,10 @@ function App() {
             onCartClick={() => setIsCartOpen(true)}
             onFavoritesClick={() => setIsFavoritesOpen(true)}
             onUserClick={() => openAuthModal()}
-            onNavigate={setCurrentPage}
+            onNavigate={navigateToPage}
             searchQuery={searchQuery}
             onSearch={setSearchQuery}
+            onSearchSubmit={submitGlobalSearch}
             user={user}
           />
 
@@ -944,7 +1330,7 @@ function App() {
               </div>
               <button
                 type="button"
-                onClick={() => setCurrentPage('home')}
+                onClick={() => navigateToPage('home')}
                 className="mt-5 text-sm font-medium text-[#6B756F] transition-colors hover:text-[#2F3A35]"
               >
                 Volver a la tienda
@@ -979,11 +1365,11 @@ function App() {
             notice={authModalNotice}
             onNavigateToSettings={() => {
               closeAuthModal();
-              setCurrentPage('account-settings');
+              navigateToPage('account-settings');
             }}
             onNavigateToAdmin={() => {
               closeAuthModal();
-              setCurrentPage('admin');
+              navigateToPage('admin');
             }}
           />
         </div>
@@ -993,17 +1379,242 @@ function App() {
     return (
       <Checkout
         items={cartItems}
-        onBack={() => setCurrentPage('home')}
+        onBack={() => navigateToPage('home')}
         onOrderComplete={(result) => {
           setCheckoutResult(result);
           if (result.status === 'success' || result.orderId) {
             clearCart();
           }
 
-          setCurrentPage(getCheckoutPageFromResult(result.status));
+          navigateToPage(getCheckoutPageFromResult(result.status));
         }}
         user={user}
       />
+    );
+  }
+
+  if (currentPage === 'product') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+
+        <ProductPage
+          product={productPageProduct}
+          isLoading={isLoadingProducts}
+          relatedProducts={productPageRelatedProducts}
+          isFavorite={Boolean(productPageProduct && favoriteItems.some((item) => item.id === productPageProduct.id))}
+          onBack={navigateBackFromProduct}
+          onAddToCart={addSelectionToCart}
+          onToggleFavorite={toggleFavorite}
+          onOpenRelatedProduct={openProductDetail}
+        />
+
+        <Footer onNavigate={navigateToPage} />
+
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (currentPage === 'search') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+
+        <main className="mx-auto min-h-[70vh] w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-[#2F3A35]">Resultados de busqueda</h1>
+              <p className="mt-2 text-[#6B756F]">
+                {normalizedSearchPageQuery
+                  ? `Resultados para "${normalizedSearchPageQuery}"`
+                  : 'Escribi una busqueda para encontrar productos en toda la tienda.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigateToPage('home')}
+              className="rounded-full border border-[#EADBC8] bg-white px-4 py-2 text-sm font-semibold text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/60"
+            >
+              Volver al inicio
+            </button>
+          </div>
+
+          {isLoadingProducts ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <ProductGridSkeleton count={8} />
+            </div>
+          ) : normalizedSearchPageQuery && globalSearchResults.length > 0 ? (
+            <div className="flex flex-col gap-4 lg:flex-row lg:gap-8">
+              <div className="lg:w-1/4 lg:flex-shrink-0">
+                <Filters
+                  filters={searchFilters}
+                  filterGroups={searchAvailableFilters.groups}
+                  priceBounds={searchAvailableFilters.priceBounds}
+                  priceError={searchPriceRangeError}
+                  onOptionToggle={handleSearchFilterOptionToggle}
+                  onPriceRangeChange={handleSearchPriceRangeChange}
+                  onClearFilters={clearSearchFilters}
+                />
+              </div>
+
+              <div className="min-w-0 lg:w-3/4">
+                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-[#6B756F]">
+                    {filteredGlobalSearchResults.length} de {globalSearchResults.length} productos encontrados
+                  </p>
+                  {searchPriceRangeError && (
+                    <p className="text-sm font-medium text-red-600">{searchPriceRangeError}</p>
+                  )}
+                </div>
+
+                {filteredGlobalSearchResults.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {filteredGlobalSearchResults.map((product) => (
+                      <ProductCard
+                        key={product.sourceId || product.id}
+                        product={product}
+                        onOpenDetails={openProductDetail}
+                        onToggleFavorite={toggleFavorite}
+                        isFavorite={favoriteItems.some((item) => item.id === product.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#EADBC8] bg-white px-6 py-12 text-center shadow-sm">
+                    <h2 className="text-xl font-semibold text-[#2F3A35]">
+                      No encontramos productos con esos filtros.
+                    </h2>
+                    <p className="mt-2 text-[#6B756F]">
+                      Limpiá filtros o ajustá el rango de precio para ver más resultados.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={clearSearchFilters}
+                      className="mt-5 rounded-full bg-[#5FAE9B] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4D9A88]"
+                    >
+                      Limpiar filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[#EADBC8] bg-white px-6 py-12 text-center shadow-sm">
+              <h2 className="text-xl font-semibold text-[#2F3A35]">
+                {normalizedSearchPageQuery ? 'No encontramos productos para tu busqueda.' : 'Busca en todo el catalogo.'}
+              </h2>
+              <p className="mt-2 text-[#6B756F]">
+                Proba con otro nombre, color, categoria o tipo de producto.
+              </p>
+            </div>
+          )}
+        </main>
+
+        <Footer onNavigate={navigateToPage} />
+
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
     );
   }
 
@@ -1017,25 +1628,26 @@ function App() {
           onFavoritesClick={() => setIsFavoritesOpen(true)}
           onUserClick={() => {
             if (user) {
-              setCurrentPage('account-settings');
+              navigateToPage('account-settings');
             } else {
               openAuthModal();
             }
           }}
-          onNavigate={setCurrentPage}
+          onNavigate={navigateToPage}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
           user={user}
         />
         <Accessories
           products={catalogProducts}
           isLoading={isLoadingProducts}
-          onBack={() => setCurrentPage('home')}
+          onBack={() => navigateToPage('home')}
           onAddToCart={addToCart}
           onToggleFavorite={toggleFavorite}
           favoriteItems={favoriteItems}
         />
-        <Footer onNavigate={setCurrentPage} />
+        <Footer onNavigate={navigateToPage} />
 
         <ProductDetailModal
           product={selectedProduct}
@@ -1071,11 +1683,11 @@ function App() {
           notice={authModalNotice}
           onNavigateToSettings={() => {
             closeAuthModal();
-            setCurrentPage('account-settings');
+            navigateToPage('account-settings');
           }}
           onNavigateToAdmin={() => {
             closeAuthModal();
-            setCurrentPage('admin');
+            navigateToPage('admin');
           }}
         />
       </div>
@@ -1092,18 +1704,19 @@ function App() {
           onFavoritesClick={() => setIsFavoritesOpen(true)}
           onUserClick={() => {
             if (user) {
-              setCurrentPage('account-settings');
+              navigateToPage('account-settings');
             } else {
               openAuthModal();
             }
           }}
-          onNavigate={setCurrentPage}
+          onNavigate={navigateToPage}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
           user={user}
         />
-        <CareGuide onBack={() => setCurrentPage('home')} />
-        <Footer onNavigate={setCurrentPage} />
+        <CareGuide onBack={() => navigateToPage('home')} />
+        <Footer onNavigate={navigateToPage} />
 
         <ProductDetailModal
           product={selectedProduct}
@@ -1139,11 +1752,11 @@ function App() {
           notice={authModalNotice}
           onNavigateToSettings={() => {
             closeAuthModal();
-            setCurrentPage('account-settings');
+            navigateToPage('account-settings');
           }}
           onNavigateToAdmin={() => {
             closeAuthModal();
-            setCurrentPage('admin');
+            navigateToPage('admin');
           }}
         />
       </div>
@@ -1151,11 +1764,11 @@ function App() {
   }
 
   if (currentPage === 'privacy') {
-    return <PrivacyPolicy onBack={() => setCurrentPage('home')} />;
+    return <PrivacyPolicy onBack={() => navigateToPage('home')} />;
   }
 
   if (currentPage === 'terms') {
-    return <TermsAndConditions onBack={() => setCurrentPage('home')} />;
+    return <TermsAndConditions onBack={() => navigateToPage('home')} />;
   }
 
   const searchedProducts = getSearchFilteredProducts();
@@ -1184,14 +1797,15 @@ function App() {
         onFavoritesClick={() => setIsFavoritesOpen(true)}
         onUserClick={() => {
           if (user) {
-            setCurrentPage('account-settings');
+            navigateToPage('account-settings');
           } else {
             openAuthModal();
           }
         }}
-        onNavigate={setCurrentPage}
+        onNavigate={navigateToPage}
         searchQuery={searchQuery}
         onSearch={setSearchQuery}
+        onSearchSubmit={submitGlobalSearch}
         user={user}
       />
 
@@ -1214,7 +1828,7 @@ function App() {
       {/* Hero Section */}
       {currentPage === 'home' && (
         <>
-          <HeroCarousel onNavigate={setCurrentPage} />
+          <HeroCarousel onNavigate={navigateToPage} />
           <CompanyIntro />
 
           {/* Featured Products */}
@@ -1250,7 +1864,7 @@ function App() {
 
               <div className="text-center">
                 <button 
-                  onClick={() => setCurrentPage('orchids')}
+                  onClick={() => navigateToPage('orchids')}
                   className="rounded-full bg-[#5FAE9B] px-8 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#4D9A88]"
                 >
                   Ver Todas las Orquídeas
@@ -1292,7 +1906,7 @@ function App() {
 
               <div className="text-center">
                 <button
-                  onClick={() => setCurrentPage('arrangements')}
+                  onClick={() => navigateToPage('arrangements')}
                   className="rounded-full bg-[#D96C9F] px-8 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#C8568B]"
                 >
                   Ver Todos los Arreglos
@@ -1334,7 +1948,7 @@ function App() {
 
               <div className="text-center">
                 <button 
-                  onClick={() => setCurrentPage('pots')}
+                  onClick={() => navigateToPage('pots')}
                   className="rounded-full bg-[#5FAE9B] px-8 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#4D9A88]"
                 >
                   Ver Todas las Macetas
@@ -1438,7 +2052,7 @@ function App() {
         </div>
       )}
 
-      <Footer onNavigate={setCurrentPage} />
+      <Footer onNavigate={navigateToPage} />
 
       <ProductDetailModal
         product={selectedProduct}
@@ -1474,14 +2088,45 @@ function App() {
         notice={authModalNotice}
         onNavigateToSettings={() => {
           closeAuthModal();
-          setCurrentPage('account-settings');
+          navigateToPage('account-settings');
         }}
         onNavigateToAdmin={() => {
           closeAuthModal();
-          setCurrentPage('admin');
+          navigateToPage('admin');
         }}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<AppShell routePage="home" />} />
+        <Route path="/admin" element={<AppShell routePage="admin" />} />
+        <Route path="/perfil" element={<AppShell routePage="account-settings" />} />
+        <Route path="/pedidos" element={<AppShell routePage="orders" />} />
+        <Route path="/reset-password" element={<AppShell routePage="reset-password" />} />
+        <Route path="/checkout" element={<AppShell routePage="checkout" />} />
+        <Route path="/checkout/success" element={<AppShell routePage="checkout-success" />} />
+        <Route path="/checkout/failure" element={<AppShell routePage="checkout-failure" />} />
+        <Route path="/checkout/pending" element={<AppShell routePage="checkout-pending" />} />
+        <Route path="/orquideas" element={<AppShell routePage="orchids" />} />
+        <Route path="/plantas-interior" element={<AppShell routePage="interior" />} />
+        <Route path="/plantas-exterior" element={<AppShell routePage="exterior" />} />
+        <Route path="/producto/:slug" element={<AppShell routePage="product" />} />
+        <Route path="/buscar" element={<AppShell routePage="search" />} />
+        <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
+        <Route path="/macetas" element={<AppShell routePage="pots" />} />
+        <Route path="/accesorios" element={<AppShell routePage="accessories" />} />
+        <Route path="/cuidados" element={<AppShell routePage="care" />} />
+        <Route path="/privacidad" element={<AppShell routePage="privacy" />} />
+        <Route path="/terminos" element={<AppShell routePage="terms" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

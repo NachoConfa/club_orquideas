@@ -62,7 +62,11 @@ const Cart: React.FC<CartProps> = ({ items, isOpen, onClose, onUpdateQuantity, o
                       />
                       <div className="flex-1">
                         <h3 className="line-clamp-2 font-medium text-[#2F3A35]">{item.name}</h3>
-                        <p className="text-sm text-[#6B756F]">{item.size} • {item.color}</p>
+                        <p className="text-sm text-[#6B756F]">
+                          {[item.size, item.color, item.floweringStems ? `${item.floweringStems} varas` : '']
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
                         <p className="text-lg font-semibold text-[#5FAE9B]">${item.price.toLocaleString('es-AR')}</p>
                       </div>
                       <button

@@ -112,8 +112,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
           }`}
         >
           <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">{product.inStock ? 'Agregar al Carrito' : 'Agotado'}</span>
-          <span className="sm:hidden">{product.inStock ? 'Agregar' : 'Agotado'}</span>
+          <span className="hidden sm:inline">{product.inStock ? 'Ver producto' : 'Agotado'}</span>
+          <span className="sm:hidden">{product.inStock ? 'Ver' : 'Agotado'}</span>
         </button>
       </div>
     </div>

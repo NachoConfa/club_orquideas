@@ -37,6 +37,7 @@ interface CartItem {
   quantity: number;
   color: string;
   size: string;
+  floweringStems?: number;
   stock?: number;
 }
 
@@ -868,7 +869,11 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-800">{item.name}</h4>
-                    <p className="text-sm text-gray-500">{item.size} - {item.color}</p>
+                    <p className="text-sm text-gray-500">
+                      {[item.size, item.color, item.floweringStems ? `${item.floweringStems} varas` : '']
+                        .filter(Boolean)
+                        .join(' - ')}
+                    </p>
                     <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
                   </div>
                   <p className="font-semibold text-gray-800">{formatMoney(item.price * item.quantity)}</p>

@@ -1,10 +1,14 @@
 export interface ProductVariant {
   id?: string;
+  productId?: string;
   size: string;
   color?: string;
+  floweringStems?: number;
   price: number;
   stock: number;
   image?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export type ProductAttributes = Record<string, unknown>;
@@ -12,6 +16,7 @@ export type ProductAttributes = Record<string, unknown>;
 export interface Product {
   id: number;
   sourceId?: string;
+  slug?: string;
   name: string;
   price: number;
   originalPrice?: number;

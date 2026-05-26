@@ -10,6 +10,7 @@ import {
 type ProductRow = {
   id: number | string;
   name: string;
+  slug?: string | null;
   price: number;
   description?: string | null;
   stock?: number | null;
@@ -42,6 +43,19 @@ type ProfileRow = {
 type ProductImageRow = {
   product_id: string;
   image_url: string | null;
+  sort_order?: number | null;
+};
+
+type ProductVariantRow = {
+  id: string;
+  product_id: string;
+  color?: string | null;
+  size?: string | null;
+  flowering_stems?: number | null;
+  price?: number | null;
+  stock?: number | null;
+  image_url?: string | null;
+  is_active?: boolean | null;
   sort_order?: number | null;
 };
 
@@ -131,6 +145,25 @@ const DEFAULT_PRODUCT_IMAGE =
   'https://images.pexels.com/photos/1407305/pexels-photo-1407305.jpeg?auto=compress&cs=tinysrgb&w=500';
 const PRODUCT_COLUMNS =
   'id, name, description, price, stock, orchid_type, color, size, image_url, is_active';
+const PRODUCT_COLUMNS_WITH_OPTIONAL =
+  `${PRODUCT_COLUMNS}, slug, flowering_stems`;
+const PRODUCT_VARIANT_COLUMNS =
+  'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
+
+const isMissingOptionalProductColumnError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return error.code === 'PGRST204' || error.code === '42703' || message.includes('slug') || message.includes('flowering_stems');
+};
+
+const isMissingProductVariantsTableError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    error.code === 'PGRST205' ||
+    error.code === '42P01' ||
+    message.includes('product_variants') ||
+    message.includes('schema cache')
+  );
+};
 
 const toStableNumericId = (id: number | string) => {
   if (typeof id === 'number') {
@@ -147,6 +180,34 @@ const toStableNumericId = (id: number | string) => {
 
 const isProductAttributes = (value: unknown): value is ProductAttributes =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const sanitizeProductDescription = (description?: string | null) => {
+  if (!description?.trim()) {
+    return undefined;
+  }
+
+  return description
+    .replace(/\bpor\s+Instagram\s+@clubdelasorquideas\s+o\s+al\s+/gi, 'al ')
+    .replace(/\bInstagram\s+@clubdelasorquideas\b/gi, 'Modo Plantas')
+    .replace(/@clubdelasorquideas\b/gi, 'Modo Plantas')
+    .replace(/\bClub de Las Orqu[ií]deas\b/gi, 'Modo Plantas')
+    .replace(/\bClub de las Orqu[ií]deas\b/gi, 'Modo Plantas')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const mapProductVariant = (variant: ProductVariantRow) => ({
+  id: variant.id,
+  productId: variant.product_id,
+  size: variant.size?.trim() || 'Mediana',
+  color: variant.color?.trim() || 'Variado',
+  floweringStems: variant.flowering_stems == null ? undefined : Number(variant.flowering_stems),
+  price: Number(variant.price ?? 0),
+  stock: Math.max(0, Number(variant.stock ?? 0)),
+  image: variant.image_url?.trim() || undefined,
+  isActive: variant.is_active !== false,
+  sortOrder: Number(variant.sort_order ?? 0),
+});
 
 const mapProduct = (product: ProductRow): Product => {
   const sourceId = String(product.id);
@@ -165,6 +226,7 @@ const mapProduct = (product: ProductRow): Product => {
   return {
     id: toStableNumericId(product.id),
     sourceId,
+    slug: product.slug || undefined,
     name: product.name,
     price: Number(product.price),
     originalPrice: product.original_price == null ? undefined : Number(product.original_price),
@@ -176,7 +238,7 @@ const mapProduct = (product: ProductRow): Product => {
     size: product.size || 'Mediana',
     inStock: product.in_stock ?? (product.is_active !== false && fallbackStock > 0),
     type: product.type || product.orchid_type || 'Orquideas',
-    description: product.description || undefined,
+    description: sanitizeProductDescription(product.description),
     stock: product.stock == null ? undefined : fallbackStock,
     floweringStems: product.flowering_stems == null ? undefined : Number(product.flowering_stems),
     images,
@@ -189,8 +251,13 @@ const mapProduct = (product: ProductRow): Product => {
 const uniqueValues = (values: Array<string | undefined>) =>
   Array.from(new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]));
 
-const mapProductsWithDetails = (products: ProductRow[], imageRows: ProductImageRow[]) => {
+const mapProductsWithDetails = (
+  products: ProductRow[],
+  imageRows: ProductImageRow[],
+  variantRows: ProductVariantRow[] = []
+) => {
   const imagesByProduct = new Map<string, string[]>();
+  const variantsByProduct = new Map<string, ReturnType<typeof mapProductVariant>[]>();
 
   imageRows
     .slice()
@@ -202,21 +269,36 @@ const mapProductsWithDetails = (products: ProductRow[], imageRows: ProductImageR
       imagesByProduct.set(row.product_id, productImages);
     });
 
+  variantRows
+    .slice()
+    .sort((first, second) => Number(first.sort_order ?? 0) - Number(second.sort_order ?? 0))
+    .forEach((row) => {
+      if (!row.product_id || row.is_active === false) return;
+      const productVariants = variantsByProduct.get(row.product_id) ?? [];
+      productVariants.push(mapProductVariant(row));
+      variantsByProduct.set(row.product_id, productVariants);
+    });
+
   return products.map((product) => {
     const mappedProduct = mapProduct(product);
     const sourceId = String(product.id);
-    const variants = mappedProduct.variants ?? [];
+    const realVariants = variantsByProduct.get(sourceId) ?? [];
+    const variants = realVariants.length > 0 ? realVariants : mappedProduct.variants ?? [];
     const variantImages = variants.map((variant) => variant.image).filter(Boolean) as string[];
     const images = uniqueValues([mappedProduct.image, ...(imagesByProduct.get(sourceId) ?? []), ...variantImages]);
     const colors = uniqueValues([...variants.map((variant) => variant.color), mappedProduct.color]);
+    const hasRealVariants = realVariants.length > 0;
+    const variantStock = realVariants.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock ?? 0)), 0);
+    const variantPrices = realVariants.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price));
 
     return {
       ...mappedProduct,
+      price: hasRealVariants && variantPrices.length > 0 ? Math.min(...variantPrices) : mappedProduct.price,
       images: images.length > 0 ? images : [mappedProduct.image],
       colors: colors.length > 0 ? colors : [mappedProduct.color],
       variants,
-      stock: mappedProduct.stock,
-      inStock: mappedProduct.inStock,
+      stock: hasRealVariants ? variantStock : mappedProduct.stock,
+      inStock: hasRealVariants ? realVariants.some((variant) => Number(variant.stock) > 0) : mappedProduct.inStock,
     };
   });
 };
@@ -420,31 +502,56 @@ const getProfileForUser = async (authUser: User): Promise<AuthenticatedUser> => 
 
 export const getSupabaseProducts = async (): Promise<Product[]> => {
   const client = getClient();
-  const { data, error } = await client
+  let productsResult = await client
     .from('products')
-    .select(PRODUCT_COLUMNS)
+    .select(PRODUCT_COLUMNS_WITH_OPTIONAL)
     .eq('is_active', true);
 
-  if (error) {
-    throw error;
+  if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
+    productsResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS)
+      .eq('is_active', true);
   }
 
-  const productRows = ((data ?? []) as unknown as ProductRow[]).sort((first, second) =>
+  if (productsResult.error) {
+    throw productsResult.error;
+  }
+
+  const productRows = ((productsResult.data ?? []) as unknown as ProductRow[]).sort((first, second) =>
     String(first.name ?? '').localeCompare(String(second.name ?? ''), 'es')
   );
-  const [imagesResult] = await Promise.allSettled([
+  const [imagesResult, variantsResult] = await Promise.allSettled([
     client.from('product_images').select('product_id, image_url, sort_order').order('sort_order', { ascending: true }),
+    client
+      .from('product_variants')
+      .select(PRODUCT_VARIANT_COLUMNS)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
   ]);
   const imageRows =
     imagesResult.status === 'fulfilled' && !imagesResult.value.error
       ? ((imagesResult.value.data ?? []) as ProductImageRow[])
+      : [];
+  const variantRows =
+    variantsResult.status === 'fulfilled' && !variantsResult.value.error
+      ? ((variantsResult.value.data ?? []) as ProductVariantRow[])
       : [];
 
   if (imagesResult.status === 'fulfilled' && imagesResult.value.error) {
     console.warn('No se pudieron cargar imagenes adicionales de productos:', imagesResult.value.error.message);
   }
 
-  return mapProductsWithDetails(productRows, imageRows);
+  if (
+    variantsResult.status === 'fulfilled' &&
+    variantsResult.value.error &&
+    !isMissingProductVariantsTableError(variantsResult.value.error) &&
+    import.meta.env.DEV
+  ) {
+    console.warn('No se pudieron cargar variantes de productos:', variantsResult.value.error.message);
+  }
+
+  return mapProductsWithDetails(productRows, imageRows, variantRows);
 };
 
 export const getAuthenticatedUserFromSession = async (session: Session | null): Promise<AuthenticatedUser | null> => {

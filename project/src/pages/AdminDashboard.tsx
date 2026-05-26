@@ -20,6 +20,7 @@ import {
 import {
   AdminProduct,
   AdminProductInput,
+  AdminProductVariantInput,
   AdminRecord,
   AdminDashboardSummary,
   AnalyticsRange,
@@ -290,6 +291,44 @@ const ProductForm = ({
   const updateField = <K extends keyof AdminProductInput>(key: K, value: AdminProductInput[K]) => {
     onChange({ ...form, [key]: value });
   };
+  const updateVariant = <K extends keyof AdminProductVariantInput>(
+    index: number,
+    key: K,
+    value: AdminProductVariantInput[K]
+  ) => {
+    onChange({
+      ...form,
+      variants: form.variants.map((variant, variantIndex) =>
+        variantIndex === index ? { ...variant, [key]: value } : variant
+      ),
+    });
+  };
+  const addVariant = () => {
+    onChange({
+      ...form,
+      variants: [
+        ...form.variants,
+        {
+          color: form.color || 'Variado',
+          size: form.size || 'Mediana',
+          flowering_stems: Number(form.flowering_stems || 0),
+          price: form.price || '',
+          stock: Number(form.stock || 0),
+          image_url: form.image_url || '',
+          is_active: true,
+          sort_order: form.variants.length + 1,
+        },
+      ],
+    });
+  };
+  const removeVariant = (index: number) => {
+    const variant = form.variants[index];
+    onChange({
+      ...form,
+      variants: form.variants.filter((_, variantIndex) => variantIndex !== index),
+      deletedVariantIds: variant?.id ? [...(form.deletedVariantIds ?? []), variant.id] : form.deletedVariantIds,
+    });
+  };
   const hasPriceValue = /\d/.test(String(form.price ?? ''));
 
   return (
@@ -447,6 +486,126 @@ const ProductForm = ({
           />
           Visible en tienda
         </label>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-emerald-100 bg-white p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h4 className="font-semibold text-gray-800">Variantes del producto</h4>
+            <p className="text-xs text-gray-500">
+              Si agregas variantes, la pagina de producto usa precio, stock e imagen de la variante seleccionada.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addVariant}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+          >
+            <Plus className="h-4 w-4" />
+            Agregar variante
+          </button>
+        </div>
+
+        {form.variants.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+            Este producto no tiene variantes. Se usan precio, stock e imagen del producto principal.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {form.variants.map((variant, index) => (
+              <div key={variant.id || index} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-gray-700">Variante {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                    title="Eliminar variante"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <label className="text-xs font-medium text-gray-600">
+                    Color
+                    <input
+                      value={variant.color}
+                      onChange={(event) => updateVariant(index, 'color', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
+                    Tamano
+                    <input
+                      value={variant.size}
+                      onChange={(event) => updateVariant(index, 'size', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
+                    Varas
+                    <input
+                      type="number"
+                      min="0"
+                      value={variant.flowering_stems}
+                      onChange={(event) => updateVariant(index, 'flowering_stems', Number(event.target.value))}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
+                    Precio
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={variant.price}
+                      onChange={(event) => updateVariant(index, 'price', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
+                    Stock
+                    <input
+                      type="number"
+                      min="0"
+                      value={variant.stock}
+                      onChange={(event) => updateVariant(index, 'stock', Number(event.target.value))}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
+                    Orden
+                    <input
+                      type="number"
+                      min="0"
+                      value={variant.sort_order}
+                      onChange={(event) => updateVariant(index, 'sort_order', Number(event.target.value))}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-gray-600 md:col-span-2">
+                    URL de imagen
+                    <input
+                      value={variant.image_url}
+                      onChange={(event) => updateVariant(index, 'image_url', event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      placeholder="https://..."
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 pt-6 text-xs font-medium text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={variant.is_active}
+                      onChange={(event) => updateVariant(index, 'is_active', event.target.checked)}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    Activa
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -1039,6 +1198,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900">{product.name}</div>
                             <div className="max-w-md truncate text-xs text-gray-500">{product.description}</div>
+                            {product.variants && product.variants.length > 0 && (
+                              <div className="mt-1 text-xs font-semibold text-emerald-700">
+                                {product.variants.length} variantes configuradas
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-gray-700">{product.orchid_type}</td>
                           <td className="px-4 py-3 text-gray-700">{formatCurrency(product.price)}</td>

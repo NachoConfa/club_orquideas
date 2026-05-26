@@ -19,9 +19,37 @@ export interface AdminProduct {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  variants?: AdminProductVariant[];
 }
 
 export type AdminMoneyInput = number | string;
+
+export interface AdminProductVariant {
+  id: string;
+  product_id: string;
+  color: string | null;
+  size: string | null;
+  flowering_stems: number | null;
+  price: number;
+  stock: number;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminProductVariantInput {
+  id?: string;
+  color: string;
+  size: string;
+  flowering_stems: number;
+  price: AdminMoneyInput;
+  stock: number;
+  image_url: string;
+  is_active: boolean;
+  sort_order: number;
+}
 
 export interface AdminProductInput {
   name: string;
@@ -36,6 +64,8 @@ export interface AdminProductInput {
   image_url: string;
   is_featured: boolean;
   is_active: boolean;
+  variants: AdminProductVariantInput[];
+  deletedVariantIds?: string[];
 }
 
 export type AdminRecord = Record<string, unknown>;
@@ -110,6 +140,8 @@ export interface AnalyticsReportData {
 
 const PRODUCT_COLUMNS =
   'id, category_id, name, slug, description, price, stock, orchid_type, color, size, flowering_stems, image_url, is_featured, is_active, created_at, updated_at';
+const PRODUCT_VARIANT_COLUMNS =
+  'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order, created_at, updated_at';
 const ORDER_COLUMNS = [
   'id',
   'user_id',
@@ -179,6 +211,16 @@ const normalizeSlug = (value: string) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+const isMissingProductVariantsTableError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    error.code === 'PGRST205' ||
+    error.code === '42P01' ||
+    message.includes('product_variants') ||
+    message.includes('schema cache')
+  );
+};
 
 export const parseAdminMoneyValue = (value: AdminMoneyInput, label = 'precio') => {
   if (typeof value === 'number') {
@@ -257,6 +299,96 @@ const createUuid = () => {
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${(8 + Math.floor(Math.random() * 4)).toString(16)}${randomHex(3)}-${randomHex(12)}`;
 };
 
+const toVariantPayload = (productId: string, variant: AdminProductVariantInput) => ({
+  product_id: productId,
+  color: variant.color.trim() || null,
+  size: variant.size.trim() || null,
+  flowering_stems: Number(variant.flowering_stems || 0),
+  price: parseAdminMoneyValue(variant.price, 'precio de variante'),
+  stock: Number(variant.stock || 0),
+  image_url: variant.image_url.trim() || null,
+  is_active: variant.is_active,
+  sort_order: Number(variant.sort_order || 0),
+});
+
+const getVariantsForProducts = async (productIds: string[]) => {
+  if (productIds.length === 0) {
+    return new Map<string, AdminProductVariant[]>();
+  }
+
+  const client = getClient();
+  const { data, error } = await client
+    .from('product_variants')
+    .select(PRODUCT_VARIANT_COLUMNS)
+    .in('product_id', productIds)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    if (isMissingProductVariantsTableError(error)) {
+      return new Map<string, AdminProductVariant[]>();
+    }
+
+    throw error;
+  }
+
+  const variantsByProduct = new Map<string, AdminProductVariant[]>();
+  ((data ?? []) as AdminProductVariant[]).forEach((variant) => {
+    const variants = variantsByProduct.get(variant.product_id) ?? [];
+    variants.push(variant);
+    variantsByProduct.set(variant.product_id, variants);
+  });
+
+  return variantsByProduct;
+};
+
+const attachVariantsToProducts = async (products: AdminProduct[]) => {
+  const variantsByProduct = await getVariantsForProducts(products.map((product) => product.id));
+
+  return products.map((product) => ({
+    ...product,
+    variants: variantsByProduct.get(product.id) ?? [],
+  }));
+};
+
+const saveProductVariants = async (productId: string, product: AdminProductInput) => {
+  const variants = product.variants ?? [];
+  const deletedVariantIds = product.deletedVariantIds ?? [];
+
+  if (variants.length === 0 && deletedVariantIds.length === 0) {
+    return;
+  }
+
+  const client = getClient();
+
+  if (deletedVariantIds.length > 0) {
+    const { error } = await client.from('product_variants').delete().in('id', deletedVariantIds);
+    if (error) {
+      throw error;
+    }
+  }
+
+  for (const variant of variants) {
+    if (variant.id) {
+      const { error } = await client
+        .from('product_variants')
+        .update(toVariantPayload(productId, variant))
+        .eq('id', variant.id);
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      const { error } = await client
+        .from('product_variants')
+        .insert({ id: createUuid(), ...toVariantPayload(productId, variant) });
+
+      if (error) {
+        throw error;
+      }
+    }
+  }
+};
+
 export const emptyAdminProductInput = (): AdminProductInput => ({
   name: '',
   description: '',
@@ -269,6 +401,8 @@ export const emptyAdminProductInput = (): AdminProductInput => ({
   image_url: '',
   is_featured: false,
   is_active: true,
+  variants: [],
+  deletedVariantIds: [],
 });
 
 export const productToInput = (product: AdminProduct): AdminProductInput => ({
@@ -284,6 +418,18 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
   image_url: product.image_url || '',
   is_featured: Boolean(product.is_featured),
   is_active: Boolean(product.is_active),
+  variants: (product.variants ?? []).map((variant) => ({
+    id: variant.id,
+    color: variant.color || '',
+    size: variant.size || '',
+    flowering_stems: Number(variant.flowering_stems || 0),
+    price: String(variant.price ?? ''),
+    stock: Number(variant.stock || 0),
+    image_url: variant.image_url || '',
+    is_active: Boolean(variant.is_active),
+    sort_order: Number(variant.sort_order || 0),
+  })),
+  deletedVariantIds: [],
 });
 
 export const getAdminProducts = async (limit = ADMIN_PAGE_LIMIT) => {
@@ -301,7 +447,7 @@ export const getAdminProducts = async (limit = ADMIN_PAGE_LIMIT) => {
     throw error;
   }
 
-  return (data ?? []) as AdminProduct[];
+  return attachVariantsToProducts((data ?? []) as AdminProduct[]);
 };
 
 export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) => {
@@ -321,7 +467,7 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
     throw error;
   }
 
-  return (data ?? []) as AdminProduct[];
+  return attachVariantsToProducts((data ?? []) as AdminProduct[]);
 };
 
 export const createAdminProduct = async (product: AdminProductInput) => {
@@ -336,7 +482,9 @@ export const createAdminProduct = async (product: AdminProductInput) => {
     throw error;
   }
 
-  return data as AdminProduct;
+  const createdProduct = data as AdminProduct;
+  await saveProductVariants(createdProduct.id, product);
+  return (await attachVariantsToProducts([createdProduct]))[0];
 };
 
 export const updateAdminProduct = async (id: string, product: AdminProductInput) => {
@@ -352,7 +500,9 @@ export const updateAdminProduct = async (id: string, product: AdminProductInput)
     throw error;
   }
 
-  return data as AdminProduct;
+  const updatedProduct = data as AdminProduct;
+  await saveProductVariants(updatedProduct.id, product);
+  return (await attachVariantsToProducts([updatedProduct]))[0];
 };
 
 export const deleteAdminProduct = async (id: string) => {
