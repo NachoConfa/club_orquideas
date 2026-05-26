@@ -27,9 +27,6 @@ interface ProductPageProps {
 
 const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
 
-const uniqueValues = <T,>(values: Array<T | null | undefined>) =>
-  Array.from(new Set(values.filter((value): value is T => value !== null && value !== undefined && String(value).trim() !== '')));
-
 const getBaseProductVariant = (product: Product): ProductVariant => ({
   size: product.size,
   color: product.color,
@@ -45,14 +42,15 @@ const getActiveProductVariants = (product: Product): ProductVariant[] =>
     .slice()
     .sort((first, second) => Number(first.sortOrder ?? 0) - Number(second.sortOrder ?? 0));
 
-const hasSelectionValue = (value: string | number | null | undefined) =>
-  value !== null && value !== undefined && String(value).trim() !== '';
+const getPreferredVariant = (variants: ProductVariant[]) =>
+  variants.find((variant) => Number(variant.stock) > 0) || variants[0] || null;
 
-type VariantSelection = {
-  color?: string;
-  size?: string;
-  floweringStems?: number | null;
-};
+const getVariantDetails = (variant: ProductVariant) =>
+  [
+    variant.color,
+    variant.size,
+    variant.floweringStems ? `${variant.floweringStems} ${variant.floweringStems === 1 ? 'vara' : 'varas'}` : '',
+  ].filter(Boolean);
 
 const ProductPage = ({
   product,
@@ -64,179 +62,39 @@ const ProductPage = ({
   onToggleFavorite,
   onOpenRelatedProduct,
 }: ProductPageProps) => {
-  const [selectedImage, setSelectedImage] = useState('');
-  const [selectedColor, setSelectedColor] = useState('');
-  const [selectedSize, setSelectedSize] = useState('');
-  const [selectedStems, setSelectedStems] = useState<number | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState('');
 
   const activeVariants = useMemo(() => (product ? getActiveProductVariants(product) : []), [product]);
   const hasRealVariants = activeVariants.length > 0;
-  const variants = useMemo(
-    () => (product ? (hasRealVariants ? activeVariants : [getBaseProductVariant(product)]) : []),
-    [activeVariants, hasRealVariants, product]
-  );
-  const colors = useMemo(
-    () =>
-      product
-        ? hasRealVariants
-          ? uniqueValues(variants.map((variant) => variant.color))
-          : uniqueValues([...(product.colors ?? []), product.color, ...variants.map((variant) => variant.color)])
-        : [],
-    [hasRealVariants, product, variants]
-  );
-  const sizes = useMemo(
-    () =>
-      product
-        ? hasRealVariants
-          ? uniqueValues(variants.map((variant) => variant.size))
-          : uniqueValues([product.size, ...variants.map((variant) => variant.size)])
-        : [],
-    [hasRealVariants, product, variants]
-  );
-  const stemOptions = useMemo(
-    () =>
-      product
-        ? hasRealVariants
-          ? uniqueValues(variants.map((variant) => variant.floweringStems))
-          : uniqueValues([product.floweringStems, ...variants.map((variant) => variant.floweringStems)])
-        : [],
-    [hasRealVariants, product, variants]
-  );
-
-  const findCompatibleVariant = (selection: VariantSelection, preferStock = true) => {
-    const matchesSelection = (variant: ProductVariant) =>
-      (!hasSelectionValue(selection.color) || variant.color === selection.color) &&
-      (!hasSelectionValue(selection.size) || variant.size === selection.size) &&
-      (!hasSelectionValue(selection.floweringStems) || variant.floweringStems === selection.floweringStems);
-
-    return (
-      (preferStock ? variants.find((variant) => matchesSelection(variant) && Number(variant.stock) > 0) : null) ||
-      variants.find(matchesSelection) ||
-      variants.find((variant) => (hasSelectionValue(selection.color) ? variant.color === selection.color : true) && Number(variant.stock) > 0) ||
-      variants.find((variant) => (hasSelectionValue(selection.size) ? variant.size === selection.size : true) && Number(variant.stock) > 0) ||
-      variants.find((variant) =>
-        hasSelectionValue(selection.floweringStems) ? variant.floweringStems === selection.floweringStems && Number(variant.stock) > 0 : false
-      ) ||
-      variants.find((variant) => (hasSelectionValue(selection.color) ? variant.color === selection.color : false)) ||
-      variants.find((variant) => (hasSelectionValue(selection.size) ? variant.size === selection.size : false)) ||
-      variants.find((variant) => (hasSelectionValue(selection.floweringStems) ? variant.floweringStems === selection.floweringStems : false)) ||
-      variants.find((variant) => Number(variant.stock) > 0) ||
-      variants[0] ||
-      null
-    );
-  };
-
+  const fallbackVariant = useMemo(() => (product ? getBaseProductVariant(product) : null), [product]);
   const selectedVariant = useMemo(() => {
     if (!product) return null;
 
-    if (hasRealVariants) {
-      return findCompatibleVariant({
-        color: selectedColor,
-        size: selectedSize,
-        floweringStems: selectedStems,
-      });
+    if (!hasRealVariants) {
+      return fallbackVariant;
     }
 
     return (
-      variants.find(
-        (variant) =>
-          (!hasSelectionValue(selectedColor) || !variant.color || variant.color === selectedColor) &&
-          (!hasSelectionValue(selectedSize) || variant.size === selectedSize) &&
-          (!hasSelectionValue(selectedStems) || !variant.floweringStems || variant.floweringStems === selectedStems)
-      ) ||
-      variants.find((variant) => !hasSelectionValue(selectedSize) || variant.size === selectedSize) ||
-      variants[0] ||
-      null
+      activeVariants.find((variant) => variant.id === selectedVariantId) ||
+      getPreferredVariant(activeVariants)
     );
-  }, [hasRealVariants, product, selectedColor, selectedSize, selectedStems, variants]);
+  }, [activeVariants, fallbackVariant, hasRealVariants, product, selectedVariantId]);
 
-  const imageOptions = useMemo(() => {
-    if (!product) return [];
-    return uniqueValues([product.image, ...(product.images ?? []), ...variants.map((variant) => variant.image)]);
-  }, [product, variants]);
-
-  const activeImage = selectedImage || selectedVariant?.image || product?.image || '';
+  const activeImage = selectedVariant?.image || product?.image || '';
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
   const isOutOfStock = activeStock <= 0;
-
-  const applyVariantSelection = (variant: ProductVariant) => {
-    setSelectedColor(variant.color || '');
-    setSelectedSize(variant.size || '');
-    setSelectedStems(variant.floweringStems ?? null);
-    setSelectedImage(variant.image || product?.image || '');
-    setMessage('');
-  };
-
-  const selectVariantOption = (selection: VariantSelection) => {
-    if (!hasRealVariants) {
-      if (selection.color !== undefined) setSelectedColor(selection.color);
-      if (selection.size !== undefined) setSelectedSize(selection.size);
-      if (selection.floweringStems !== undefined) setSelectedStems(selection.floweringStems);
-      setMessage('');
-      return;
-    }
-
-    const nextVariant = findCompatibleVariant(
-      {
-        color: selection.color ?? selectedColor,
-        size: selection.size ?? selectedSize,
-        floweringStems: selection.floweringStems ?? selectedStems,
-      },
-      true
-    );
-
-    if (nextVariant) {
-      applyVariantSelection(nextVariant);
-    }
-  };
-
-  const isVariantOptionAvailable = (field: 'color' | 'size' | 'floweringStems', value: string | number) => {
-    if (!hasRealVariants) return true;
-
-    return variants.some((variant) => {
-      if (Number(variant.stock) <= 0) return false;
-
-      if (field === 'color') return variant.color === value;
-      if (field === 'size') return variant.size === value;
-      return variant.floweringStems === value;
-    });
-  };
+  const activeDetails = selectedVariant ? getVariantDetails(selectedVariant) : [];
 
   useEffect(() => {
     if (!product) return;
 
-    const realVariants = getActiveProductVariants(product);
-    const initialVariants = realVariants.length > 0 ? realVariants : [getBaseProductVariant(product)];
-    const preferredVariant =
-      initialVariants.find((variant) => Number(variant.stock) > 0) ||
-      initialVariants[0] ||
-      null;
+    const variants = getActiveProductVariants(product);
+    const preferredVariant = getPreferredVariant(variants);
 
-    if (realVariants.length > 0 && preferredVariant) {
-      setSelectedImage(preferredVariant.image || product.image);
-      setSelectedColor(preferredVariant.color || '');
-      setSelectedSize(preferredVariant.size || '');
-      setSelectedStems(preferredVariant.floweringStems ?? null);
-      setQuantity(1);
-      setMessage('');
-      return;
-    }
-
-    const initialColors = uniqueValues([
-      ...(product.colors ?? []),
-      product.color,
-      ...initialVariants.map((variant) => variant.color),
-    ]);
-    const initialSizes = uniqueValues([product.size, ...initialVariants.map((variant) => variant.size)]);
-    const initialStems = uniqueValues([product.floweringStems, ...initialVariants.map((variant) => variant.floweringStems)]);
-
-    setSelectedImage((product.images && product.images[0]) || product.image);
-    setSelectedColor(initialColors.length === 1 ? initialColors[0] : '');
-    setSelectedSize(initialSizes.length === 1 ? initialSizes[0] : '');
-    setSelectedStems(initialStems.length === 1 ? initialStems[0] : null);
+    setSelectedVariantId(preferredVariant?.id || '');
     setQuantity(1);
     setMessage('');
   }, [product]);
@@ -286,19 +144,20 @@ const ProductPage = ({
     );
   }
 
+  const handleSelectVariant = (variant: ProductVariant) => {
+    setSelectedVariantId(variant.id || '');
+    setQuantity(1);
+    setMessage('');
+  };
+
   const handleAddToCart = () => {
-    if (colors.length > 1 && !hasSelectionValue(selectedColor)) {
-      setMessage('Seleccioná un color antes de agregar el producto.');
+    if (!selectedVariant) {
+      setMessage('Seleccioná una opción antes de agregar el producto.');
       return;
     }
 
-    if (sizes.length > 1 && !hasSelectionValue(selectedSize)) {
-      setMessage('Seleccioná un tamaño antes de agregar el producto.');
-      return;
-    }
-
-    if (stemOptions.length > 1 && !hasSelectionValue(selectedStems)) {
-      setMessage('Seleccioná la cantidad de varas antes de agregar el producto.');
+    if (hasRealVariants && !selectedVariant.id) {
+      setMessage('Seleccioná una variante válida antes de agregar el producto.');
       return;
     }
 
@@ -310,14 +169,14 @@ const ProductPage = ({
     onAddToCart({
       id: product.id,
       sourceId: product.sourceId,
-      variantId: selectedVariant?.id,
+      variantId: hasRealVariants ? selectedVariant.id : undefined,
       name: product.name,
       price: activePrice,
       image: activeImage,
       quantity,
-      color: selectedColor || selectedVariant?.color || product.color,
-      size: selectedSize || selectedVariant?.size || product.size,
-      floweringStems: selectedStems ?? selectedVariant?.floweringStems ?? product.floweringStems,
+      color: selectedVariant.color || product.color,
+      size: selectedVariant.size || product.size,
+      floweringStems: selectedVariant.floweringStems ?? product.floweringStems,
       stock: activeStock,
     });
     setMessage('Producto agregado al carrito.');
@@ -347,22 +206,6 @@ const ProductPage = ({
                 className="block h-auto max-h-[58vh] w-auto max-w-full object-contain sm:max-h-[66vh] lg:max-h-[70vh]"
               />
             </div>
-            {imageOptions.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto border-t border-[#EADBC8]/70 p-4">
-                {imageOptions.map((image) => (
-                  <button
-                    key={image}
-                    type="button"
-                    onClick={() => setSelectedImage(image)}
-                    className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-white ${
-                      activeImage === image ? 'border-[#0f8f61]' : 'border-[#EADBC8]'
-                    }`}
-                  >
-                    <img src={image} alt="" className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
           </section>
 
           <section className="min-w-0 self-start rounded-2xl border border-[#EADBC8]/70 bg-white p-5 shadow-sm sm:p-7 lg:p-8">
@@ -391,7 +234,7 @@ const ProductPage = ({
 
             {hasRealVariants && (
               <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#e8f7ef] px-4 py-3 text-sm text-[#2F3A35]">
-                Este producto usa variantes reales. El precio, stock e imagen corresponden a la opción seleccionada.
+                Elegí una opción disponible. El precio, stock e imagen corresponden a la variante seleccionada.
               </div>
             )}
 
@@ -403,108 +246,60 @@ const ProductPage = ({
                   {isOutOfStock ? 'Agotado' : `Stock: ${activeStock} unidades`}
                 </p>
               </div>
+              {activeDetails.length > 0 && (
+                <p className="mt-2 text-sm text-[#6B756F]">{activeDetails.join(' · ')}</p>
+              )}
             </div>
 
-            {colors.length > 0 && (
+            {hasRealVariants ? (
               <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Color</p>
-                {colors.length === 1 ? (
-                  <span className="inline-flex rounded-full border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
-                    {colors[0]}
-                  </span>
-                ) : (
+                <p className="mb-3 text-sm font-semibold text-[#2F3A35]">Opciones disponibles</p>
+                <div className="space-y-2">
+                  {activeVariants.map((variant) => {
+                    const isSelected = selectedVariant?.id === variant.id;
+                    const variantStock = Math.max(0, Number(variant.stock ?? 0));
+                    const variantDetails = getVariantDetails(variant).join(' · ') || 'Variante';
+
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => handleSelectVariant(variant)}
+                        disabled={variantStock <= 0}
+                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+                          isSelected
+                            ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61]'
+                            : 'border-[#EADBC8] bg-white text-[#2F3A35] hover:border-[#0f8f61]'
+                        }`}
+                      >
+                        <span className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="font-semibold">{variantDetails}</span>
+                          <span className="font-bold">{formatMoney(Number(variant.price ?? 0))}</span>
+                        </span>
+                        <span className={`mt-1 block text-xs ${variantStock > 0 ? 'text-[#6B756F]' : 'text-red-600'}`}>
+                          {variantStock > 0 ? `Stock: ${variantStock}` : 'Sin stock'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              activeDetails.length > 0 && (
+                <div className="mt-6">
+                  <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Características</p>
                   <div className="flex flex-wrap gap-2">
-                    {colors.map((color) => {
-                      const isAvailable = isVariantOptionAvailable('color', color);
-
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => selectVariantOption({ color })}
-                          disabled={!isAvailable}
-                          className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                            selectedColor === color
-                              ? 'border-[#0f8f61] bg-[#0f8f61] text-white'
-                              : 'border-[#EADBC8] bg-white text-[#2F3A35] hover:border-[#0f8f61]'
-                          }`}
-                        >
-                          {color}
-                          {!isAvailable ? ' - Sin stock' : ''}
-                        </button>
-                      );
-                    })}
+                    {activeDetails.map((detail) => (
+                      <span
+                        key={detail}
+                        className="rounded-full border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]"
+                      >
+                        {detail}
+                      </span>
+                    ))}
                   </div>
-                )}
-              </div>
-            )}
-
-            {sizes.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Tamaño</p>
-                {sizes.length === 1 ? (
-                  <span className="inline-flex rounded-lg border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
-                    {sizes[0]}
-                  </span>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {sizes.map((size) => {
-                      const isAvailable = isVariantOptionAvailable('size', size);
-
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => selectVariantOption({ size })}
-                          disabled={!isAvailable}
-                          className={`rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                            selectedSize === size
-                              ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61]'
-                              : 'border-[#EADBC8] bg-white text-[#2F3A35] hover:border-[#0f8f61]'
-                          }`}
-                        >
-                          <span className="block font-semibold">{size}</span>
-                          {!isAvailable && <span className="mt-1 block text-xs text-red-600">Sin stock</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {stemOptions.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Cantidad de varas</p>
-                {stemOptions.length === 1 ? (
-                  <span className="inline-flex rounded-full border border-[#0f8f61] bg-[#e8f7ef] px-4 py-2 text-sm font-semibold text-[#0f8f61]">
-                    {stemOptions[0]} {stemOptions[0] === 1 ? 'vara' : 'varas'}
-                  </span>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {stemOptions.map((stems) => {
-                      const isAvailable = isVariantOptionAvailable('floweringStems', stems);
-
-                      return (
-                        <button
-                          key={stems}
-                          type="button"
-                          onClick={() => selectVariantOption({ floweringStems: stems })}
-                          disabled={!isAvailable}
-                          className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                            selectedStems === stems
-                              ? 'border-[#0f8f61] bg-[#0f8f61] text-white'
-                              : 'border-[#EADBC8] bg-white text-[#2F3A35] hover:border-[#0f8f61]'
-                          }`}
-                        >
-                          {stems} {stems === 1 ? 'vara' : 'varas'}
-                          {!isAvailable ? ' - Sin stock' : ''}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                </div>
+              )
             )}
 
             <div className="mt-6">
