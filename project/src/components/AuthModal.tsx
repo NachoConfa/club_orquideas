@@ -13,6 +13,7 @@ import {
   signUpWithSupabase,
   type AuthenticatedUser,
 } from '../services/supabaseService';
+import { useToast } from './feedback/ToastProvider';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -63,6 +64,7 @@ const AuthModal = ({
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [formData, setFormData] = useState(emptyForm);
   const [password, setPassword] = useState('');
+  const toast = useToast();
   const shouldShowCaptcha = isTurnstileEnabled();
 
   const resetTurnstile = useCallback(() => {
@@ -116,7 +118,7 @@ const AuthModal = ({
     }
 
     if (!captchaToken) {
-      alert(TURNSTILE_REQUIRED_MESSAGE);
+      toast.warning(TURNSTILE_REQUIRED_MESSAGE);
       return null;
     }
 
@@ -131,7 +133,7 @@ const AuthModal = ({
       return TURNSTILE_FAILED_MESSAGE;
     }
 
-    return error instanceof Error ? error.message : 'No se pudo completar la autenticacion.';
+    return error instanceof Error ? error.message : 'No se pudo completar la autenticación.';
   };
 
   const handleClose = () => {
@@ -160,17 +162,17 @@ const AuthModal = ({
       }
 
       if (!isSupabaseReady()) {
-        throw new Error('El servicio de autenticacion no esta configurado.');
+        throw new Error('El servicio de autenticación no está configurado.');
       }
 
       await sendSupabasePasswordReset(formData.resetEmail, captchaToken);
-      alert(`Se envió un enlace de recuperación a ${formData.resetEmail}. Revisá tu email para cambiar la contraseña.`);
+      toast.success(`Se envió un enlace de recuperación a ${formData.resetEmail}. Revisá tu email para cambiar la contraseña.`);
       setShowForgotPassword(false);
       setFormData((current) => ({ ...current, resetEmail: '' }));
       resetTurnstile();
     } catch (error) {
       console.error('Error enviando recuperacion:', error);
-      alert(getAuthErrorMessage(error));
+      toast.error(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {
       setIsResettingPassword(false);
@@ -181,7 +183,7 @@ const AuthModal = ({
     event.preventDefault();
 
     if (authMode === 'register' && password.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres.');
+      toast.warning('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
@@ -195,7 +197,7 @@ const AuthModal = ({
         }
 
         if (!isSupabaseReady()) {
-          throw new Error('El servicio de autenticacion no esta configurado.');
+          throw new Error('El servicio de autenticación no está configurado.');
         }
 
         if (authMode === 'login') {
@@ -208,7 +210,7 @@ const AuthModal = ({
         const result = await signUpWithSupabase(formData.name, formData.email, password, captchaToken);
 
         if (result.needsEmailConfirmation) {
-          alert('Cuenta creada. Revisá tu email para confirmar la cuenta antes de iniciar sesión.');
+          toast.success('Cuenta creada. Revisá tu email para confirmar la cuenta antes de iniciar sesión.');
           handleClose();
           return;
         }
@@ -219,8 +221,8 @@ const AuthModal = ({
         }
       })());
     } catch (error) {
-      console.error('Error de autenticacion:', error);
-      alert(getAuthErrorMessage(error));
+      console.error('Error de autenticación:', error);
+      toast.error(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {
       setIsSubmitting(false);
@@ -237,11 +239,11 @@ const AuthModal = ({
 
   if (showForgotPassword) {
     return (
-      <div className="fixed inset-0 z-50 overflow-hidden">
+      <div className="fixed inset-0 z-50 overflow-y-auto px-4 py-4">
         <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
-        <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-2xl">
-          <div className="p-6">
+        <div className="absolute left-1/2 top-1/2 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="p-5 sm:p-6">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-800">Recuperar contraseña</h2>
               <button onClick={handleClose} className="text-gray-400 transition-colors hover:text-gray-600">
@@ -307,11 +309,11 @@ const AuthModal = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-y-auto px-4 py-4">
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
-      <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-2xl">
-        <div className="p-6">
+      <div className="absolute left-1/2 top-1/2 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="p-5 sm:p-6">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-800">
               {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
@@ -418,7 +420,7 @@ const AuthModal = ({
             )}
 
             <p className="text-gray-600">
-              {authMode === 'login' ? 'No tenes cuenta?' : 'Ya tenes cuenta?'}
+              {authMode === 'login' ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?'}
               <button
                 onClick={toggleAuthMode}
                 className="ml-2 font-semibold text-emerald-600 transition-colors hover:text-emerald-700"

@@ -22,15 +22,15 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSubmit, searchQuery }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
+    <form onSubmit={handleSubmit} className="relative w-full">
       <div
-        className={`flex items-center rounded-full border border-[#EADBC8] bg-white/90 px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#7FAF9B] ${
-          isExpanded ? 'min-w-[400px]' : 'min-w-[300px]'
+        className={`flex w-full items-center rounded-full border border-[#F1E3D4] bg-white px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#0F8F61] focus-within:ring-2 focus-within:ring-[#E8F7EF] md:w-[300px] ${
+          isExpanded ? 'lg:w-[400px]' : 'lg:w-[300px]'
         }`}
       >
         <button
           type="submit"
-          className="mr-3 flex-shrink-0 text-[#7FAF9B] transition-colors hover:text-[#0f8f61]"
+          className="mr-3 flex-shrink-0 text-[#0F8F61] transition-colors hover:text-[#0C7A52]"
           aria-label="Buscar"
         >
           <Search className="h-5 w-5" />
@@ -42,14 +42,14 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSubmit, searchQuery }
           onChange={(event) => onSearch(event.target.value)}
           onFocus={() => setIsExpanded(true)}
           onBlur={() => setIsExpanded(false)}
-          className="flex-1 bg-transparent text-[#2F3A35] outline-none placeholder:text-[#6B756F]/70"
+          className="min-w-0 flex-1 bg-transparent text-[#16352B] outline-none placeholder:text-[#6B7280]/70"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={clearSearch}
-            className="ml-2 text-[#6B756F] transition-colors hover:text-[#D96C9F]"
-            aria-label="Limpiar busqueda"
+            className="ml-2 text-[#6B7280] transition-colors hover:text-[#0F8F61]"
+            aria-label="Limpiar búsqueda"
           >
             <X className="h-4 w-4" />
           </button>

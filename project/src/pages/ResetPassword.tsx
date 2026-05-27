@@ -113,7 +113,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onBack, onPasswordReset }
             onClick={onPasswordReset}
             className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all duration-200"
           >
-            Ir a iniciar sesion
+            Ir a iniciar sesión
           </button>
         </div>
       </div>

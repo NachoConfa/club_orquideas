@@ -22,7 +22,7 @@ const invokeTransactionalEmail = async (body: Record<string, unknown>) => {
   }
 
   if (!session?.access_token) {
-    throw new Error('No hay una sesion activa para enviar el email.');
+    throw new Error('No hay una sesión activa para enviar el email.');
   }
 
   const { data, error } = await client.functions.invoke('send-transactional-email', {

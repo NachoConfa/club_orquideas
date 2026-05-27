@@ -91,7 +91,7 @@ export const isSupabaseReady = () => isSupabaseConfigured;
 
 const SUPABASE_REQUEST_TIMEOUT_MS = 15000;
 const SUPABASE_AUTH_TIMEOUT_MS = 12000;
-const SESSION_TIMEOUT_MESSAGE = 'La carga de la sesion tardo demasiado. Recarga la pagina e intenta nuevamente.';
+const SESSION_TIMEOUT_MESSAGE = 'La carga de la sesión tardó demasiado. Recargá la página e intentá nuevamente.';
 
 const getClient = () => {
   if (!supabase) {
@@ -444,7 +444,7 @@ const fetchProfileWithToken = async (authUser: User, accessToken: string): Promi
       }
     }
   } catch (error) {
-    logProfileFallback('Perfil no disponible con token directo. Se usan datos basicos de la sesion.', error);
+    logProfileFallback('Perfil no disponible con token directo. Se usan datos básicos de la sesión.', error);
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -494,7 +494,7 @@ const getProfileForUser = async (authUser: User): Promise<AuthenticatedUser> => 
       return mapProfile(createdProfile, authUser);
     }
   } catch (error) {
-    logProfileFallback('Perfil no disponible en Supabase. Se usan datos basicos de la sesion.', error);
+    logProfileFallback('Perfil no disponible en Supabase. Se usan datos básicos de la sesión.', error);
   }
 
   return mapAuthUserFallback(authUser);
@@ -574,7 +574,7 @@ export const getCurrentSupabaseUser = async (): Promise<AuthenticatedUser | null
   const client = getClient();
   const sessionResult = await withSupabaseTimeout(
     client.auth.getSession(),
-    'La carga de la sesion tardó demasiado. Recargá la pagina e intentá nuevamente.'
+    'La carga de la sesión tardó demasiado. Recargá la página e intentá nuevamente.'
   );
 
   if (sessionResult.error) {
@@ -595,7 +595,7 @@ export const signInWithSupabase = async (email: string, password: string, captch
         captchaToken,
       },
     }),
-    'El inicio de sesion tardo demasiado. Verifica tu conexion e intenta nuevamente.',
+    'El inicio de sesión tardó demasiado. Verificá tu conexión e intentá nuevamente.',
     SUPABASE_AUTH_TIMEOUT_MS
   );
 
@@ -604,7 +604,7 @@ export const signInWithSupabase = async (email: string, password: string, captch
   }
 
   if (!data.session || !data.user) {
-    throw new Error('Supabase no devolvio una sesion valida.');
+    throw new Error('Supabase no devolvió una sesión válida.');
   }
 
   const authData = {
@@ -722,7 +722,7 @@ export const updateSupabaseProfile = async ({
   }
 
   if (!user) {
-    throw new Error('No hay una sesion activa.');
+    throw new Error('No hay una sesión activa.');
   }
 
   if (newPassword) {

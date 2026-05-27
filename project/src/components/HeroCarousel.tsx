@@ -40,8 +40,8 @@ const slides: Array<{
     image: 'https://images.pexels.com/photos/931162/pexels-photo-931162.jpeg?auto=compress&cs=tinysrgb&w=1800',
   },
   {
-    title: 'Cuidado experto para tus orquídeas',
-    subtitle: 'Consejos, productos y acompañamiento para que florezcan mejor durante todo el año.',
+    title: 'Cuidado experto para tus plantas',
+    subtitle: 'Consejos, productos y acompañamiento para que crezcan mejor durante todo el año.',
     buttonLabel: 'Conocer cuidados',
     page: 'care',
     eyebrow: 'Cultivo y mantenimiento',
@@ -69,7 +69,7 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
   };
 
   return (
-    <section className="relative min-h-[72vh] overflow-hidden bg-[#2F3A35] sm:min-h-[76vh] lg:min-h-[82vh]">
+    <section className="relative min-h-[540px] overflow-hidden bg-[#16352B] sm:min-h-[620px] lg:min-h-[760px]">
       {slides.map((slide, index) => (
         <div
           key={slide.title}
@@ -78,22 +78,18 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
           }`}
           aria-hidden={activeSlideIndex !== index}
         >
-          <img
-            src={slide.image}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#2F3A35]/85 via-[#2F3A35]/50 to-[#2F3A35]/15" />
-          <div className="absolute inset-0 bg-[#D96C9F]/10" />
+          <img src={slide.image} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#16352B]/88 via-[#16352B]/60 to-[#16352B]/20" />
+          <div className="absolute inset-0 bg-[#0F8F61]/10" />
         </div>
       ))}
 
-      <div className="relative z-10 mx-auto flex min-h-[72vh] max-w-7xl items-center px-4 py-16 sm:min-h-[76vh] sm:px-6 lg:min-h-[82vh] lg:px-8">
+      <div className="relative z-10 mx-auto flex min-h-[540px] max-w-7xl items-center px-4 py-12 sm:min-h-[620px] sm:px-6 sm:py-16 lg:min-h-[760px] lg:px-8">
         <div className="max-w-3xl text-white">
-          <p className="mb-4 inline-flex rounded-full border border-white/30 bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#FFF8EF] backdrop-blur">
+          <p className="mb-4 inline-flex rounded-full border border-white/30 bg-white/15 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FFF8EF] backdrop-blur sm:text-xs">
             {slides[activeSlideIndex].eyebrow}
           </p>
-          <h1 className="max-w-2xl text-4xl font-semibold leading-tight text-[#FFF8EF] sm:text-5xl lg:text-6xl">
+          <h1 className="max-w-2xl text-3xl font-semibold leading-tight text-[#FFF8EF] sm:text-5xl lg:text-6xl">
             {slides[activeSlideIndex].title}
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-white/85 sm:text-lg">
@@ -103,13 +99,13 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
               onClick={() => onNavigate(slides[activeSlideIndex].page)}
-              className="inline-flex items-center justify-center rounded-full bg-[#D96C9F] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2F3A35]/20 transition-colors hover:bg-[#C8568B]"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#0F8F61] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#16352B]/20 transition-colors hover:bg-[#0C7A52] sm:w-auto"
             >
               {slides[activeSlideIndex].buttonLabel}
             </button>
             <button
               onClick={() => onNavigate('care')}
-              className="inline-flex items-center justify-center rounded-full border border-white/45 bg-white/10 px-7 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-white/45 bg-white/10 px-7 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:w-auto"
             >
               Guía de cuidados
             </button>
@@ -117,7 +113,7 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full bg-white/15 px-4 py-2 backdrop-blur">
+      <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full bg-white/15 px-4 py-2 backdrop-blur">
         {slides.map((slide, index) => (
           <button
             key={slide.title}

@@ -347,11 +347,11 @@ const getPublicRpcErrorMessage = (error: unknown) => {
   }
 
   if (errorText.includes('AUTH_REQUIRED')) {
-    return 'Inicia sesion nuevamente antes de completar el pedido.';
+    return 'Iniciá sesión nuevamente antes de completar el pedido.';
   }
 
   if (errorText.includes('ORDER_USER_MISMATCH')) {
-    return 'Tu sesion no coincide con el pedido. Cerra sesion e inicia nuevamente.';
+    return 'Tu sesión no coincide con el pedido. Cerrá sesión e iniciá nuevamente.';
   }
 
   if (errorText.includes('ORDER_PAYLOAD_INVALID') || errorText.includes('ORDER_ITEMS_REQUIRED')) {
@@ -417,9 +417,9 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
 
   if (sessionError || !sessionUser?.id) {
     if (import.meta.env.DEV) {
-      console.error('No hay sesion real de Supabase para crear el pedido:', sessionError);
+      console.error('No hay sesión real de Supabase para crear el pedido:', sessionError);
     }
-    throw new Error('Inicia sesion nuevamente antes de completar el pedido.');
+    throw new Error('Iniciá sesión nuevamente antes de completar el pedido.');
   }
 
   if (sessionUser.id !== input.userId) {
@@ -429,7 +429,7 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
         inputUserIdPrefix: input.userId.slice(0, 8),
       });
     }
-    throw new Error('Tu sesion no coincide con el pedido. Cerra sesion e inicia nuevamente.');
+    throw new Error('Tu sesión no coincide con el pedido. Cerrá sesión e iniciá nuevamente.');
   }
 
   const invalidCartItems = input.items.filter((item) => !toNullableUuid(item.sourceId));
@@ -560,7 +560,7 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
   const createdOrder = (Array.isArray(data) ? data[0] : data) as CreatedOrderRow | undefined;
   if (!createdOrder?.id) {
     throw createPublicOrderError(
-      new Error('La RPC create_order_with_stock no devolvio el pedido creado.'),
+      new Error('La RPC create_order_with_stock no devolvió el pedido creado.'),
       'No pudimos completar tu pedido. Revisa el carrito e intenta nuevamente.'
     );
   }
@@ -765,7 +765,7 @@ const getCancelOrderPublicMessage = (error: unknown) => {
   }
 
   if (errorText.includes('ORDER_FORBIDDEN') || errorText.includes('AUTH_REQUIRED')) {
-    return 'Inicia sesion nuevamente para cancelar este pedido.';
+    return 'Iniciá sesión nuevamente para cancelar este pedido.';
   }
 
   return 'No se pudo cancelar el pedido.';

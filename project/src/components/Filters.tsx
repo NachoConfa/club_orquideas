@@ -99,7 +99,7 @@ const Filters: React.FC<FiltersProps> = ({
     <>
       {filterGroups.map((group) => (
         <div key={group.key} className="mb-6">
-          <h4 className="mb-3 font-medium text-[#2F3A35]">{group.label}</h4>
+          <h4 className="mb-3 font-medium text-[#16352B]">{group.label}</h4>
           <div className={group.display === 'swatch' ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
             {group.options.map((option) => {
               const checked = filters.values[group.key]?.includes(option.value) ?? false;
@@ -110,18 +110,18 @@ const Filters: React.FC<FiltersProps> = ({
                     type="checkbox"
                     checked={checked}
                     onChange={(event) => onOptionToggle(group.key, option.value, event.target.checked)}
-                    className={group.display === 'swatch' ? 'sr-only' : 'rounded text-[#5FAE9B] focus:ring-[#7FAF9B]'}
+                    className={group.display === 'swatch' ? 'sr-only' : 'rounded text-[#0F8F61] focus:ring-[#0F8F61]'}
                   />
                   {group.display === 'swatch' && (
                     <span
                       className={`h-5 w-5 rounded-full ${getSwatchClass(option.label)} ${
-                        checked ? 'ring-2 ring-[#7FAF9B] ring-offset-2' : ''
+                        checked ? 'ring-2 ring-[#0F8F61] ring-offset-2' : ''
                       }`}
                     />
                   )}
-                  <span className="min-w-0 flex-1 text-sm text-[#6B756F]">
+                  <span className="min-w-0 flex-1 text-sm text-[#6B7280]">
                     {option.label}
-                    <span className="ml-1 text-xs text-[#6B756F]/70">({option.count})</span>
+                    <span className="ml-1 text-xs text-[#6B7280]/70">({option.count})</span>
                   </span>
                 </label>
               );
@@ -132,7 +132,7 @@ const Filters: React.FC<FiltersProps> = ({
 
       {hasPriceFilter && (
         <div className="mb-6">
-          <h4 className="mb-3 font-medium text-[#2F3A35]">Rango de precio</h4>
+          <h4 className="mb-3 font-medium text-[#16352B]">Rango de precio</h4>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">$</span>
@@ -141,7 +141,7 @@ const Filters: React.FC<FiltersProps> = ({
                 inputMode="numeric"
                 value={minPriceInput}
                 onChange={(event) => updateMinPrice(event.target.value)}
-                className="w-24 rounded border border-[#EADBC8] px-2 py-1 text-sm focus:border-[#7FAF9B] focus:ring-2 focus:ring-[#7FAF9B]"
+                className="w-24 rounded border border-[#F1E3D4] px-2 py-2 text-sm focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                 placeholder="Min"
               />
               <span className="text-gray-400">-</span>
@@ -150,11 +150,11 @@ const Filters: React.FC<FiltersProps> = ({
                 inputMode="numeric"
                 value={maxPriceInput}
                 onChange={(event) => updateMaxPrice(event.target.value)}
-                className="w-28 rounded border border-[#EADBC8] px-2 py-1 text-sm focus:border-[#7FAF9B] focus:ring-2 focus:ring-[#7FAF9B]"
+                className="w-28 rounded border border-[#F1E3D4] px-2 py-2 text-sm focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                 placeholder="Max"
               />
             </div>
-            <p className="text-xs text-[#6B756F]/75">
+            <p className="text-xs text-[#6B7280]/75">
               Disponible: {formatMoney(priceBounds.min)} - {formatMoney(priceBounds.max)}
             </p>
             {priceError && <p className="text-xs font-medium text-red-600">{priceError}</p>}
@@ -174,7 +174,7 @@ const Filters: React.FC<FiltersProps> = ({
             clearAllFilters();
             setIsMobileDrawerOpen(false);
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#F1E3D4] bg-white px-4 py-2 font-medium text-[#16352B] transition-colors hover:bg-[#FFF8EF]"
         >
           <X className="h-4 w-4" />
           <span>Limpiar filtros</span>
@@ -188,27 +188,27 @@ const Filters: React.FC<FiltersProps> = ({
       <div className="mb-4 lg:hidden">
         <button
           onClick={() => setIsMobileDrawerOpen(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#5FAE9B] px-4 py-3 font-medium text-white shadow-sm transition-all hover:bg-[#4D9A88]"
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0F8F61] px-4 py-3 font-medium text-white shadow-sm transition-all hover:bg-[#0C7A52]"
         >
           <SlidersHorizontal className="h-5 w-5" />
           <span>Filtros</span>
           {activeFiltersCount > 0 && (
-            <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#5FAE9B]">
+            <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-[#0F8F61]">
               {activeFiltersCount}
             </span>
           )}
         </button>
       </div>
 
-      <div className={`hidden rounded-xl border border-[#EADBC8]/70 bg-white/90 p-6 shadow-sm lg:block lg:sticky lg:top-24 ${className}`}>
+      <div className={`hidden rounded-xl border border-[#F1E3D4] bg-white/90 p-6 shadow-sm lg:sticky lg:top-28 lg:block ${className}`}>
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-[#5FAE9B]" />
-            <h3 className="text-lg font-semibold text-[#2F3A35]">Filtros</h3>
+            <Filter className="h-5 w-5 text-[#0F8F61]" />
+            <h3 className="text-lg font-semibold text-[#16352B]">Filtros</h3>
           </div>
           <button
             onClick={clearAllFilters}
-            className="flex items-center gap-1 text-sm text-[#6B756F] transition-colors hover:text-[#D96C9F]"
+            className="flex items-center gap-1 text-sm text-[#6B7280] transition-colors hover:text-[#0F8F61]"
           >
             <X className="h-4 w-4" />
             <span>Limpiar</span>
@@ -221,30 +221,30 @@ const Filters: React.FC<FiltersProps> = ({
       {isMobileDrawerOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            className="fixed inset-0 z-40 bg-[#16352B]/55 lg:hidden"
             onClick={() => setIsMobileDrawerOpen(false)}
           />
 
-          <div className="fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] bg-[#FFF8EF] shadow-xl lg:hidden">
-            <div className="flex items-center justify-between border-b border-[#EADBC8] p-4">
+          <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FFF8EF] shadow-xl sm:w-96 lg:hidden">
+            <div className="flex items-center justify-between border-b border-[#F1E3D4] bg-white p-4">
               <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-[#5FAE9B]" />
-                <h3 className="text-lg font-semibold text-[#2F3A35]">Filtros</h3>
+                <Filter className="h-5 w-5 text-[#0F8F61]" />
+                <h3 className="text-lg font-semibold text-[#16352B]">Filtros</h3>
                 {activeFiltersCount > 0 && (
-                  <span className="rounded-full bg-[#CFE3D4] px-2 py-1 text-xs font-bold text-[#2F3A35]">
+                  <span className="rounded-full bg-[#E8F7EF] px-2 py-1 text-xs font-bold text-[#0F8F61]">
                     {activeFiltersCount}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setIsMobileDrawerOpen(false)}
-                className="rounded-full p-2 transition-colors hover:bg-gray-100"
+                className="rounded-full p-2 transition-colors hover:bg-[#E8F7EF]"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
-            <div className="h-full overflow-y-auto p-4 pb-20">
+            <div className="flex-1 overflow-y-auto p-4 pb-20">
               {renderFilterContent()}
             </div>
           </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, CreditCard, Eye, Home, MapPin, Package, Truck, XCircle } from 'lucide-react';
 import { cancelSupabaseOrder, getSupabaseOrdersForUser, type CustomerOrder } from '../services/orderSupabaseService';
+import { useConfirm } from '../components/feedback/ConfirmProvider';
+import { useToast } from '../components/feedback/ToastProvider';
 
 interface OrdersProps {
   onBack: () => void;
@@ -66,7 +68,7 @@ const getStatusText = (status: string) => {
     case 'approved':
       return 'Aprobado';
     case 'processing':
-      return 'En preparacion';
+      return 'En preparación';
     case 'completed':
       return 'Completado';
     case 'shipped':
@@ -76,7 +78,7 @@ const getStatusText = (status: string) => {
     case 'cancelled':
       return 'Cancelado';
     case 'requires_review':
-      return 'Requiere revision';
+      return 'Requiere revisión';
     default:
       return 'Desconocido';
   }
@@ -125,7 +127,7 @@ const getShippingText = (order: CustomerOrder) => {
   }
 
   if (order.shippingMethod === 'uber') {
-    return `Envio por Uber${order.shippingZoneName ? ` - ${order.shippingZoneName}` : ''}`;
+    return `Envío por Uber${order.shippingZoneName ? ` - ${order.shippingZoneName}` : ''}`;
   }
 
   return order.shippingRequiresQuote
@@ -147,6 +149,8 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
   const [actionOrderId, setActionOrderId] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const loadOrders = async () => {
     if (!user?.id) {
@@ -177,11 +181,17 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
 
   const cancelOrder = async (order: CustomerOrder) => {
     if (!isOrderCancelable(order)) {
-      setError('Este pedido ya fue confirmado y no puede cancelarse desde aca.');
+      setError('Este pedido ya fue confirmado y no puede cancelarse desde acá.');
+      toast.warning('Este pedido ya fue confirmado y no puede cancelarse desde acá.');
       return;
     }
 
-    const confirmed = window.confirm('Seguro que queres cancelar este pedido?');
+    const confirmed = await confirm({
+      title: 'Cancelar pedido',
+      message: '¿Seguro que querés cancelar este pedido?',
+      confirmLabel: 'Cancelar pedido',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }
@@ -193,6 +203,7 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
     try {
       await cancelSupabaseOrder(order.id);
       setNotice('Pedido cancelado correctamente.');
+      toast.success('Pedido cancelado correctamente.');
       setSelectedOrder((currentOrder) =>
         currentOrder?.id === order.id
           ? { ...currentOrder, status: 'cancelled', paymentStatus: 'cancelled' }
@@ -200,7 +211,9 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
       );
       await loadOrders();
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar el pedido.');
+      const message = cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar el pedido.';
+      setError(message);
+      toast.error(message);
     } finally {
       setActionOrderId('');
     }
@@ -208,13 +221,13 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-emerald-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Acceso requerido</h2>
-          <p className="text-gray-600 mb-6">Debes iniciar sesion para ver tus pedidos.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#FFF8EF] px-4">
+        <div className="rounded-2xl border border-[#F1E3D4] bg-white p-6 text-center shadow-sm sm:p-8">
+          <h2 className="mb-4 text-2xl font-bold text-[#16352B]">Acceso requerido</h2>
+          <p className="mb-6 text-[#6B7280]">Debés iniciar sesión para ver tus pedidos.</p>
           <button
             onClick={onBack}
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
+            className="rounded-lg bg-[#0F8F61] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#0C7A52]"
           >
             Volver al inicio
           </button>
@@ -225,19 +238,19 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
 
   if (selectedOrder) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-emerald-50">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen bg-[#FFF8EF]">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <button
             onClick={() => setSelectedOrder(null)}
-            className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 transition-colors mb-6"
+            className="mb-6 flex items-center space-x-2 text-[#0F8F61] transition-colors hover:text-[#0C7A52]"
           >
             <ArrowLeft className="h-5 w-5" />
             <span>Volver a mis pedidos</span>
           </button>
 
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">Pedido #{selectedOrder.orderNumber}</h1>
+          <div className="rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-8">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="text-2xl font-bold text-[#16352B]">Pedido #{selectedOrder.orderNumber}</h1>
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedOrder.status)}`}>
                 {getStatusText(selectedOrder.status)}
               </span>
@@ -251,9 +264,9 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
               <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">{notice}</div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Informacion del pedido</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Información del pedido</h3>
                 <div className="space-y-3">
                   <div className="flex items-center">
                     <Calendar className="h-5 w-5 text-gray-400 mr-3" />
@@ -287,11 +300,11 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Informacion de contacto</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Información de contacto</h3>
                 <div className="space-y-2 text-gray-700">
                   <p><strong>Nombre:</strong> {selectedOrder.customerInfo.firstName} {selectedOrder.customerInfo.lastName}</p>
                   <p><strong>Email:</strong> {selectedOrder.customerInfo.email}</p>
-                  <p><strong>Telefono:</strong> {selectedOrder.customerInfo.phone}</p>
+                  <p><strong>Teléfono:</strong> {selectedOrder.customerInfo.phone}</p>
                 </div>
               </div>
             </div>
@@ -300,8 +313,8 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Productos</h3>
               <div className="space-y-4">
                 {selectedOrder.items.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-                    <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
+                  <div key={index} className="flex flex-col gap-3 rounded-lg bg-[#FFF8EF] p-4 sm:flex-row sm:items-center sm:space-x-4">
+                    <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-800">{item.name}</h4>
                       {getOrderItemDetails(item).length > 0 && (
@@ -309,13 +322,13 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
                       )}
                       <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-gray-800">{formatMoney(item.price * item.quantity)}</p>
+                    <p className="font-semibold text-gray-800 sm:text-right">{formatMoney(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-8 bg-gray-50 p-6 rounded-lg">
+            <div className="mt-8 rounded-lg bg-[#FFF8EF] p-5 sm:p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumen de pago</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -323,7 +336,7 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
                   <span>{formatMoney(selectedOrder.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{selectedOrder.deliveryMethod === 'pickup' ? 'Retiro en local:' : 'Envio:'}</span>
+                  <span>{selectedOrder.deliveryMethod === 'pickup' ? 'Retiro en local:' : 'Envío:'}</span>
                   <span>
                     {selectedOrder.deliveryMethod === 'pickup'
                       ? 'GRATIS'
@@ -365,20 +378,20 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-emerald-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#FFF8EF]">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 transition-colors mb-6"
+          className="mb-6 flex items-center space-x-2 text-[#0F8F61] transition-colors hover:text-[#0C7A52]"
         >
           <ArrowLeft className="h-5 w-5" />
           <span>Volver al inicio</span>
         </button>
 
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex items-center mb-8">
-            <Package className="h-8 w-8 text-emerald-500 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-800">Mis pedidos</h1>
+        <div className="rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-8">
+          <div className="mb-8 flex items-center">
+            <Package className="mr-3 h-8 w-8 text-[#0F8F61]" />
+            <h1 className="text-2xl font-bold text-[#16352B] sm:text-3xl">Mis pedidos</h1>
           </div>
 
           {error && (
@@ -404,47 +417,47 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
           ) : !error && orders.length === 0 ? (
             <div className="text-center py-12">
               <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">No tienes pedidos aun</h3>
-              <p className="text-gray-500 mb-6">Explora nuestro catalogo y realiza tu primera compra.</p>
+              <h3 className="mb-2 text-xl font-semibold text-[#16352B]">Todavía no tenés pedidos</h3>
+              <p className="text-gray-500 mb-6">Explorá nuestro catálogo y realizá tu primera compra.</p>
               <button
                 onClick={onBack}
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-2 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
+                className="rounded-lg bg-[#0F8F61] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#0C7A52]"
               >
-                Ver catalogo
+                Ver catálogo
               </button>
             </div>
           ) : orders.length > 0 ? (
             <div className="space-y-4">
               {orders.map((order) => (
-                <div key={order.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-4">
+                <div key={order.id} className="rounded-xl border border-[#F1E3D4] p-4 transition-shadow hover:shadow-md sm:p-6">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-lg font-semibold text-gray-800">Pedido #{order.orderNumber}</h3>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
                         {getStatusText(order.status)}
                       </span>
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right">
                       <p className="text-sm text-gray-500">{new Date(order.date).toLocaleDateString('es-ES')}</p>
                       <p className="text-lg font-bold text-emerald-600">{formatMoney(order.total)}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                       <p className="text-sm text-gray-600">
                         {order.items.length} producto{order.items.length !== 1 ? 's' : ''}
                       </p>
                       <p className="text-sm text-gray-500">{getShippingText(order)}</p>
                     </div>
 
-                    <div className="flex flex-wrap justify-end gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                       {isOrderCancelable(order) && (
                         <button
                           type="button"
                           onClick={() => cancelOrder(order)}
                           disabled={actionOrderId === order.id}
-                          className="flex items-center space-x-2 rounded-lg bg-red-50 px-4 py-2 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="flex min-h-11 items-center justify-center space-x-2 rounded-lg bg-red-50 px-4 py-2 text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <XCircle className="h-4 w-4" />
                           <span>{actionOrderId === order.id ? 'Cancelando...' : 'Cancelar pedido'}</span>
@@ -453,7 +466,7 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
 
                       <button
                         onClick={() => setSelectedOrder(order)}
-                        className="flex items-center space-x-2 bg-emerald-100 text-emerald-700 py-2 px-4 rounded-lg hover:bg-emerald-200 transition-colors"
+                        className="flex min-h-11 items-center justify-center space-x-2 rounded-lg bg-[#E8F7EF] px-4 py-2 text-[#0F8F61] transition-colors hover:bg-[#D2EBDD]"
                       >
                         <Eye className="h-4 w-4" />
                         <span>Ver detalles</span>

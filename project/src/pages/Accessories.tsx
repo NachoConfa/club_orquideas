@@ -74,15 +74,15 @@ const Accessories: React.FC<AccessoriesProps> = ({
             className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 transition-colors mb-4"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span>Volver al catalogo</span>
+            <span>Volver al catálogo</span>
           </button>
 
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
-              Accesorios para Orquideas
+              Accesorios para plantas
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Productos seleccionados para el cuidado de tus orquideas.
+              Productos seleccionados para el cuidado de tus plantas.
             </p>
           </div>
         </div>
@@ -108,7 +108,7 @@ const Accessories: React.FC<AccessoriesProps> = ({
               No hay accesorios cargados
             </h2>
             <p className="text-gray-500">
-              Agrega accesorios desde el panel administrador usando categoria o tipo "Accesorios".
+              Agregá accesorios desde el panel administrador usando categoría o tipo "Accesorios".
             </p>
           </div>
         ) : (

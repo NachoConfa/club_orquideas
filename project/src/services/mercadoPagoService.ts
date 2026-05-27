@@ -25,7 +25,7 @@ export const createMercadoPagoPreference = async (orderId: string) => {
   }
 
   if (!session?.access_token) {
-    throw new Error('Inicia sesion para pagar con Mercado Pago.');
+    throw new Error('Iniciá sesión para pagar con Mercado Pago.');
   }
 
   const { data, error } = await client.functions.invoke<MercadoPagoPreferenceResponse>(
@@ -43,7 +43,7 @@ export const createMercadoPagoPreference = async (orderId: string) => {
   }
 
   if (!data?.initPoint) {
-    throw new Error('Mercado Pago no devolvio un link de pago.');
+    throw new Error('Mercado Pago no devolvió un link de pago.');
   }
 
   return data;

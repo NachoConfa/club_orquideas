@@ -40,6 +40,8 @@ import {
   updateAdminOrderStatus,
   updateAdminProduct,
 } from '../services/adminSupabaseService';
+import { useConfirm } from '../components/feedback/ConfirmProvider';
+import { useToast } from '../components/feedback/ToastProvider';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -367,7 +369,7 @@ const ProductForm = ({
         </label>
 
         <label className="text-sm font-medium text-gray-700">
-          Tipo / categoria
+          Tipo / categoría
           <input
             list="admin-product-type-options"
             value={form.orchid_type}
@@ -670,6 +672,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [productForm, setProductForm] = useState<AdminProductInput>(() => emptyAdminProductInput());
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const isAdmin = Boolean(user?.isAdmin);
 
@@ -889,7 +893,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   };
 
   const removeProduct = async (product: AdminProduct) => {
-    const confirmed = window.confirm(`Eliminar "${product.name}"? Esta accion no se puede deshacer.`);
+    const confirmed = await confirm({
+      title: 'Eliminar producto',
+      message: `¿Querés eliminar "${product.name}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }
@@ -902,8 +911,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
       await loadProducts();
       await loadDashboardData();
       onProductsChanged();
+      toast.success('Producto eliminado correctamente.');
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el producto.');
+      const message = deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el producto.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -942,7 +954,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
       return;
     }
 
-    const confirmed = window.confirm('Confirmar pago y descontar stock de este pedido?');
+    const confirmed = await confirm({
+      title: 'Confirmar pago',
+      message: 'Se va a confirmar el pago y descontar el stock correspondiente.',
+      confirmLabel: 'Confirmar pago',
+    });
     if (!confirmed) {
       return;
     }
@@ -958,10 +974,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         await loadPayments();
       }
       onProductsChanged();
+      toast.success('Pago confirmado correctamente.');
     } catch (confirmError) {
       await loadOrders();
       await loadDashboardData();
-      setError(confirmError instanceof Error ? confirmError.message : 'No se pudo confirmar el pago.');
+      const message = confirmError instanceof Error ? confirmError.message : 'No se pudo confirmar el pago.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -975,10 +994,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
     if (!isOrderCancelable(order)) {
       setError('Este pedido ya fue confirmado y no puede cancelarse desde aca.');
+      toast.warning('Este pedido ya fue confirmado y no puede cancelarse desde acá.');
       return;
     }
 
-    const confirmed = window.confirm('Seguro que queres cancelar este pedido?');
+    const confirmed = await confirm({
+      title: 'Cancelar pedido',
+      message: '¿Seguro que querés cancelar este pedido?',
+      confirmLabel: 'Cancelar pedido',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }
@@ -993,8 +1018,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
       if (loadedTabs.payments) {
         await loadPayments();
       }
+      toast.success('Pedido cancelado correctamente.');
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar el pedido.');
+      const message = cancelError instanceof Error ? cancelError.message : 'No se pudo cancelar el pedido.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -1009,7 +1037,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         </button>
         <div className="rounded-lg border border-red-200 bg-white p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-800">Acceso requerido</h1>
-          <p className="mt-2 text-gray-600">Inicia sesion con una cuenta administradora.</p>
+          <p className="mt-2 text-gray-600">Iniciá sesión con una cuenta administradora.</p>
         </div>
       </div>
     );
@@ -1042,18 +1070,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
             <button onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-700">
               <ArrowLeft className="h-4 w-4" />
               Volver a la tienda
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Panel administrador</h1>
-            <p className="mt-1 text-gray-600">Gestiona productos, pedidos, clientes y pagos.</p>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Panel administrador</h1>
+            <p className="mt-1 text-gray-600">Gestioná productos, pedidos, clientes y pagos.</p>
           </div>
           <button
             onClick={startCreateProduct}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 sm:w-auto"
           >
             <Plus className="h-5 w-5" />
             Agregar producto
@@ -1061,8 +1089,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-6 flex gap-2 overflow-x-auto border-b border-gray-200 pb-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -1277,7 +1305,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                         <option value="confirmed">Confirmado</option>
                         <option value="processing">Preparando</option>
                         <option value="paid">Pagado</option>
-                        <option value="requires_review">Requiere revision</option>
+                        <option value="requires_review">Requiere revisión</option>
                         <option value="shipped">Enviado</option>
                         <option value="delivered">Entregado</option>
                         <option value="cancelled">Cancelado</option>
@@ -1364,9 +1392,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                   emptyMessage="Todavia no hay clientes registrados."
                   columns={[
                     { key: 'full_name', label: 'Nombre' },
-                    { key: 'phone', label: 'Telefono' },
+                    { key: 'phone', label: 'Teléfono' },
                     { key: 'role', label: 'Rol' },
-                    { key: 'address', label: 'Direccion' },
+                    { key: 'address', label: 'Dirección' },
                     { key: 'created_at', label: 'Alta', render: (record) => formatDate(record.created_at) },
                   ]}
                 />
@@ -1384,7 +1412,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                   { key: 'id', label: 'ID', render: (record) => getRecordId(record).slice(0, 8) || '-' },
                   { key: 'status', label: 'Estado', render: (record) => getPaymentStatusLabel(record) },
                   { key: 'amount', label: 'Importe', render: (record) => formatCurrency(getAmount(record)) },
-                  { key: 'method', label: 'Metodo', render: (record) => stringifyValue(record.method ?? record.payment_method) },
+                  { key: 'method', label: 'Método', render: (record) => stringifyValue(record.method ?? record.payment_method) },
                   { key: 'created_at', label: 'Fecha', render: (record) => formatDate(record.created_at) },
                 ]}
               />

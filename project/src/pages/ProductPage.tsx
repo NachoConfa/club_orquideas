@@ -134,10 +134,10 @@ const ProductPage = ({
             <ArrowLeft className="h-4 w-4" />
             Volver al catálogo
           </button>
-          <div className="rounded-2xl border border-[#EADBC8] bg-white p-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-[#F1E3D4] bg-white p-10 text-center shadow-sm">
             <PackageCheck className="mx-auto mb-4 h-12 w-12 text-[#CFE3D4]" />
-            <h1 className="text-2xl font-bold text-[#2F3A35]">Producto no encontrado</h1>
-            <p className="mt-2 text-[#6B756F]">El producto que buscás no está disponible o cambió de dirección.</p>
+            <h1 className="text-2xl font-bold text-[#16352B]">Producto no encontrado</h1>
+            <p className="mt-2 text-[#6B7280]">El producto que buscás no está disponible o cambió de dirección.</p>
           </div>
         </div>
       </main>
@@ -198,7 +198,7 @@ const ProductPage = ({
         </button>
 
         <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] xl:gap-8">
-          <section className="min-w-0 self-start overflow-hidden rounded-2xl border border-[#EADBC8]/70 bg-white shadow-sm">
+          <section className="min-w-0 self-start overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white shadow-sm">
             <div className="flex min-h-[260px] items-center justify-center bg-[#f7f1e8] p-3 sm:min-h-[320px] lg:min-h-[380px]">
               <img
                 src={activeImage}
@@ -208,7 +208,7 @@ const ProductPage = ({
             </div>
           </section>
 
-          <section className="min-w-0 self-start rounded-2xl border border-[#EADBC8]/70 bg-white p-5 shadow-sm sm:p-7 lg:p-8">
+          <section className="min-w-0 self-start rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-[#e8f7ef] px-3 py-1 text-xs font-semibold text-[#0f8f61]">
                 {product.category}
@@ -218,8 +218,8 @@ const ProductPage = ({
                 onClick={() => onToggleFavorite(product)}
                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                   isFavorite
-                    ? 'border-[#D96C9F] bg-[#F8DDEB] text-[#B9487E]'
-                    : 'border-[#EADBC8] text-[#6B756F] hover:border-[#D96C9F]'
+                    ? 'border-[#0F8F61] bg-[#E8F7EF] text-[#0F8F61]'
+                    : 'border-[#F1E3D4] text-[#6B7280] hover:border-[#0F8F61]'
                 }`}
               >
                 <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
@@ -227,33 +227,33 @@ const ProductPage = ({
               </button>
             </div>
 
-            <h1 className="break-words text-3xl font-bold leading-tight text-[#2F3A35] sm:text-4xl">{product.name}</h1>
-            <p className="mt-4 text-base leading-7 text-[#6B756F]">
+            <h1 className="break-words text-3xl font-bold leading-tight text-[#16352B] sm:text-4xl">{product.name}</h1>
+            <p className="mt-4 text-base leading-7 text-[#6B7280]">
               {product.description || 'Producto seleccionado de nuestro catálogo.'}
             </p>
 
             {hasRealVariants && (
-              <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#e8f7ef] px-4 py-3 text-sm text-[#2F3A35]">
+              <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#E8F7EF] px-4 py-3 text-sm text-[#16352B]">
                 Elegí una opción disponible. El precio, stock e imagen corresponden a la variante seleccionada.
               </div>
             )}
 
-            <div className="mt-6 rounded-2xl border border-[#EADBC8]/70 bg-[#fff8ef] p-4">
-              <p className="text-sm text-[#6B756F]">Precio</p>
+            <div className="mt-6 rounded-2xl border border-[#F1E3D4] bg-[#FFF8EF] p-4">
+              <p className="text-sm text-[#6B7280]">Precio</p>
               <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
-                <p className="break-words text-3xl font-bold text-[#2F3A35] sm:text-4xl">{formatMoney(activePrice)}</p>
+                <p className="break-words text-3xl font-bold text-[#16352B] sm:text-4xl">{formatMoney(activePrice)}</p>
                 <p className={`font-semibold ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
                   {isOutOfStock ? 'Agotado' : `Stock: ${activeStock} unidades`}
                 </p>
               </div>
               {activeDetails.length > 0 && (
-                <p className="mt-2 text-sm text-[#6B756F]">{activeDetails.join(' · ')}</p>
+                <p className="mt-2 text-sm text-[#6B7280]">{activeDetails.join(' · ')}</p>
               )}
             </div>
 
             {hasRealVariants ? (
               <div className="mt-6">
-                <p className="mb-3 text-sm font-semibold text-[#2F3A35]">Opciones disponibles</p>
+                <p className="mb-3 text-sm font-semibold text-[#16352B]">Opciones disponibles</p>
                 <div className="space-y-2">
                   {activeVariants.map((variant) => {
                     const isSelected = selectedVariant?.id === variant.id;
@@ -269,14 +269,14 @@ const ProductPage = ({
                         className={`w-full rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
                           isSelected
                             ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61]'
-                            : 'border-[#EADBC8] bg-white text-[#2F3A35] hover:border-[#0f8f61]'
+                            : 'border-[#F1E3D4] bg-white text-[#16352B] hover:border-[#0f8f61]'
                         }`}
                       >
                         <span className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                           <span className="font-semibold">{variantDetails}</span>
                           <span className="font-bold">{formatMoney(Number(variant.price ?? 0))}</span>
                         </span>
-                        <span className={`mt-1 block text-xs ${variantStock > 0 ? 'text-[#6B756F]' : 'text-red-600'}`}>
+                        <span className={`mt-1 block text-xs ${variantStock > 0 ? 'text-[#6B7280]' : 'text-red-600'}`}>
                           {variantStock > 0 ? `Stock: ${variantStock}` : 'Sin stock'}
                         </span>
                       </button>
@@ -287,7 +287,7 @@ const ProductPage = ({
             ) : (
               activeDetails.length > 0 && (
                 <div className="mt-6">
-                  <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Características</p>
+                  <p className="mb-2 text-sm font-semibold text-[#16352B]">Características</p>
                   <div className="flex flex-wrap gap-2">
                     {activeDetails.map((detail) => (
                       <span
@@ -303,22 +303,22 @@ const ProductPage = ({
             )}
 
             <div className="mt-6">
-              <p className="mb-2 text-sm font-semibold text-[#2F3A35]">Cantidad</p>
-              <div className="inline-flex items-center rounded-lg border border-[#EADBC8] bg-white">
+              <p className="mb-2 text-sm font-semibold text-[#16352B]">Cantidad</p>
+              <div className="inline-flex items-center rounded-lg border border-[#F1E3D4] bg-white">
                 <button
                   type="button"
                   onClick={decreaseQuantity}
                   disabled={quantity <= 1}
-                  className="p-3 text-[#6B756F] hover:text-[#2F3A35] disabled:opacity-40"
+                  className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="min-w-[3rem] text-center font-semibold text-[#2F3A35]">{quantity}</span>
+                <span className="min-w-[3rem] text-center font-semibold text-[#16352B]">{quantity}</span>
                 <button
                   type="button"
                   onClick={increaseQuantity}
                   disabled={isOutOfStock || quantity >= activeStock}
-                  className="p-3 text-[#6B756F] hover:text-[#2F3A35] disabled:opacity-40"
+                  className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -326,7 +326,7 @@ const ProductPage = ({
             </div>
 
             {message && (
-              <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#EADBC8] bg-[#fff8ef] px-3 py-2 text-sm text-[#2F3A35]">
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#F1E3D4] bg-[#FFF8EF] px-3 py-2 text-sm text-[#16352B]">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#0f8f61]" />
                 <span>{message}</span>
               </div>
@@ -342,7 +342,7 @@ const ProductPage = ({
               {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
             </button>
 
-            <div className="mt-6 grid gap-3 text-sm text-[#6B756F] sm:grid-cols-3">
+            <div className="mt-6 grid gap-3 text-sm text-[#6B7280] sm:grid-cols-3">
               <div className="flex items-center gap-2 rounded-lg bg-[#e8f7ef] px-3 py-3">
                 <Truck className="h-4 w-4 text-[#0f8f61]" />
                 Envíos a coordinar
@@ -361,18 +361,18 @@ const ProductPage = ({
 
         {relatedProducts.length > 0 && (
           <section className="mt-12">
-            <h2 className="mb-4 text-2xl font-bold text-[#2F3A35]">Productos relacionados</h2>
+            <h2 className="mb-4 text-2xl font-bold text-[#16352B]">Productos relacionados</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {relatedProducts.slice(0, 4).map((relatedProduct) => (
                 <button
                   key={relatedProduct.sourceId || relatedProduct.id}
                   type="button"
                   onClick={() => onOpenRelatedProduct?.(relatedProduct)}
-                  className="overflow-hidden rounded-xl border border-[#EADBC8]/70 bg-white text-left shadow-sm transition-transform hover:-translate-y-1"
+                  className="overflow-hidden rounded-xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-transform hover:-translate-y-1"
                 >
                   <img src={relatedProduct.image} alt={relatedProduct.name} className="h-44 w-full object-cover" />
                   <div className="p-4">
-                    <p className="line-clamp-2 font-semibold text-[#2F3A35]">{relatedProduct.name}</p>
+                    <p className="line-clamp-2 font-semibold text-[#16352B]">{relatedProduct.name}</p>
                     <p className="mt-2 font-bold text-[#0f8f61]">{formatMoney(relatedProduct.price)}</p>
                   </div>
                 </button>

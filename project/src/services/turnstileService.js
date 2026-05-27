@@ -79,7 +79,7 @@ export const verifyTurnstileToken = async (token) => {
 
     if (error) {
       if (import.meta.env.DEV) {
-        console.error('verify-turnstile devolvio error:', error);
+        console.error('verify-turnstile devolvió error:', error);
       }
       throw new Error(TURNSTILE_LOAD_FAILED_MESSAGE);
     }

@@ -643,7 +643,7 @@ export const confirmAdminOrderPayment = async (id: string) => {
 
   const result = Array.isArray(data) ? data[0] : data;
   if (result && result.stock_deducted === false) {
-    throw new Error('No hay stock suficiente para confirmar este pedido. Quedo marcado para revision.');
+    throw new Error('No hay stock suficiente para confirmar este pedido. Quedó marcado para revisión.');
   }
 
   void sendOrderConfirmedEmail(id);

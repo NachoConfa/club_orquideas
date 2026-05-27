@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { ConfirmProvider } from './components/feedback/ConfirmProvider.tsx';
+import { ToastProvider } from './components/feedback/ToastProvider.tsx';
 import './index.css';
 
 window.addEventListener('error', (event) => {
@@ -24,6 +26,10 @@ window.addEventListener('error', (event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ToastProvider>
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
+    </ToastProvider>
   </StrictMode>
 );

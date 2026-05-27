@@ -48,7 +48,7 @@ const getPaymentText = (method?: string) => {
 
 const getDeliveryText = (method?: string) => {
   if (method === 'pickup') return 'Retiro en local';
-  if (method === 'delivery') return 'Envio a domicilio';
+  if (method === 'delivery') return 'Envío a domicilio';
   return 'A coordinar';
 };
 
@@ -60,7 +60,7 @@ const getResultConfig = (status: CheckoutResultStatus) => {
       eyebrow: 'Pago no completado',
       title: 'No pudimos procesar el pago',
       message:
-        'El pago no se completo o fue rechazado. Podes intentarlo nuevamente o elegir otro metodo de pago.',
+        'El pago no se completó o fue rechazado. Podés intentarlo nuevamente o elegir otro método de pago.',
     };
   }
 
@@ -70,7 +70,7 @@ const getResultConfig = (status: CheckoutResultStatus) => {
       iconBg: 'bg-[#EADBC8]',
       eyebrow: 'Pago pendiente',
       title: 'Pago pendiente',
-      message: 'Tu pago esta pendiente de confirmacion. Te avisaremos cuando se acredite.',
+      message: 'Tu pago está pendiente de confirmación. Te avisaremos cuando se acredite.',
     };
   }
 

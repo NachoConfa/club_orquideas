@@ -246,7 +246,7 @@ const isOrchidProduct = (product: Product) => {
 type SearchCategoryValue = 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'accessories';
 
 const SEARCH_CATEGORY_LABELS: Record<SearchCategoryValue, string> = {
-  orchids: 'Orquideas',
+  orchids: 'Orquídeas',
   interior: 'Plantas de interior',
   exterior: 'Plantas de exterior',
   arrangements: 'Arreglos',
@@ -760,7 +760,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                   setUser((currentUser) => mergeProfileUser(currentUser, supabaseUser));
                 } catch (error) {
                   if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_PROFILE_FALLBACK === 'true') {
-                    console.info('No se pudo completar la sincronizacion del perfil. Se mantienen datos de sesion.', error);
+                    console.info('No se pudo completar la sincronización del perfil. Se mantienen datos de sesión.', error);
                   }
                 }
               })();
@@ -796,7 +796,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
       setCatalogProducts(cachedCatalog.products);
       setIsLoadingProducts(false);
       setProductLoadError('');
-      setProductLoadNotice('Mostrando productos guardados mientras actualizamos el catalogo.');
+      setProductLoadNotice('Mostrando productos guardados mientras actualizamos el catálogo.');
     } else {
       setIsLoadingProducts(true);
       setProductLoadNotice('');
@@ -807,7 +807,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
       setIsLoadingProducts(false);
       if (hasCachedCatalog) {
         setProductLoadError('');
-        setProductLoadNotice('No pudimos actualizar el catalogo. Estas viendo productos guardados.');
+        setProductLoadNotice('No pudimos actualizar el catálogo. Estás viendo productos guardados.');
       } else {
         setProductLoadError('No se pudieron cargar los productos.');
         setProductLoadNotice('');
@@ -833,7 +833,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
 
       if (hasCachedCatalog) {
         setProductLoadError('');
-        setProductLoadNotice('No pudimos actualizar el catalogo. Estas viendo productos guardados.');
+        setProductLoadNotice('No pudimos actualizar el catálogo. Estás viendo productos guardados.');
       } else {
         setCatalogProducts([]);
         setProductLoadError('No se pudieron cargar los productos.');
@@ -906,7 +906,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
       try {
         await signOutFromSupabase();
       } catch (error) {
-        console.error('Error cerrando sesion de Supabase:', error);
+        console.error('Error cerrando sesión de Supabase:', error);
       }
     }
 
@@ -1488,20 +1488,20 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           user={user}
         />
 
-        <main className="mx-auto min-h-[70vh] w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto min-h-[70vh] w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-[#2F3A35]">Resultados de busqueda</h1>
+              <h1 className="text-2xl font-semibold text-[#16352B] sm:text-3xl">Resultados de búsqueda</h1>
               <p className="mt-2 text-[#6B756F]">
                 {normalizedSearchPageQuery
                   ? `Resultados para "${normalizedSearchPageQuery}"`
-                  : 'Escribi una busqueda para encontrar productos en toda la tienda.'}
+                  : 'Escribí una búsqueda para encontrar productos en toda la tienda.'}
               </p>
             </div>
             <button
               type="button"
               onClick={() => navigateToPage('home')}
-              className="rounded-full border border-[#EADBC8] bg-white px-4 py-2 text-sm font-semibold text-[#2F3A35] transition-colors hover:bg-[#F8DDEB]/60"
+              className="self-start rounded-full border border-[#F1E3D4] bg-white px-4 py-2 text-sm font-semibold text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61] sm:self-auto"
             >
               Volver al inicio
             </button>
@@ -1558,7 +1558,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                     <button
                       type="button"
                       onClick={clearSearchFilters}
-                      className="mt-5 rounded-full bg-[#5FAE9B] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4D9A88]"
+                      className="mt-5 rounded-full bg-[#0F8F61] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0C7A52]"
                     >
                       Limpiar filtros
                     </button>
@@ -1569,10 +1569,10 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           ) : (
             <div className="rounded-2xl border border-dashed border-[#EADBC8] bg-white px-6 py-12 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-[#2F3A35]">
-                {normalizedSearchPageQuery ? 'No encontramos productos para tu busqueda.' : 'Busca en todo el catalogo.'}
+                {normalizedSearchPageQuery ? 'No encontramos productos para tu búsqueda.' : 'Buscá en todo el catálogo.'}
               </h2>
               <p className="mt-2 text-[#6B756F]">
-                Proba con otro nombre, color, categoria o tipo de producto.
+                Probá con otro nombre, color, categoría o tipo de producto.
               </p>
             </div>
           )}
@@ -1966,28 +1966,28 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                     <Flower className="h-8 w-8 text-[#D96C9F]" />
                   </div>
                   <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">500+</h3>
-                  <p className="text-[#6B756F]">Orquídeas Únicas</p>
+                  <p className="text-[#6B756F]">Plantas únicas</p>
                 </div>
                 <div className="rounded-2xl border border-[#EADBC8]/70 bg-white/80 p-6 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#CFE3D4]">
                     <Heart className="h-8 w-8 text-[#5FAE9B]" />
                   </div>
                   <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">1000+</h3>
-                  <p className="text-[#6B756F]">Clientes Felices</p>
+                  <p className="text-[#6B756F]">Clientes felices</p>
                 </div>
                 <div className="rounded-2xl border border-[#EADBC8]/70 bg-white/80 p-6 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#E6DDF5]">
                     <Star className="h-8 w-8 text-[#7FAF9B]" />
                   </div>
                   <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">4.9</h3>
-                  <p className="text-[#6B756F]">Calificación Promedio</p>
+                  <p className="text-[#6B756F]">Calificación promedio</p>
                 </div>
                 <div className="rounded-2xl border border-[#EADBC8]/70 bg-white/80 p-6 text-center shadow-sm">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#EADBC8]">
                     <ShoppingBag className="h-8 w-8 text-[#D96C9F]" />
                   </div>
                   <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">7</h3>
-                  <p className="text-[#6B756F]">Años de Experiencia</p>
+                  <p className="text-[#6B756F]">Años de experiencia</p>
                 </div>
               </div>
             </div>
@@ -2001,7 +2001,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
         currentPage === 'pots' ||
         currentPage === 'interior' ||
         currentPage === 'exterior') && (
-        <div className="container mx-auto px-4 py-4 sm:py-6 lg:py-8">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
             <div className="lg:w-1/4 lg:flex-shrink-0">
               <Filters

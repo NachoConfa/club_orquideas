@@ -218,7 +218,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
 
               <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h2>
               <p className="mt-3 text-sm leading-6 text-gray-600">
-                {product.description || 'Producto seleccionado de nuestro catalogo.'}
+                {product.description || 'Producto seleccionado de nuestro catálogo.'}
               </p>
               <p className="mt-2 text-xs text-gray-500">
                 Las imagenes son ilustrativas. La floracion puede variar segun disponibilidad.

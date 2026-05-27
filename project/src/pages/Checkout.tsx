@@ -8,6 +8,7 @@ import {
   Truck,
 } from 'lucide-react';
 import TurnstileWidget from '../components/TurnstileWidget';
+import { useToast } from '../components/feedback/ToastProvider';
 import type { CheckoutResultData } from './CheckoutResultPage';
 import { sendOrderReceivedEmail } from '../services/emailService';
 import { trackOrderCreated } from '../services/analyticsService';
@@ -57,11 +58,11 @@ const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
 const roundMoney = (value: number) => Math.round(value);
 const getMercadoPagoFee = (baseTotal: number) => roundMoney(baseTotal * MERCADO_PAGO_SURCHARGE_RATE);
 const CASH_UNAVAILABLE_MESSAGE =
-  'El pago en efectivo solo esta disponible para retiro en local o envios dentro de Nordelta/Tigre cercano.';
+  'El pago en efectivo solo está disponible para retiro en local o envíos dentro de Nordelta/Tigre cercano.';
 const SHIPPING_LOCATION_REQUIRED_MESSAGE =
-  'Completa tu localidad y provincia para calcular el envio antes de elegir el metodo de pago.';
+  'Completá tu localidad y provincia para calcular el envío antes de elegir el método de pago.';
 const SHIPPING_QUOTE_REQUIRED_MESSAGE =
-  'Este envio requiere cotizacion. Te vamos a contactar para confirmar el costo antes de pagar.';
+  'Este envío requiere cotización. Te vamos a contactar para confirmar el costo antes de pagar.';
 
 const normalizeZoneText = (value: string) =>
   value
@@ -129,14 +130,14 @@ const getCheckoutErrorMessage = (error: unknown) => {
   }
 
   if (errorText.includes('ORDER_USER_MISMATCH') || errorText.includes('AUTH_REQUIRED')) {
-    return 'Inicia sesion nuevamente para finalizar tu compra.';
+    return 'Iniciá sesión nuevamente para finalizar tu compra.';
   }
 
   const publicPrefixes = [
     'Hay productos',
     'No hay stock',
-    'Inicia sesion',
-    'Tu sesion',
+    'Iniciá sesión',
+    'Tu sesión',
     'No pudimos preparar',
     'No pudimos completar',
   ];
@@ -180,6 +181,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [isProcessing, setIsProcessing] = useState(false);
   const isSubmittingRef = useRef(false);
+  const toast = useToast();
   const cityInputRef = useRef<HTMLInputElement>(null);
   const provinceInputRef = useRef<HTMLInputElement>(null);
   const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
@@ -295,7 +297,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
     }
 
     if (paymentMethodsDisabled) {
-      return shippingRequiresManualQuote ? 'Envio a cotizar' : 'Calcula el envio para continuar';
+      return shippingRequiresManualQuote ? 'Envío a cotizar' : 'Calculá el envío para continuar';
     }
 
     if (!paymentMethod) {
@@ -389,18 +391,18 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
       `NUEVA ORDEN - Modo Plantas\n\n` +
       `Cliente: ${formData.firstName} ${formData.lastName}\n` +
       `Email: ${formData.email}\n` +
-      `Telefono: ${formData.phone}\n` +
+      `Teléfono: ${formData.phone}\n` +
       `${
         deliveryMethod === 'pickup'
           ? 'RETIRO EN LOCAL'
-          : `Direccion: ${formData.address}, ${formData.city}, ${formData.province}`
+          : `Dirección: ${formData.address}, ${formData.city}, ${formData.province}`
       }\n\n` +
       `PRODUCTOS:\n${orderDetails}\n\n` +
       `Subtotal: ${formatMoney(subtotal)}\n` +
       `${shippingLine}\n` +
       paymentFeeLine +
       `TOTAL: ${formatMoney(total)}\n\n` +
-      `Metodo de pago: ${paymentLabel}` +
+      `Método de pago: ${paymentLabel}` +
       `${
         paymentMethod === 'transfer'
           ? '\n\nPENDIENTE: Esperando comprobante de transferencia a CBU 0000003100056904758628'
@@ -425,55 +427,55 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
     }
 
     if (items.length === 0) {
-      alert('Tu carrito esta vacio.');
+      toast.warning('Tu carrito está vacío.');
       return;
     }
 
     if (!formData.email.trim()) {
-      alert('Por favor, ingresa un email valido para recibir la confirmacion del pedido.');
+      toast.warning('Por favor, ingresá un email válido para recibir la confirmación del pedido.');
       return;
     }
 
     if (deliveryMethod === 'delivery' && !hasDeliveryLocation) {
-      alert(SHIPPING_LOCATION_REQUIRED_MESSAGE);
+      toast.warning(SHIPPING_LOCATION_REQUIRED_MESSAGE);
       focusFirstMissingShippingField();
       return;
     }
 
     if (deliveryMethod === 'delivery' && !formData.address.trim()) {
-      alert('Completa la direccion para coordinar el envio.');
+      toast.warning('Completá la dirección para coordinar el envío.');
       return;
     }
 
     if (deliveryMethod === 'delivery' && isLoadingShippingZones) {
-      alert('Estamos calculando el envio. Espera unos segundos e intenta nuevamente.');
+      toast.info('Estamos calculando el envío. Esperá unos segundos e intentá nuevamente.');
       return;
     }
 
     if (deliveryMethod === 'delivery' && !hasClosedDeliveryShipping) {
-      alert(shippingRequiresManualQuote ? SHIPPING_QUOTE_REQUIRED_MESSAGE : SHIPPING_LOCATION_REQUIRED_MESSAGE);
+      toast.warning(shippingRequiresManualQuote ? SHIPPING_QUOTE_REQUIRED_MESSAGE : SHIPPING_LOCATION_REQUIRED_MESSAGE);
       focusFirstMissingShippingField();
       return;
     }
 
     if (!user?.id) {
-      alert('Inicia sesion antes de completar el pedido.');
+      toast.warning('Iniciá sesión antes de completar el pedido.');
       return;
     }
 
     if (!paymentMethod) {
-      alert('Elegi un metodo de pago para continuar.');
+      toast.warning('Elegí un método de pago para continuar.');
       return;
     }
 
     if (paymentMethod === 'cash' && !cashPaymentAllowed) {
-      alert('El pago en efectivo no esta disponible para esta zona de envio.');
+      toast.warning('El pago en efectivo no está disponible para esta zona de envío.');
       setPaymentMethod('');
       return;
     }
 
     if (shouldShowCaptcha && !turnstileToken) {
-      alert(TURNSTILE_REQUIRED_MESSAGE);
+      toast.warning(TURNSTILE_REQUIRED_MESSAGE);
       return;
     }
 
@@ -485,7 +487,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         const turnstileVerification = await verifyTurnstileToken(turnstileToken);
 
         if (!turnstileVerification.success) {
-          alert(turnstileVerification.error || TURNSTILE_FAILED_MESSAGE);
+          toast.error(turnstileVerification.error || TURNSTILE_FAILED_MESSAGE);
           resetTurnstile();
           return;
         }
@@ -518,7 +520,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
           if (import.meta.env.DEV) {
             console.error('Pedido creado, pero no se pudo generar la preferencia de Mercado Pago:', preferenceError);
           }
-          alert('Recibimos tu pedido, pero no pudimos abrir Mercado Pago. Revisalo en Mis pedidos para coordinar el pago.');
+          toast.warning('Recibimos tu pedido, pero no pudimos abrir Mercado Pago. Revisalo en Mis pedidos para coordinar el pago.');
           onOrderComplete({
             status: 'pending',
             orderId: savedOrder.id,
@@ -569,7 +571,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         console.error('Método entrega:', deliveryMethod);
         console.error('Método pago:', paymentMethod);
       }
-      alert(getCheckoutErrorMessage(error));
+      toast.error(getCheckoutErrorMessage(error));
       resetTurnstile();
     } finally {
       isSubmittingRef.current = false;
@@ -578,19 +580,19 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-emerald-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#FFF8EF]">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-emerald-600 hover:text-emerald-700 transition-colors mb-6"
+          className="mb-6 flex items-center space-x-2 text-[#0F8F61] transition-colors hover:text-[#0C7A52]"
         >
           <ArrowLeft className="h-5 w-5" />
           <span>Volver al carrito</span>
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Informacion del pedido</h2>
+          <div className="rounded-2xl border border-[#F1E3D4] bg-white p-6 shadow-sm">
+            <h2 className="mb-6 text-2xl font-bold text-[#16352B]">Información del pedido</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -599,7 +601,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   placeholder="Nombre"
                   value={formData.firstName}
                   onChange={(e) => updateForm('firstName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                   required
                 />
                 <input
@@ -607,33 +609,33 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   placeholder="Apellido"
                   value={formData.lastName}
                   onChange={(e) => updateForm('lastName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                   required
                 />
               </div>
 
               <input
                 type="email"
-                placeholder="Correo electronico"
+                placeholder="Correo electrónico"
                 value={formData.email}
                 onChange={(e) => updateForm('email', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                 required
               />
 
               <input
                 type="tel"
-                placeholder="Telefono"
+                placeholder="Teléfono"
                 value={formData.phone}
                 onChange={(e) => updateForm('phone', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-[#E8F7EF]"
                 required
               />
 
               <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Metodo de entrega</h3>
+                <h3 className="mb-4 text-lg font-semibold text-[#16352B]">Método de entrega</h3>
                 <div className="space-y-3">
-                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex cursor-pointer items-center rounded-xl border border-[#F1E3D4] p-4 transition-colors hover:bg-[#E8F7EF]">
                     <input
                       type="radio"
                       name="delivery"
@@ -642,14 +644,14 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       onChange={() => setDeliveryMethod('delivery')}
                       className="mr-3"
                     />
-                    <Truck className="h-5 w-5 text-blue-500 mr-3" />
+                    <Truck className="mr-3 h-5 w-5 text-[#0F8F61]" />
                     <div>
-                      <span className="font-medium">Envio a domicilio</span>
-                      <p className="text-sm text-gray-500">Calculado por zona.</p>
+                      <span className="font-medium text-[#16352B]">Envío a domicilio</span>
+                      <p className="text-sm text-[#6B7280]">Calculado por zona.</p>
                     </div>
                   </label>
 
-                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex cursor-pointer items-center rounded-xl border border-[#F1E3D4] p-4 transition-colors hover:bg-[#E8F7EF]">
                     <input
                       type="radio"
                       name="delivery"
@@ -658,25 +660,25 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       onChange={() => setDeliveryMethod('pickup')}
                       className="mr-3"
                     />
-                    <Home className="h-5 w-5 text-green-500 mr-3" />
+                    <Home className="mr-3 h-5 w-5 text-[#0F8F61]" />
                     <div>
-                      <span className="font-medium">Retiro en local</span>
-                      <p className="text-sm text-gray-500">Av. De los Lagos 7000, Nordelta - sin costo.</p>
+                      <span className="font-medium text-[#16352B]">Retiro en local</span>
+                      <p className="text-sm text-[#6B7280]">Av. De los Lagos 7000, Nordelta - sin costo.</p>
                     </div>
                   </label>
                 </div>
               </div>
 
               {deliveryMethod === 'delivery' && (
-                <div className="space-y-4 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800">Direccion de envio</h4>
+                <div className="mt-4 space-y-4 rounded-xl border border-[#D2EBDD] bg-[#E8F7EF] p-4">
+                  <h4 className="font-semibold text-[#16352B]">Dirección de envío</h4>
 
                   <input
                     type="text"
-                    placeholder="Direccion completa"
+                    placeholder="Dirección completa"
                     value={formData.address}
                     onChange={(e) => updateForm('address', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-white"
                     required
                   />
 
@@ -687,7 +689,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       placeholder="Ciudad o localidad"
                       value={formData.city}
                       onChange={(e) => updateForm('city', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-white"
                       required
                     />
                     <input
@@ -696,25 +698,25 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       placeholder="Provincia"
                       value={formData.province}
                       onChange={(e) => updateForm('province', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-white"
                       required
                     />
                   </div>
 
                   <input
                     type="text"
-                    placeholder="Codigo postal"
+                    placeholder="Código postal"
                     value={formData.postalCode}
                     onChange={(e) => updateForm('postalCode', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full rounded-lg border border-[#F1E3D4] px-4 py-3 text-[#16352B] focus:border-[#0F8F61] focus:ring-2 focus:ring-white"
                     required
                   />
 
-                  <div className="rounded-lg border border-blue-200 bg-white p-4">
+                  <div className="rounded-lg border border-[#D2EBDD] bg-white p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-semibold text-gray-800">{shippingQuote.label}</p>
-                        <p className="mt-1 text-sm text-gray-600">{shippingQuote.description}</p>
+                        <p className="font-semibold text-[#16352B]">{shippingQuote.label}</p>
+                        <p className="mt-1 text-sm text-[#6B7280]">{shippingQuote.description}</p>
                         {shippingZoneError && (
                           <p className="mt-2 text-sm text-red-600">{shippingZoneError}</p>
                         )}
@@ -728,7 +730,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
               )}
 
               <div className="mt-8">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Metodo de pago</h3>
+                <h3 className="mb-4 text-lg font-semibold text-[#16352B]">Método de pago</h3>
                 {paymentMethodsDisabled && (
                   <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     {paymentDisabledMessage}
@@ -736,8 +738,8 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                 )}
                 <div className="space-y-3">
                   <label
-                    className={`flex items-center p-4 border rounded-lg ${
-                      paymentMethodsDisabled ? 'bg-gray-50 text-gray-400' : 'cursor-pointer hover:bg-gray-50'
+                    className={`flex items-center rounded-xl border border-[#F1E3D4] p-4 ${
+                      paymentMethodsDisabled ? 'bg-gray-50 text-gray-400' : 'cursor-pointer transition-colors hover:bg-[#E8F7EF]'
                     }`}
                   >
                     <input
@@ -753,13 +755,13 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       }}
                       className="mr-3"
                     />
-                    <Banknote className="h-5 w-5 text-green-500 mr-3" />
+                    <Banknote className="mr-3 h-5 w-5 text-[#0F8F61]" />
                     <span>Transferencia bancaria</span>
                   </label>
 
                   <label
-                    className={`flex items-center p-4 border rounded-lg ${
-                      cashPaymentAllowed ? 'cursor-pointer hover:bg-gray-50' : 'bg-gray-50 text-gray-400'
+                    className={`flex items-center rounded-xl border border-[#F1E3D4] p-4 ${
+                      cashPaymentAllowed ? 'cursor-pointer transition-colors hover:bg-[#E8F7EF]' : 'bg-gray-50 text-gray-400'
                     }`}
                   >
                     <input
@@ -775,18 +777,18 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       }}
                       className="mr-3"
                     />
-                    <Banknote className="h-5 w-5 text-orange-500 mr-3" />
+                    <Banknote className="mr-3 h-5 w-5 text-[#D96C9F]" />
                     <div>
                       <span>Pago en efectivo {deliveryMethod === 'pickup' ? '(en el local)' : '(contra entrega)'}</span>
                       {canChoosePaymentMethod && !cashPaymentAllowed && (
-                        <p className="mt-1 text-sm text-gray-500">{CASH_UNAVAILABLE_MESSAGE}</p>
+                        <p className="mt-1 text-sm text-[#6B7280]">{CASH_UNAVAILABLE_MESSAGE}</p>
                       )}
                     </div>
                   </label>
 
                   <label
-                    className={`flex items-center p-4 border rounded-lg ${
-                      cannotPayOnline ? 'bg-gray-50 text-gray-400' : 'cursor-pointer hover:bg-gray-50'
+                    className={`flex items-center rounded-xl border border-[#F1E3D4] p-4 ${
+                      cannotPayOnline ? 'bg-gray-50 text-gray-400' : 'cursor-pointer transition-colors hover:bg-[#E8F7EF]'
                     }`}
                   >
                     <input
@@ -802,10 +804,10 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       }}
                       className="mr-3"
                     />
-                    <CreditCard className="h-5 w-5 text-sky-500 mr-3" />
+                    <CreditCard className="mr-3 h-5 w-5 text-[#0F8F61]" />
                     <div>
                       <span>Mercado Pago</span>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-[#6B7280]">
                         {cannotPayOnline
                           ? paymentDisabledMessage
                           : 'Tarjeta, dinero en cuenta y otros medios disponibles. Incluye recargo del 10%.'}
@@ -816,28 +818,28 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
               </div>
 
               {paymentMethod === 'transfer' && canChoosePaymentMethod && (
-                <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-green-800 mb-3">Datos para transferencia bancaria</h4>
+                <div className="mt-6 rounded-xl border border-[#D2EBDD] bg-[#E8F7EF] p-4">
+                  <h4 className="mb-3 font-semibold text-[#16352B]">Datos para transferencia bancaria</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between gap-4">
-                      <span className="text-green-700">CBU:</span>
-                      <span className="font-mono font-semibold text-green-800">0000003100056904758628</span>
+                      <span className="text-[#0F8F61]">CBU:</span>
+                      <span className="font-mono font-semibold text-[#16352B]">0000003100056904758628</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-green-700">Titular:</span>
-                      <span className="font-semibold text-green-800">Ignacio Adrian Confalonieri</span>
+                      <span className="text-[#0F8F61]">Titular:</span>
+                      <span className="font-semibold text-[#16352B]">Ignacio Adrian Confalonieri</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-green-700">Alias:</span>
-                      <span className="font-semibold text-green-800">ignacio.confalonieri</span>
+                      <span className="text-[#0F8F61]">Alias:</span>
+                      <span className="font-semibold text-[#16352B]">ignacio.confalonieri</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-green-700">CUIT:</span>
-                      <span className="font-mono font-semibold text-green-800">20-47436820-4</span>
+                      <span className="text-[#0F8F61]">CUIT:</span>
+                      <span className="font-mono font-semibold text-[#16352B]">20-47436820-4</span>
                     </div>
                   </div>
                   <p className="mt-3 text-xs text-yellow-800">
-                    Despues de realizar la transferencia, envia el comprobante por WhatsApp para confirmar tu pedido.
+                    Después de realizar la transferencia, enviá el comprobante por WhatsApp para confirmar tu pedido.
                   </p>
                 </div>
               )}
@@ -853,30 +855,30 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 px-6 rounded-lg font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg bg-[#0F8F61] px-6 py-4 font-semibold text-white transition-all duration-200 hover:bg-[#0C7A52] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitButtonText}
               </button>
             </form>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">Resumen del pedido</h3>
+          <div className="rounded-2xl border border-[#F1E3D4] bg-white p-6 shadow-sm">
+            <h3 className="mb-6 text-xl font-bold text-[#16352B]">Resumen del pedido</h3>
 
             <div className="space-y-4 mb-6">
               {items.map((item) => (
                 <div key={item.cartKey} className="flex items-center space-x-4">
-                  <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" />
+                  <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-800">{item.name}</h4>
-                    <p className="text-sm text-gray-500">
+                    <h4 className="font-medium text-[#16352B]">{item.name}</h4>
+                    <p className="text-sm text-[#6B7280]">
                       {[item.size, item.color, item.floweringStems ? `${item.floweringStems} varas` : '']
                         .filter(Boolean)
                         .join(' - ')}
                     </p>
-                    <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>
+                    <p className="text-sm text-[#6B7280]">Cantidad: {item.quantity}</p>
                   </div>
-                  <p className="font-semibold text-gray-800">{formatMoney(item.price * item.quantity)}</p>
+                  <p className="font-semibold text-[#16352B]">{formatMoney(item.price * item.quantity)}</p>
                 </div>
               ))}
             </div>
@@ -887,7 +889,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                 <span>{formatMoney(subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span>{deliveryMethod === 'pickup' ? 'Retiro en local:' : 'Envio:'}</span>
+                <span>{deliveryMethod === 'pickup' ? 'Retiro en local:' : 'Envío:'}</span>
                 <span className={shippingQuote.requiresQuote ? 'font-semibold text-amber-600' : ''}>
                   {shippingDisplayText}
                 </span>
@@ -898,22 +900,22 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   <span>{formatMoney(paymentFee)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-lg border-t pt-2">
+              <div className="flex justify-between border-t pt-2 text-lg font-bold text-[#16352B]">
                 <span>{canShowFinalTotal ? 'Total:' : 'Total a confirmar:'}</span>
                 <span>{canShowFinalTotal ? formatMoney(total) : 'A confirmar'}</span>
               </div>
             </div>
 
             <div className="mt-6 space-y-3">
-              <div className="flex items-center text-sm text-gray-600">
-                <Shield className="h-4 w-4 mr-2 text-green-500" />
+              <div className="flex items-center text-sm text-[#6B7280]">
+                <Shield className="mr-2 h-4 w-4 text-[#0F8F61]" />
                 <span>Compra segura y pedido registrado correctamente</span>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-sm text-[#6B7280]">
                 {deliveryMethod === 'delivery' ? (
-                  <Truck className="h-4 w-4 mr-2 text-blue-500" />
+                  <Truck className="mr-2 h-4 w-4 text-[#0F8F61]" />
                 ) : (
-                  <Home className="h-4 w-4 mr-2 text-green-500" />
+                  <Home className="mr-2 h-4 w-4 text-[#0F8F61]" />
                 )}
                 <span>{shippingQuote.description}</span>
               </div>
