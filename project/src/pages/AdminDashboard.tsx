@@ -40,7 +40,7 @@ import {
   updateAdminOrderStatus,
   updateAdminProduct,
 } from '../services/adminSupabaseService';
-import { uploadProductImage } from '../services/productImageUploadService';
+import { deleteUnusedProductImageByPublicUrl, uploadProductImage } from '../services/productImageUploadService';
 import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';
 
@@ -116,6 +116,22 @@ const isOrderCancelable = (record: AdminRecord) => {
   }
 
   return PENDING_PAYMENT_STATUSES.has(status) || PENDING_PAYMENT_STATUSES.has(paymentStatus);
+};
+
+const getUniqueImageUrls = (urls: Array<string | null | undefined>) =>
+  Array.from(new Set(urls.map((url) => url?.trim()).filter((url): url is string => Boolean(url))));
+
+const getProductImageUrls = (product: AdminProduct) =>
+  getUniqueImageUrls([product.image_url, ...(product.variants ?? []).map((variant) => variant.image_url)]);
+
+const getDeletedVariantImageUrls = (product: AdminProduct, form: AdminProductInput) => {
+  const deletedVariantIds = new Set(form.deletedVariantIds ?? []);
+
+  return getUniqueImageUrls(
+    (product.variants ?? [])
+      .filter((variant) => deletedVariantIds.has(variant.id))
+      .map((variant) => variant.image_url)
+  );
 };
 
 const getPaymentStatusLabel = (record: AdminRecord) => {
@@ -796,6 +812,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
   const isAdmin = Boolean(user?.isAdmin);
 
+  const cleanupUnusedProductImages = async (imageUrls: string[]) => {
+    const uniqueImageUrls = getUniqueImageUrls(imageUrls);
+
+    if (uniqueImageUrls.length === 0) {
+      return false;
+    }
+
+    const results = await Promise.allSettled(
+      uniqueImageUrls.map((imageUrl) => deleteUnusedProductImageByPublicUrl(imageUrl))
+    );
+    const failedResults = results.filter((result) => result.status === 'rejected');
+
+    if (failedResults.length > 0 && import.meta.env.DEV) {
+      console.warn('No se pudieron limpiar algunas imagenes de producto:', failedResults);
+    }
+
+    return failedResults.length > 0;
+  };
+
   const setTabError = (tab: AdminTab, message = '') => {
     setTabErrors((currentErrors) => ({ ...currentErrors, [tab]: message }));
   };
@@ -990,6 +1025,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   };
 
   const saveProduct = async () => {
+    const deletedVariantImageUrls = editingProduct ? getDeletedVariantImageUrls(editingProduct, productForm) : [];
+
     setIsSaving(true);
     setError('');
 
@@ -1000,10 +1037,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         await createAdminProduct(productForm);
       }
 
+      const cleanupFailed = await cleanupUnusedProductImages(deletedVariantImageUrls);
+
       cancelProductForm();
       await loadProducts();
       await loadDashboardData();
       onProductsChanged();
+
+      if (cleanupFailed) {
+        toast.warning('El producto se guardó, pero no pudimos borrar una o más imágenes del almacenamiento.');
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el producto.');
     } finally {
@@ -1014,7 +1057,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const removeProduct = async (product: AdminProduct) => {
     const confirmed = await confirm({
       title: 'Eliminar producto',
-      message: `¿Querés eliminar "${product.name}"? Esta acción no se puede deshacer.`,
+      message: `¿Querés eliminar "${product.name}"? También se intentarán borrar sus imágenes asociadas del almacenamiento si no están siendo usadas por otro producto.`,
       confirmLabel: 'Eliminar',
       tone: 'danger',
     });
@@ -1026,11 +1069,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     setError('');
 
     try {
+      const imageUrls = getProductImageUrls(product);
       await deleteAdminProduct(product.id);
+      const cleanupFailed = await cleanupUnusedProductImages(imageUrls);
       await loadProducts();
       await loadDashboardData();
       onProductsChanged();
       toast.success('Producto eliminado correctamente.');
+      if (cleanupFailed) {
+        toast.warning('El producto se eliminó, pero no pudimos borrar una o más imágenes del almacenamiento.');
+      }
     } catch (deleteError) {
       const message = deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el producto.';
       setError(message);

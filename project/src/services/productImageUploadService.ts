@@ -15,6 +15,12 @@ interface ProductImageUploadOptions {
   variant?: boolean;
 }
 
+interface ProductImageDeleteResult {
+  deleted: boolean;
+  skipped: boolean;
+  reason?: 'not_product_images_bucket' | 'empty_url' | 'still_in_use';
+}
+
 const sanitizeSegment = (value: string) =>
   value
     .normalize('NFD')
@@ -40,6 +46,64 @@ const sanitizeFileName = (fileName: string, mimeType: string) => {
   const safeName = sanitized || `imagen.${fallbackExtension}`;
 
   return /\.(jpe?g|png|webp)$/i.test(safeName) ? safeName : `${safeName}.${fallbackExtension}`;
+};
+
+export const getStoragePathFromPublicUrl = (publicUrl: string) => {
+  const rawUrl = publicUrl.trim();
+
+  if (!rawUrl) {
+    return null;
+  }
+
+  const bucketMarker = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
+  let pathSource = rawUrl;
+
+  try {
+    pathSource = new URL(rawUrl).pathname;
+  } catch {
+    pathSource = rawUrl.split(/[?#]/)[0] ?? rawUrl;
+  }
+
+  const markerIndex = pathSource.indexOf(bucketMarker);
+
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const encodedPath = pathSource.slice(markerIndex + bucketMarker.length).replace(/^\/+/, '');
+
+  if (!encodedPath) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return encodedPath;
+  }
+};
+
+export const isProductImagesBucketUrl = (publicUrl: string) => Boolean(getStoragePathFromPublicUrl(publicUrl));
+
+const isImageUrlStillUsed = async (publicUrl: string) => {
+  if (!supabase) {
+    throw new Error(getSupabaseConfigMessage());
+  }
+
+  const [productsResult, variantsResult] = await Promise.all([
+    supabase.from('products').select('id', { count: 'exact', head: true }).eq('image_url', publicUrl),
+    supabase.from('product_variants').select('id', { count: 'exact', head: true }).eq('image_url', publicUrl),
+  ]);
+
+  if (productsResult.error) {
+    throw productsResult.error;
+  }
+
+  if (variantsResult.error) {
+    throw variantsResult.error;
+  }
+
+  return Number(productsResult.count ?? 0) > 0 || Number(variantsResult.count ?? 0) > 0;
 };
 
 export const uploadProductImage = async (file: File, options: ProductImageUploadOptions = {}) => {
@@ -85,4 +149,56 @@ export const uploadProductImage = async (file: File, options: ProductImageUpload
   }
 
   return data.publicUrl;
+};
+
+export const deleteProductImageByPublicUrl = async (publicUrl: string): Promise<ProductImageDeleteResult> => {
+  if (!supabase) {
+    throw new Error(getSupabaseConfigMessage());
+  }
+
+  if (!publicUrl.trim()) {
+    return { deleted: false, skipped: true, reason: 'empty_url' };
+  }
+
+  const storagePath = getStoragePathFromPublicUrl(publicUrl);
+
+  if (!storagePath) {
+    return { deleted: false, skipped: true, reason: 'not_product_images_bucket' };
+  }
+
+  const { error } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove([storagePath]);
+
+  if (error) {
+    if (import.meta.env.DEV) {
+      console.error('Error deleting product image:', {
+        message: error.message,
+        name: error.name,
+        storagePath,
+      });
+    }
+
+    throw new Error('No se pudo borrar una imagen del almacenamiento.');
+  }
+
+  return { deleted: true, skipped: false };
+};
+
+export const deleteUnusedProductImageByPublicUrl = async (
+  publicUrl: string
+): Promise<ProductImageDeleteResult> => {
+  if (!publicUrl.trim()) {
+    return { deleted: false, skipped: true, reason: 'empty_url' };
+  }
+
+  if (!isProductImagesBucketUrl(publicUrl)) {
+    return { deleted: false, skipped: true, reason: 'not_product_images_bucket' };
+  }
+
+  const stillUsed = await isImageUrlStillUsed(publicUrl);
+
+  if (stillUsed) {
+    return { deleted: false, skipped: true, reason: 'still_in_use' };
+  }
+
+  return deleteProductImageByPublicUrl(publicUrl);
 };
