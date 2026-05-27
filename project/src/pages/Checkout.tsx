@@ -868,7 +868,13 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
             <div className="space-y-4 mb-6">
               {items.map((item) => (
                 <div key={item.cartKey} className="flex items-center space-x-4">
-                  <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-16 w-16 rounded-lg object-cover"
+                  />
                   <div className="flex-1">
                     <h4 className="font-medium text-[#16352B]">{item.name}</h4>
                     <p className="text-sm text-[#6B7280]">

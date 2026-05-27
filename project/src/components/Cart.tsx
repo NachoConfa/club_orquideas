@@ -47,14 +47,20 @@ const Cart: React.FC<CartProps> = ({ items, isOpen, onClose, onUpdateQuantity, o
                   <ShoppingBag className="h-10 w-10 text-[#0F8F61]" />
                 </div>
                 <p className="text-lg font-semibold text-[#16352B]">Tu carrito está vacío</p>
-                <p className="mt-2 text-sm text-[#6B7280]">Agregá plantas, macetas o accesorios para empezar.</p>
+                <p className="mt-2 text-sm text-[#6B7280]">Agregá plantas, macetas u otros productos para empezar.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {items.map((item) => (
                   <div key={item.cartKey} className="animate-fadeIn rounded-xl border border-[#F1E3D4] bg-white p-4 shadow-sm">
                     <div className="flex items-center gap-3 sm:gap-4">
-                      <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-16 w-16 rounded-lg object-cover"
+                      />
                       <div className="min-w-0 flex-1">
                         <h3 className="line-clamp-2 font-medium text-[#16352B]">{item.name}</h3>
                         <p className="text-sm text-[#6B7280]">

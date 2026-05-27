@@ -30,6 +30,8 @@ const CompanyIntro = () => {
             <img
               src="https://images.pexels.com/photos/6231990/pexels-photo-6231990.jpeg?auto=compress&cs=tinysrgb&w=1200"
               alt="Plantas cuidadas en un espacio luminoso"
+              loading="lazy"
+              decoding="async"
               className="h-[360px] w-full object-cover sm:h-[440px]"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#2F3A35]/30 via-transparent to-transparent" />

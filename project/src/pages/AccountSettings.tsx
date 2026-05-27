@@ -646,7 +646,13 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
                         <div className="space-y-3">
                           {selectedOrder.items.map((item) => (
                             <div key={`${selectedOrder.id}-${item.id}`} className="flex items-center gap-3">
-                              <img src={item.image} alt={item.name} className="h-14 w-14 rounded-lg object-cover" />
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                loading="lazy"
+                                decoding="async"
+                                className="h-14 w-14 rounded-lg object-cover"
+                              />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-gray-900">{item.name}</p>
                                 <p className="text-sm text-gray-500">Cantidad: {item.quantity}</p>

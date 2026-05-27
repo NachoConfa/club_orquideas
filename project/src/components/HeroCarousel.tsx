@@ -24,7 +24,7 @@ const slides: Array<{
     image: 'https://images.pexels.com/photos/459196/pexels-photo-459196.jpeg?auto=compress&cs=tinysrgb&w=1800',
   },
   {
-    title: 'Macetas y accesorios con estilo',
+    title: 'Macetas y otros detalles con estilo',
     subtitle: 'Combiná tus plantas con diseños delicados, modernos y pensados para lucirlas mejor.',
     buttonLabel: 'Ver macetas',
     page: 'pots',

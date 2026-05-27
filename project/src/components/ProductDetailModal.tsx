@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import { AlertCircle, Minus, Plus, ShoppingCart, X } from 'lucide-react';
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
+import { getCategoryDisplayLabel } from '../utils/displayLabels';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -74,6 +75,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
   const isOutOfStock = activeStock <= 0;
+  const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
   useEffect(() => {
     if (!product || !isOpen) return;
@@ -188,7 +190,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
         <div className="grid max-h-[92vh] grid-cols-1 overflow-y-auto lg:h-[82vh] lg:max-h-[760px] lg:grid-cols-[1.08fr_0.92fr] lg:overflow-hidden">
           <div className="relative min-h-0 bg-gray-100 lg:h-full">
             <div className="relative h-72 overflow-hidden bg-gray-100 sm:h-[430px] lg:h-full">
-              <img src={activeImage} alt={product.name} className="h-full w-full object-cover" />
+              <img src={activeImage} alt={product.name} decoding="async" className="h-full w-full object-cover" />
 
               {imageOptions.length > 1 && (
                 <div className="absolute bottom-4 left-4 right-4 flex gap-3 overflow-x-auto rounded-xl bg-black/35 p-2 backdrop-blur-sm">
@@ -201,7 +203,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                         activeImage === image ? 'border-white ring-2 ring-emerald-400' : 'border-white/40'
                       }`}
                     >
-                      <img src={image} alt="" className="h-full w-full object-cover" />
+                      <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -212,7 +214,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
           <div className="min-h-0 p-5 sm:p-7 lg:overflow-y-auto">
               <div className="mb-4">
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {product.category}
+                  {categoryLabel}
                 </span>
               </div>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import type { Product } from '../types/product';
+import { getCategoryDisplayLabel } from '../utils/displayLabels';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +11,8 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onToggleFavorite, isFavorite }) => {
+  const categoryLabel = getCategoryDisplayLabel(product.category);
+
   const handleOpenDetails = () => {
     onOpenDetails(product);
   };
@@ -36,6 +39,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
         <img
           src={product.image}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105 sm:h-56 lg:h-64"
         />
         <div className="absolute top-2 sm:top-3 right-2 sm:right-3 space-y-2">
@@ -65,7 +70,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
       <div className="p-3 sm:p-4">
         <div className="mb-2">
           <span className="rounded-full bg-[#E8F7EF] px-3 py-1 text-xs font-semibold text-[#0F8F61]">
-            {product.category}
+            {categoryLabel}
           </span>
         </div>
         

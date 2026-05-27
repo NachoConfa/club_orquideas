@@ -35,8 +35,8 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#F1E3D4] bg-[#FFF8EF]/95 shadow-sm backdrop-blur">
-      <div className="mx-auto max-w-[1500px] px-3 py-3 sm:px-6">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto w-full max-w-none px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
           {/* Logo y Nombre */}
           <div className="flex min-w-0 flex-shrink-0 items-center space-x-2">
             <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[#FFF8EF] shadow-sm ring-1 ring-white/80 sm:h-14 sm:w-14">
@@ -56,52 +56,52 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navegación Central - Desktop */}
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav className="hidden flex-1 items-center justify-center gap-2 xl:flex 2xl:gap-3">
             <button 
               onClick={() => onNavigate('home')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Inicio
             </button>
             <button 
               onClick={() => onNavigate('orchids')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Orquídeas
             </button>
             <button
               onClick={() => onNavigate('interior')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Plantas de interior
             </button>
             <button
               onClick={() => onNavigate('exterior')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Plantas de exterior
             </button>
             <button
               onClick={() => onNavigate('arrangements')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Arreglos
             </button>
             <button 
               onClick={() => onNavigate('pots')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Macetas
             </button>
             <button 
               onClick={() => onNavigate('accessories')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
-              Accesorios
+              Otros
             </button>
             <button 
               onClick={() => onNavigate('care')}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
             >
               Cuidados
             </button>
@@ -117,9 +117,9 @@ const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Acciones del Usuario */}
-          <div className="flex flex-shrink-0 items-center space-x-1 sm:space-x-3">
+          <div className="ml-auto flex flex-shrink-0 items-center space-x-1 sm:space-x-3">
             {/* Barra de búsqueda - Hidden en móvil */}
-            <div className="hidden md:flex">
+            <div className="hidden md:flex md:w-[260px] lg:w-[280px] 2xl:w-[340px]">
               <SearchBar searchQuery={searchQuery} onSearch={onSearch} onSubmit={onSearchSubmit} />
             </div>
 
@@ -237,7 +237,7 @@ const Header: React.FC<HeaderProps> = ({
                 onClick={() => handleMobileNavClick('accessories')}
                 className="block w-full rounded-lg px-3 py-2 text-left font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
               >
-                Accesorios
+                Otros
               </button>
               <button 
                 onClick={() => handleMobileNavClick('care')}

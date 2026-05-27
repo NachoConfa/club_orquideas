@@ -13,6 +13,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import type { Product } from '../types/product';
+import { getCategoryDisplayLabel } from '../utils/displayLabels';
 
 interface AccessoriesProps {
   products: Product[];
@@ -62,7 +63,7 @@ const Accessories: React.FC<AccessoriesProps> = ({
   const accessories = products.filter((product) => {
     const category = normalize(product.category);
     const type = normalize(product.type);
-    return category.includes('accesor') || type.includes('accesor');
+    return category.includes('accesor') || type.includes('accesor') || category.includes('otro') || type.includes('otro');
   });
 
   return (
@@ -79,10 +80,10 @@ const Accessories: React.FC<AccessoriesProps> = ({
 
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
-              Accesorios para plantas
+              Otros productos
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Productos seleccionados para el cuidado de tus plantas.
+              Complementos seleccionados para el cuidado de tus plantas.
             </p>
           </div>
         </div>
@@ -105,10 +106,10 @@ const Accessories: React.FC<AccessoriesProps> = ({
           <div className="bg-white rounded-xl shadow-lg p-10 text-center">
             <Package className="h-14 w-14 text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-700 mb-2">
-              No hay accesorios cargados
+              No hay otros productos cargados
             </h2>
             <p className="text-gray-500">
-              Agregá accesorios desde el panel administrador usando categoría o tipo "Accesorios".
+              Agregá productos desde el panel administrador usando la categoría correspondiente.
             </p>
           </div>
         ) : (
@@ -122,6 +123,8 @@ const Accessories: React.FC<AccessoriesProps> = ({
                   <img
                     src={accessory.image}
                     alt={accessory.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-48 object-cover"
                   />
                   <div className="absolute top-4 left-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-2 rounded-full">
@@ -137,7 +140,7 @@ const Accessories: React.FC<AccessoriesProps> = ({
                 <div className="p-6">
                   <div className="mb-3">
                     <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">
-                      {accessory.category}
+                      {getCategoryDisplayLabel(accessory.category)}
                     </span>
                   </div>
 

@@ -252,6 +252,8 @@ const CareGuide: React.FC<CareGuideProps> = ({ onBack }) => {
                     <img
                       src={orchid.image}
                       alt={orchid.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-64 md:h-full object-cover"
                     />
                   </div>

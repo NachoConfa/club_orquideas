@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -6,22 +6,11 @@ import Cart from './components/Cart';
 import Favorites from './components/Favorites';
 import AuthModal from './components/AuthModal';
 import ProductCard from './components/ProductCard';
-import ProductDetailModal from './components/ProductDetailModal';
 import ScrollToTop from './components/ScrollToTop';
 import HeroCarousel from './components/HeroCarousel';
 import CompanyIntro from './components/CompanyIntro';
 import Filters from './components/Filters';
-import Checkout from './pages/Checkout';
-import CheckoutResultPage, { type CheckoutResultData } from './pages/CheckoutResultPage';
-import Orders from './pages/Orders';
-import Accessories from './pages/Accessories';
-import CareGuide from './pages/CareGuide';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsAndConditions from './pages/TermsAndConditions';
-import ResetPassword from './pages/ResetPassword';
-import AccountSettings from './pages/AccountSettings';
-import AdminDashboard from './pages/AdminDashboard';
-import ProductPage from './pages/ProductPage';
+import type { CheckoutResultData } from './pages/CheckoutResultPage';
 import type { CartItem, CartItemInput } from './types/cart';
 import type { Product } from './types/product';
 import { sendProductAvailabilityEmail } from './services/emailService';
@@ -54,6 +43,19 @@ import {
 } from './services/analyticsService';
 import { getProductSlug } from './utils/productSlug';
 import { Flower, Star, Heart, ShoppingBag } from 'lucide-react';
+
+const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const CheckoutResultPage = lazy(() => import('./pages/CheckoutResultPage'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Accessories = lazy(() => import('./pages/Accessories'));
+const CareGuide = lazy(() => import('./pages/CareGuide'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ProductPage = lazy(() => import('./pages/ProductPage'));
 
 type AppUser = AuthenticatedUser | {
   id?: string;
@@ -91,7 +93,7 @@ type AppPage =
 
 const APP_PAGE_PATHS: Record<AppPage, string> = {
   home: '/',
-  accessories: '/accesorios',
+  accessories: '/otros',
   care: '/cuidados',
   orchids: '/orquideas',
   interior: '/plantas-interior',
@@ -212,7 +214,7 @@ const isPotProduct = (product: Product) => productHasCatalogTag(product, ['macet
 const isArrangementProduct = (product: Product) =>
   productHasCatalogTag(product, ['arreglo', 'arreglos', 'arrangement', 'arrangements']);
 const isAccessoryProduct = (product: Product) =>
-  productHasCatalogTag(product, ['accesorio', 'accesorios', 'accessory', 'accessories']);
+  productHasCatalogTag(product, ['accesorio', 'accesorios', 'accessory', 'accessories', 'otro', 'otros']);
 const isInteriorProduct = (product: Product) =>
   productHasCatalogTag(product, [
     'interior',
@@ -251,7 +253,7 @@ const SEARCH_CATEGORY_LABELS: Record<SearchCategoryValue, string> = {
   exterior: 'Plantas de exterior',
   arrangements: 'Arreglos',
   pots: 'Macetas',
-  accessories: 'Accesorios',
+  accessories: 'Otros',
 };
 
 const getProductSearchCategory = (product: Product): SearchCategoryValue => {
@@ -593,6 +595,15 @@ const hydrateCartItemsWithCatalog = (items: CartItem[], products: Product[]) => 
 
   return changed ? nextItems : items;
 };
+
+const RouteLoadingFallback = () => (
+  <main className="flex min-h-[60vh] items-center justify-center bg-[#FFF8EF] px-4">
+    <div className="rounded-2xl border border-[#F1E3D4] bg-white px-6 py-5 text-center shadow-sm">
+      <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#E8F7EF] border-t-[#0F8F61]" />
+      <p className="font-semibold text-[#16352B]">Cargando...</p>
+    </div>
+  </main>
+);
 
 const getCheckoutPageFromResult = (status: CheckoutResultData['status']): AppPage =>
   status === 'failure' ? 'checkout-failure' : status === 'pending' ? 'checkout-pending' : 'checkout-success';
@@ -1649,12 +1660,16 @@ function AppShell({ routePage }: { routePage: AppPage }) {
         />
         <Footer onNavigate={navigateToPage} />
 
-        <ProductDetailModal
-          product={selectedProduct}
-          isOpen={Boolean(selectedProduct)}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={addSelectionToCart}
-        />
+        {selectedProduct && (
+          <Suspense fallback={null}>
+            <ProductDetailModal
+              product={selectedProduct}
+              isOpen
+              onClose={() => setSelectedProduct(null)}
+              onAddToCart={addSelectionToCart}
+            />
+          </Suspense>
+        )}
         
         <Cart
           items={cartItems}
@@ -1718,12 +1733,16 @@ function AppShell({ routePage }: { routePage: AppPage }) {
         <CareGuide onBack={() => navigateToPage('home')} />
         <Footer onNavigate={navigateToPage} />
 
-        <ProductDetailModal
-          product={selectedProduct}
-          isOpen={Boolean(selectedProduct)}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={addSelectionToCart}
-        />
+        {selectedProduct && (
+          <Suspense fallback={null}>
+            <ProductDetailModal
+              product={selectedProduct}
+              isOpen
+              onClose={() => setSelectedProduct(null)}
+              onAddToCart={addSelectionToCart}
+            />
+          </Suspense>
+        )}
         
         <Cart
           items={cartItems}
@@ -2054,12 +2073,16 @@ function AppShell({ routePage }: { routePage: AppPage }) {
 
       <Footer onNavigate={navigateToPage} />
 
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={Boolean(selectedProduct)}
-        onClose={() => setSelectedProduct(null)}
-        onAddToCart={addSelectionToCart}
-      />
+      {selectedProduct && (
+        <Suspense fallback={null}>
+          <ProductDetailModal
+            product={selectedProduct}
+            isOpen
+            onClose={() => setSelectedProduct(null)}
+            onAddToCart={addSelectionToCart}
+          />
+        </Suspense>
+      )}
 
       <Cart
         items={cartItems}
@@ -2103,29 +2126,32 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<AppShell routePage="home" />} />
-        <Route path="/admin" element={<AppShell routePage="admin" />} />
-        <Route path="/perfil" element={<AppShell routePage="account-settings" />} />
-        <Route path="/pedidos" element={<AppShell routePage="orders" />} />
-        <Route path="/reset-password" element={<AppShell routePage="reset-password" />} />
-        <Route path="/checkout" element={<AppShell routePage="checkout" />} />
-        <Route path="/checkout/success" element={<AppShell routePage="checkout-success" />} />
-        <Route path="/checkout/failure" element={<AppShell routePage="checkout-failure" />} />
-        <Route path="/checkout/pending" element={<AppShell routePage="checkout-pending" />} />
-        <Route path="/orquideas" element={<AppShell routePage="orchids" />} />
-        <Route path="/plantas-interior" element={<AppShell routePage="interior" />} />
-        <Route path="/plantas-exterior" element={<AppShell routePage="exterior" />} />
-        <Route path="/producto/:slug" element={<AppShell routePage="product" />} />
-        <Route path="/buscar" element={<AppShell routePage="search" />} />
-        <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
-        <Route path="/macetas" element={<AppShell routePage="pots" />} />
-        <Route path="/accesorios" element={<AppShell routePage="accessories" />} />
-        <Route path="/cuidados" element={<AppShell routePage="care" />} />
-        <Route path="/privacidad" element={<AppShell routePage="privacy" />} />
-        <Route path="/terminos" element={<AppShell routePage="terms" />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<AppShell routePage="home" />} />
+          <Route path="/admin" element={<AppShell routePage="admin" />} />
+          <Route path="/perfil" element={<AppShell routePage="account-settings" />} />
+          <Route path="/pedidos" element={<AppShell routePage="orders" />} />
+          <Route path="/reset-password" element={<AppShell routePage="reset-password" />} />
+          <Route path="/checkout" element={<AppShell routePage="checkout" />} />
+          <Route path="/checkout/success" element={<AppShell routePage="checkout-success" />} />
+          <Route path="/checkout/failure" element={<AppShell routePage="checkout-failure" />} />
+          <Route path="/checkout/pending" element={<AppShell routePage="checkout-pending" />} />
+          <Route path="/orquideas" element={<AppShell routePage="orchids" />} />
+          <Route path="/plantas-interior" element={<AppShell routePage="interior" />} />
+          <Route path="/plantas-exterior" element={<AppShell routePage="exterior" />} />
+          <Route path="/producto/:slug" element={<AppShell routePage="product" />} />
+          <Route path="/buscar" element={<AppShell routePage="search" />} />
+          <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
+          <Route path="/macetas" element={<AppShell routePage="pots" />} />
+          <Route path="/otros" element={<AppShell routePage="accessories" />} />
+          <Route path="/accesorios" element={<Navigate to="/otros" replace />} />
+          <Route path="/cuidados" element={<AppShell routePage="care" />} />
+          <Route path="/privacidad" element={<AppShell routePage="privacy" />} />
+          <Route path="/terminos" element={<AppShell routePage="terms" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

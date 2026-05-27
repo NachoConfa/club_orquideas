@@ -314,7 +314,13 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
               <div className="space-y-4">
                 {selectedOrder.items.map((item, index) => (
                   <div key={index} className="flex flex-col gap-3 rounded-lg bg-[#FFF8EF] p-4 sm:flex-row sm:items-center sm:space-x-4">
-                    <img src={item.image} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-16 w-16 rounded-lg object-cover"
+                    />
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-800">{item.name}</h4>
                       {getOrderItemDetails(item).length > 0 && (

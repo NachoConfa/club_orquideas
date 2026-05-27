@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
+import { getCategoryDisplayLabel } from '../utils/displayLabels';
 
 interface ProductPageProps {
   product: Product | null;
@@ -87,6 +88,7 @@ const ProductPage = ({
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
   const isOutOfStock = activeStock <= 0;
   const activeDetails = selectedVariant ? getVariantDetails(selectedVariant) : [];
+  const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
   useEffect(() => {
     if (!product) return;
@@ -203,6 +205,8 @@ const ProductPage = ({
               <img
                 src={activeImage}
                 alt={product.name}
+                loading="eager"
+                decoding="async"
                 className="block h-auto max-h-[58vh] w-auto max-w-full object-contain sm:max-h-[66vh] lg:max-h-[70vh]"
               />
             </div>
@@ -211,7 +215,7 @@ const ProductPage = ({
           <section className="min-w-0 self-start rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-[#e8f7ef] px-3 py-1 text-xs font-semibold text-[#0f8f61]">
-                {product.category}
+                {categoryLabel}
               </span>
               <button
                 type="button"
@@ -370,7 +374,13 @@ const ProductPage = ({
                   onClick={() => onOpenRelatedProduct?.(relatedProduct)}
                   className="overflow-hidden rounded-xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-transform hover:-translate-y-1"
                 >
-                  <img src={relatedProduct.image} alt={relatedProduct.name} className="h-44 w-full object-cover" />
+                  <img
+                    src={relatedProduct.image}
+                    alt={relatedProduct.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-44 w-full object-cover"
+                  />
                   <div className="p-4">
                     <p className="line-clamp-2 font-semibold text-[#16352B]">{relatedProduct.name}</p>
                     <p className="mt-2 font-bold text-[#0f8f61]">{formatMoney(relatedProduct.price)}</p>

@@ -40,6 +40,7 @@ import {
   updateAdminOrderStatus,
   updateAdminProduct,
 } from '../services/adminSupabaseService';
+import { uploadProductImage } from '../services/productImageUploadService';
 import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';
 
@@ -290,6 +291,10 @@ const ProductForm = ({
   onCancel: () => void;
   onSubmit: () => void;
 }) => {
+  const toast = useToast();
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
+  const [uploadingVariantImageIndex, setUploadingVariantImageIndex] = useState<number | null>(null);
+
   const updateField = <K extends keyof AdminProductInput>(key: K, value: AdminProductInput[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -331,6 +336,56 @@ const ProductForm = ({
       deletedVariantIds: variant?.id ? [...(form.deletedVariantIds ?? []), variant.id] : form.deletedVariantIds,
     });
   };
+
+  const getUploadProductKey = () => form.slug?.trim() || form.name.trim() || 'producto';
+
+  const handleProductImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingProductImage(true);
+
+    try {
+      const publicUrl = await uploadProductImage(file, { productSlug: getUploadProductKey() });
+      updateField('image_url', publicUrl);
+      toast.success('Imagen subida correctamente.');
+    } catch (uploadError) {
+      const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la imagen.';
+      toast.error(message);
+    } finally {
+      setUploadingProductImage(false);
+    }
+  };
+
+  const handleVariantImageUpload = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingVariantImageIndex(index);
+
+    try {
+      const publicUrl = await uploadProductImage(file, {
+        productSlug: getUploadProductKey(),
+        variant: true,
+      });
+      updateVariant(index, 'image_url', publicUrl);
+      toast.success('Imagen de variante subida correctamente.');
+    } catch (uploadError) {
+      const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la imagen.';
+      toast.error(message);
+    } finally {
+      setUploadingVariantImageIndex(null);
+    }
+  };
+
   const hasPriceValue = /\d/.test(String(form.price ?? ''));
 
   return (
@@ -387,7 +442,7 @@ const ProductForm = ({
             <option value="exterior" label="Plantas de exterior" />
             <option value="Arreglos" />
             <option value="Macetas" />
-            <option value="Accesorios" />
+            <option value="Otros" />
           </datalist>
         </label>
 
@@ -448,15 +503,47 @@ const ProductForm = ({
           />
         </label>
 
-        <label className="text-sm font-medium text-gray-700 md:col-span-2">
-          URL de imagen
-          <input
-            value={form.image_url}
-            onChange={(event) => updateField('image_url', event.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-            placeholder="https://..."
-          />
-        </label>
+        <div className="text-sm font-medium text-gray-700 md:col-span-2">
+          <label>
+            URL de imagen
+            <input
+              value={form.image_url}
+              onChange={(event) => updateField('image_url', event.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+              placeholder="https://..."
+            />
+          </label>
+          <p className="mt-1 text-xs font-normal text-gray-500">Podés pegar una URL pública o subir una imagen.</p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label
+              className={`inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 ${
+                uploadingProductImage ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+              }`}
+            >
+              {uploadingProductImage && <Loader2 className="h-4 w-4 animate-spin" />}
+              {uploadingProductImage ? 'Subiendo...' : 'Subir imagen'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={uploadingProductImage}
+                onChange={handleProductImageUpload}
+              />
+            </label>
+            <span className="text-xs font-normal text-gray-500">JPG, PNG o WebP hasta 5 MB.</span>
+          </div>
+          {form.image_url && (
+            <div className="mt-3 w-fit rounded-xl border border-gray-200 bg-white p-2">
+              <img
+                src={form.image_url}
+                alt="Vista previa del producto"
+                className="h-28 w-28 rounded-lg object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          )}
+        </div>
 
         <label className="text-sm font-medium text-gray-700 md:col-span-2">
           Descripcion
@@ -595,15 +682,47 @@ const ProductForm = ({
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                     />
                   </label>
-                  <label className="text-xs font-medium text-gray-600 md:col-span-2">
-                    URL de imagen
-                    <input
-                      value={variant.image_url}
-                      onChange={(event) => updateVariant(index, 'image_url', event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
-                      placeholder="https://..."
-                    />
-                  </label>
+                  <div className="text-xs font-medium text-gray-600 md:col-span-2">
+                    <label>
+                      URL de imagen
+                      <input
+                        value={variant.image_url}
+                        onChange={(event) => updateVariant(index, 'image_url', event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <p className="mt-1 font-normal text-gray-500">Podés pegar una URL pública o subir una imagen.</p>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <label
+                        className={`inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 ${
+                          uploadingVariantImageIndex === index ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                        }`}
+                      >
+                        {uploadingVariantImageIndex === index && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {uploadingVariantImageIndex === index ? 'Subiendo...' : 'Subir imagen'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          disabled={uploadingVariantImageIndex === index}
+                          onChange={(event) => handleVariantImageUpload(index, event)}
+                        />
+                      </label>
+                      <span className="font-normal text-gray-500">JPG, PNG o WebP hasta 5 MB.</span>
+                    </div>
+                    {variant.image_url && (
+                      <div className="mt-2 w-fit rounded-lg border border-gray-200 bg-white p-1.5">
+                        <img
+                          src={variant.image_url}
+                          alt={`Vista previa de variante ${index + 1}`}
+                          className="h-20 w-20 rounded-md object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    )}
+                  </div>
                   <label className="flex items-center gap-2 pt-6 text-xs font-medium text-gray-600">
                     <input
                       type="checkbox"

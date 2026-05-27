@@ -223,7 +223,13 @@ const CheckoutResultPage = ({
                   <div className="space-y-3">
                     {resultItems.slice(0, 4).map((item) => (
                       <div key={item.cartKey} className="flex items-center gap-3 rounded-2xl border border-[#EADBC8]/70 p-3">
-                        <img src={item.image} alt={item.name} className="h-14 w-14 rounded-xl object-cover" />
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-14 w-14 rounded-xl object-cover"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{item.name}</p>
                           <p className="text-sm text-[#6B756F]">

@@ -15,7 +15,13 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="col-span-1 md:col-span-2">
             <div className="mb-4 flex items-center space-x-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF8EF] ring-1 ring-white/30">
-                <img src="/modo-plantas-logo-icono-512.png" alt="Modo Plantas" className="h-full w-full object-contain" />
+                <img
+                  src="/modo-plantas-logo-icono-512.png"
+                  alt="Modo Plantas"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div>
                 <h3 className="text-2xl font-bold">Modo Plantas</h3>
@@ -24,7 +30,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </div>
 
             <p className="mb-6 max-w-2xl leading-relaxed text-[#FFF8EF]/75">
-              Plantas, macetas y accesorios para llenar tus espacios de naturaleza. Seleccionamos cada
+              Plantas, macetas y otros productos para llenar tus espacios de naturaleza. Seleccionamos cada
               producto con una mirada cálida, simple y cuidada para acompañar hogares, regalos y momentos especiales.
             </p>
 
@@ -59,7 +65,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li><button onClick={() => onNavigate('exterior')} className={footerLinkClass}>Plantas de exterior</button></li>
               <li><button onClick={() => onNavigate('arrangements')} className={footerLinkClass}>Arreglos</button></li>
               <li><button onClick={() => onNavigate('pots')} className={footerLinkClass}>Macetas</button></li>
-              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Accesorios</button></li>
+              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Otros</button></li>
               <li><button onClick={() => onNavigate('care')} className={footerLinkClass}>Cuidados</button></li>
             </ul>
           </div>

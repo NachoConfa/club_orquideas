@@ -52,6 +52,8 @@ const Favorites: React.FC<FavoritesProps> = ({ items, isOpen, onClose, onRemoveI
                       <img
                         src={item.image}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
