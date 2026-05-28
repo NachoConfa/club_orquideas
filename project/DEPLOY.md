@@ -66,6 +66,21 @@ CLOUDFLARE_TURNSTILE_SECRET_KEY=
 
 No escribir valores reales en este archivo.
 
+## Schema SQL versionado
+
+El schema de referencia esta en:
+
+```text
+database/supabase-schema.sql
+```
+
+Incluye las columnas `stock_mode` en `products` y `product_variants` para soportar:
+
+- `quantity`: stock con cantidad numerica.
+- `consult`: consultar disponibilidad antes de comprar.
+
+Si se replica el proyecto en otra base, ejecutar primero el SQL versionado y verificar que PostgREST recargue el schema.
+
 ## Dominio
 
 Dominio de producción esperado:

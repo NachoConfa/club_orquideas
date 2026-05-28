@@ -24,6 +24,7 @@ export interface AdminProduct {
 }
 
 export type AdminMoneyInput = number | string;
+export type AdminStockInput = number | string;
 export type AdminStockMode = 'quantity' | 'consult';
 
 export interface AdminProductVariant {
@@ -48,7 +49,7 @@ export interface AdminProductVariantInput {
   size: string;
   flowering_stems: number | '';
   price: AdminMoneyInput;
-  stock: number;
+  stock: AdminStockInput;
   stock_mode: AdminStockMode;
   image_url: string;
   is_active: boolean;
@@ -60,7 +61,7 @@ export interface AdminProductInput {
   slug?: string;
   description: string;
   price: AdminMoneyInput;
-  stock: number;
+  stock: AdminStockInput;
   stock_mode: AdminStockMode;
   orchid_type: string;
   color: string;
@@ -292,13 +293,30 @@ export const parseAdminMoneyValue = (value: AdminMoneyInput, label = 'precio') =
   return parsedValue;
 };
 
+const normalizeStockMode = (stockMode?: AdminStockMode | null): AdminStockMode =>
+  stockMode === 'consult' ? 'consult' : 'quantity';
+
+const parseAdminStockValue = (value: AdminStockInput | null | undefined, label = 'stock') => {
+  if (value === '' || value === null || value === undefined) {
+    return 0;
+  }
+
+  const stock = Number(value);
+
+  if (!Number.isFinite(stock) || stock < 0) {
+    throw new Error(`El ${label} debe ser un numero mayor o igual a 0.`);
+  }
+
+  return stock;
+};
+
 const toProductPayload = (product: AdminProductInput) => ({
   name: product.name.trim(),
   slug: normalizeSlug(product.slug || product.name),
   description: product.description.trim(),
   price: parseAdminMoneyValue(product.price),
-  stock: Number(product.stock),
-  stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
+  stock: parseAdminStockValue(product.stock, 'stock del producto'),
+  stock_mode: normalizeStockMode(product.stock_mode),
   orchid_type: product.orchid_type.trim(),
   color: product.color.trim(),
   size: product.size.trim(),
@@ -320,16 +338,12 @@ const createUuid = () => {
 };
 
 const toVariantPayload = (productId: string, variant: AdminProductVariantInput) => {
-  const stock = Number(variant.stock ?? 0);
+  const stock = parseAdminStockValue(variant.stock, 'stock de variante');
   const sortOrder = Number(variant.sort_order ?? 0);
   const floweringStems =
     variant.flowering_stems === '' || variant.flowering_stems === null || variant.flowering_stems === undefined
       ? null
       : Number(variant.flowering_stems);
-
-  if (!Number.isFinite(stock) || stock < 0) {
-    throw new Error('El stock de variante no puede ser negativo.');
-  }
 
   if (floweringStems !== null && (!Number.isFinite(floweringStems) || floweringStems <= 0)) {
     throw new Error('Las varas de una variante deben ser un numero positivo o quedar vacias.');
@@ -346,7 +360,7 @@ const toVariantPayload = (productId: string, variant: AdminProductVariantInput) 
     flowering_stems: floweringStems,
     price: parseAdminMoneyValue(variant.price, 'precio de variante'),
     stock,
-    stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
+    stock_mode: normalizeStockMode(variant.stock_mode),
     image_url: variant.image_url.trim() || null,
     is_active: variant.is_active,
     sort_order: sortOrder,

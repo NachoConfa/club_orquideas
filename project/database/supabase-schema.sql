@@ -3,9 +3,9 @@
 
 -- Expected existing tables:
 -- public.products(id uuid, name text, description text, price numeric, stock int4,
---   orchid_type text, color text, size text, image_url text, is_active bool, ...)
+--   stock_mode text, orchid_type text, color text, size text, image_url text, is_active bool, ...)
 -- public.product_variants(id uuid, product_id uuid, color text, size text,
---   flowering_stems int, price numeric, stock int4, image_url text, is_active bool, ...)
+--   flowering_stems int, price numeric, stock int4, stock_mode text, image_url text, is_active bool, ...)
 -- public.profiles(id uuid, full_name text, phone text, address text, role text, ...)
 
 create or replace function public.handle_new_user_profile()
@@ -96,7 +96,33 @@ create unique index if not exists orders_order_number_key on public.orders(order
 create index if not exists orders_user_id_idx on public.orders(user_id);
 
 alter table public.products add column if not exists attributes jsonb not null default '{}'::jsonb;
+alter table public.products add column if not exists stock_mode text;
+
+update public.products
+set stock_mode = 'quantity'
+where stock_mode is null
+   or stock_mode not in ('quantity', 'consult');
+
+alter table public.products alter column stock_mode set default 'quantity';
+alter table public.products alter column stock_mode set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'products_stock_mode_check'
+      and conrelid = 'public.products'::regclass
+  ) then
+    alter table public.products
+    add constraint products_stock_mode_check
+    check (stock_mode in ('quantity', 'consult'));
+  end if;
+end;
+$$;
+
 create index if not exists products_attributes_gin_idx on public.products using gin (attributes);
+create index if not exists products_stock_mode_idx on public.products(stock_mode);
 
 alter table public.order_items add column if not exists order_id uuid references public.orders(id) on delete cascade;
 alter table public.order_items add column if not exists product_id uuid references public.products(id) on delete set null;
@@ -180,11 +206,13 @@ create table if not exists public.product_variants (
   flowering_stems integer,
   price numeric not null default 0,
   stock integer not null default 0,
+  stock_mode text not null default 'quantity',
   image_url text,
   is_active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint product_variants_stock_mode_check check (stock_mode in ('quantity', 'consult'))
 );
 
 alter table public.product_variants add column if not exists product_id uuid references public.products(id) on delete cascade;
@@ -193,17 +221,42 @@ alter table public.product_variants add column if not exists size text;
 alter table public.product_variants add column if not exists flowering_stems integer;
 alter table public.product_variants add column if not exists price numeric not null default 0;
 alter table public.product_variants add column if not exists stock integer not null default 0;
+alter table public.product_variants add column if not exists stock_mode text;
 alter table public.product_variants add column if not exists image_url text;
 alter table public.product_variants add column if not exists is_active boolean not null default true;
 alter table public.product_variants add column if not exists sort_order integer not null default 0;
 alter table public.product_variants add column if not exists created_at timestamptz not null default now();
 alter table public.product_variants add column if not exists updated_at timestamptz not null default now();
 
+update public.product_variants
+set stock_mode = 'quantity'
+where stock_mode is null
+   or stock_mode not in ('quantity', 'consult');
+
+alter table public.product_variants alter column stock_mode set default 'quantity';
+alter table public.product_variants alter column stock_mode set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'product_variants_stock_mode_check'
+      and conrelid = 'public.product_variants'::regclass
+  ) then
+    alter table public.product_variants
+    add constraint product_variants_stock_mode_check
+    check (stock_mode in ('quantity', 'consult'));
+  end if;
+end;
+$$;
+
 alter table public.order_items add column if not exists variant_id uuid references public.product_variants(id) on delete set null;
 
 create index if not exists product_variants_product_id_idx on public.product_variants(product_id);
 create index if not exists product_variants_active_product_idx on public.product_variants(product_id, is_active, sort_order);
 create index if not exists product_variants_stock_idx on public.product_variants(stock);
+create index if not exists product_variants_stock_mode_idx on public.product_variants(stock_mode);
 create index if not exists order_items_variant_id_idx on public.order_items(variant_id);
 
 create table if not exists public.analytics_events (

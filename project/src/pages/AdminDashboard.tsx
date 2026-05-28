@@ -326,6 +326,7 @@ const ProductForm = ({
       ),
     });
   };
+  const normalizeStockInput = (value: string) => (value === '' ? '' : Number(value));
   const addVariant = () => {
     onChange({
       ...form,
@@ -336,7 +337,7 @@ const ProductForm = ({
           size: form.size || 'Mediana',
           flowering_stems: Number(form.flowering_stems || 0) > 0 ? Number(form.flowering_stems) : '',
           price: form.price || '',
-          stock: Number(form.stock || 0),
+          stock: form.stock === '' ? 0 : Number(form.stock || 0),
           stock_mode: form.stock_mode || 'quantity',
           image_url: form.image_url || '',
           is_active: true,
@@ -531,10 +532,10 @@ const ProductForm = ({
             type="number"
             min="0"
             value={form.stock}
-            onChange={(event) => updateField('stock', Number(event.target.value))}
+            onChange={(event) => updateField('stock', normalizeStockInput(event.target.value))}
             disabled={form.stock_mode === 'consult'}
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
-            required
+            required={form.stock_mode !== 'consult'}
           />
         </label>
 
@@ -719,9 +720,10 @@ const ProductForm = ({
                       type="number"
                       min="0"
                       value={variant.stock}
-                      onChange={(event) => updateVariant(index, 'stock', Number(event.target.value))}
+                      onChange={(event) => updateVariant(index, 'stock', normalizeStockInput(event.target.value))}
                       disabled={variant.stock_mode === 'consult'}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      required={variant.stock_mode !== 'consult'}
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">
