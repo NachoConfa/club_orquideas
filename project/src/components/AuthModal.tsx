@@ -171,7 +171,9 @@ const AuthModal = ({
       setFormData((current) => ({ ...current, resetEmail: '' }));
       resetTurnstile();
     } catch (error) {
-      console.error('Error enviando recuperacion:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error enviando recuperacion:', error);
+      }
       toast.error(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {
@@ -221,7 +223,9 @@ const AuthModal = ({
         }
       })());
     } catch (error) {
-      console.error('Error de autenticación:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error de autenticación:', error);
+      }
       toast.error(getAuthErrorMessage(error));
       resetTurnstile();
     } finally {

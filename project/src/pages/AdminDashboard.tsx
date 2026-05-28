@@ -1559,6 +1559,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                   emptyMessage="Todavia no hay clientes registrados."
                   columns={[
                     { key: 'full_name', label: 'Nombre' },
+                    { key: 'email', label: 'Email' },
                     { key: 'phone', label: 'Teléfono' },
                     { key: 'role', label: 'Rol' },
                     { key: 'address', label: 'Dirección' },

@@ -164,7 +164,9 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
           setOrders(userOrders);
         }
       } catch (error) {
-        console.error('Error cargando pedidos del perfil:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error cargando pedidos del perfil:', error);
+        }
         if (isMounted) {
           setOrdersError(error instanceof Error ? error.message : 'No se pudieron cargar tus pedidos.');
         }

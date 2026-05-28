@@ -88,9 +88,23 @@ La app actualmente maneja páginas y categorías como estado interno de la SPA. 
 
 ## Supabase Storage
 
-La app actualmente usa URLs de imágenes en productos y no llama a `supabase.storage` desde el frontend. El bucket `product-images` queda como mejora pendiente.
+La app usa Supabase Storage desde el Admin para subir y limpiar imágenes de productos y variantes.
 
-Si se integra Storage en una etapa futura, las policies recomendadas son:
+Bucket requerido:
+
+```text
+product-images
+```
+
+Configuración recomendada:
+
+- Public bucket: `true`
+- Límite de archivo: 5 MB
+- MIME types permitidos: `image/jpeg`, `image/png`, `image/webp`
+
+Policies versionadas en `database/supabase-schema.sql`:
 
 - lectura pública de imágenes
 - upload/update/delete solo para admins con `public.is_admin(auth.uid())`
+
+No uses `SUPABASE_SERVICE_ROLE_KEY` en el frontend para Storage.

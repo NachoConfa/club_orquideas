@@ -15,6 +15,12 @@ interface HeaderProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
 }
 
+const desktopNavButtonClass =
+  'whitespace-nowrap rounded-full px-2 py-2 text-[13px] font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61] min-[1500px]:px-2.5 2xl:px-3.5 2xl:text-sm';
+
+const desktopAdminNavButtonClass =
+  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-2 text-[13px] font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61] min-[1500px]:px-2.5 2xl:px-3 2xl:text-sm';
+
 const Header: React.FC<HeaderProps> = ({ 
   cartCount, 
   favoritesCount,
@@ -36,19 +42,19 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-50 border-b border-[#F1E3D4] bg-[#FFF8EF]/95 shadow-sm backdrop-blur">
       <div className="mx-auto w-full max-w-none px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 xl:gap-3">
           {/* Logo y Nombre */}
           <div className="flex min-w-0 flex-shrink-0 items-center space-x-2">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[#FFF8EF] shadow-sm ring-1 ring-white/80 sm:h-14 sm:w-14">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[#FFF8EF] shadow-sm ring-1 ring-white/80 sm:h-12 sm:w-12 2xl:h-14 2xl:w-14">
               <img
                 src="/modo-plantas-logo-icono-512.png"
-                alt="Modo Plantas"
+                alt="Logo de Modo Plantas"
                 className="h-full w-full object-contain"
               />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg font-semibold text-[#16352B] sm:text-2xl">Modo Plantas</h1>
-              <p className="text-xs text-[#6B7280] sm:text-sm">Pasión por la naturaleza</p>
+              <h1 className="text-lg font-semibold text-[#16352B] sm:text-xl 2xl:text-2xl">Modo Plantas</h1>
+              <p className="text-xs text-[#6B7280] 2xl:text-sm">Pasión por la naturaleza</p>
             </div>
             <div className="min-w-0 sm:hidden">
               <h1 className="truncate text-base font-semibold text-[#16352B]">Modo Plantas</h1>
@@ -56,59 +62,59 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navegación Central - Desktop */}
-          <nav className="hidden flex-1 items-center justify-center gap-2 xl:flex 2xl:gap-3">
+          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex min-[1500px]:gap-1 2xl:gap-2">
             <button 
               onClick={() => onNavigate('home')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Inicio
             </button>
             <button 
               onClick={() => onNavigate('orchids')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Orquídeas
             </button>
             <button
               onClick={() => onNavigate('interior')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Plantas de interior
             </button>
             <button
               onClick={() => onNavigate('exterior')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Plantas de exterior
             </button>
             <button
               onClick={() => onNavigate('arrangements')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Arreglos
             </button>
             <button 
               onClick={() => onNavigate('pots')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Macetas
             </button>
             <button 
               onClick={() => onNavigate('accessories')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Otros
             </button>
             <button 
               onClick={() => onNavigate('care')}
-              className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+              className={desktopNavButtonClass}
             >
               Cuidados
             </button>
             {user?.isAdmin && (
               <button
                 onClick={() => onNavigate('admin')}
-                className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
+                className={desktopAdminNavButtonClass}
               >
                 <Shield className="h-4 w-4" />
                 Admin
@@ -117,9 +123,9 @@ const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Acciones del Usuario */}
-          <div className="ml-auto flex flex-shrink-0 items-center space-x-1 sm:space-x-3">
+          <div className="ml-auto flex min-w-0 flex-shrink-0 items-center space-x-1 sm:space-x-2 2xl:space-x-3">
             {/* Barra de búsqueda - Hidden en móvil */}
-            <div className="hidden md:flex md:w-[260px] lg:w-[280px] 2xl:w-[340px]">
+            <div className="hidden min-w-0 flex-shrink md:flex md:w-[220px] lg:w-[240px] xl:w-[190px] min-[1500px]:w-[230px] 2xl:w-[320px]">
               <SearchBar searchQuery={searchQuery} onSearch={onSearch} onSubmit={onSearchSubmit} />
             </div>
 
@@ -130,7 +136,7 @@ const Header: React.FC<HeaderProps> = ({
                 title="Mi perfil"
               >
                 <User className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="hidden xl:inline text-sm font-medium">Mi perfil</span>
+                <span className="hidden text-sm font-medium 2xl:inline">Mi perfil</span>
               </button>
             )}
 

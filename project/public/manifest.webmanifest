@@ -1,7 +1,10 @@
 {
   "name": "Modo Plantas",
   "short_name": "Modo Plantas",
+  "description": "Plantas, macetas y accesorios para llenar tus espacios de naturaleza.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#fff8ef",
   "theme_color": "#0f8f61",

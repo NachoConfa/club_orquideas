@@ -171,6 +171,7 @@ const ORDER_COLUMNS = [
 const PAYMENT_COLUMNS =
   'id, order_id, amount, method, status, payment_status, preference_id, provider_payment_id, created_at';
 const PROFILE_COLUMNS = 'id, full_name, phone, address, role, created_at';
+const PROFILE_COLUMNS_WITH_EMAIL = 'id, full_name, email, phone, address, role, created_at';
 const ORDER_ITEM_SUMMARY_COLUMNS = 'order_id, product_name, quantity, product_details';
 const ADMIN_QUERY_TIMEOUT_MS = 12000;
 const ADMIN_PAGE_LIMIT = 120;
@@ -221,6 +222,11 @@ const isMissingProductVariantsTableError = (error: { code?: string; message?: st
     message.includes('product_variants') ||
     message.includes('schema cache')
   );
+};
+
+const isMissingProfileEmailColumnError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return error.code === 'PGRST204' || error.code === '42703' || message.includes('email');
 };
 
 export const parseAdminMoneyValue = (value: AdminMoneyInput, label = 'precio') => {
@@ -715,22 +721,77 @@ export const getAdminPayments = async (limit = ADMIN_PAGE_LIMIT) => {
   return (data ?? []) as AdminRecord[];
 };
 
-export const getAdminProfiles = async (limit = ADMIN_PAGE_LIMIT) => {
+const attachCustomerEmailFallbacks = async (profiles: AdminRecord[]) => {
+  const userIds = profiles
+    .map((profile) => String(profile.id ?? '').trim())
+    .filter(Boolean);
+
+  if (userIds.length === 0) {
+    return profiles;
+  }
+
   const client = getClient();
   const { data, error } = await withAdminTimeout(
     client
+      .from('orders')
+      .select('user_id, customer_email, created_at')
+      .in('user_id', userIds)
+      .not('customer_email', 'is', null)
+      .order('created_at', { ascending: false }),
+    'La carga de emails de clientes del panel tardó demasiado.'
+  );
+
+  if (error) {
+    if (import.meta.env.DEV) {
+      console.warn('No se pudieron cargar emails de clientes desde pedidos:', error);
+    }
+
+    return profiles;
+  }
+
+  const emailByUserId = new Map<string, string>();
+  ((data ?? []) as AdminRecord[]).forEach((order) => {
+    const userId = String(order.user_id ?? '').trim();
+    const email = String(order.customer_email ?? '').trim();
+
+    if (userId && email && !emailByUserId.has(userId)) {
+      emailByUserId.set(userId, email);
+    }
+  });
+
+  return profiles.map((profile) => ({
+    ...profile,
+    email: profile.email || emailByUserId.get(String(profile.id ?? '').trim()) || null,
+  }));
+};
+
+export const getAdminProfiles = async (limit = ADMIN_PAGE_LIMIT) => {
+  const client = getClient();
+  let result = await withAdminTimeout(
+    client
       .from('profiles')
-      .select(PROFILE_COLUMNS)
+      .select(PROFILE_COLUMNS_WITH_EMAIL)
       .order('created_at', { ascending: false })
       .limit(limit),
     'La carga de clientes del panel tardó demasiado.'
   );
 
-  if (error) {
-    throw error;
+  if (result.error && isMissingProfileEmailColumnError(result.error)) {
+    result = await withAdminTimeout(
+      client
+        .from('profiles')
+        .select(PROFILE_COLUMNS)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      'La carga de clientes del panel tardó demasiado.'
+    );
   }
 
-  return (data ?? []) as AdminRecord[];
+  if (result.error) {
+    throw result.error;
+  }
+
+  return attachCustomerEmailFallbacks((result.data ?? []) as AdminRecord[]);
 };
 
 const getCount = async (

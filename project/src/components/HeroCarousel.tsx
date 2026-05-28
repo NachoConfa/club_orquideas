@@ -78,7 +78,7 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
           }`}
           aria-hidden={activeSlideIndex !== index}
         >
-          <img src={slide.image} alt="" className="h-full w-full object-cover" />
+          <img src={slide.image} alt={slide.title} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#16352B]/88 via-[#16352B]/60 to-[#16352B]/20" />
           <div className="absolute inset-0 bg-[#0F8F61]/10" />
         </div>

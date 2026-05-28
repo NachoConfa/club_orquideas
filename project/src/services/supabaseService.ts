@@ -538,7 +538,7 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
       ? ((variantsResult.value.data ?? []) as ProductVariantRow[])
       : [];
 
-  if (imagesResult.status === 'fulfilled' && imagesResult.value.error) {
+  if (imagesResult.status === 'fulfilled' && imagesResult.value.error && import.meta.env.DEV) {
     console.warn('No se pudieron cargar imagenes adicionales de productos:', imagesResult.value.error.message);
   }
 
@@ -622,7 +622,9 @@ export const signInWithSupabase = async (email: string, password: string, captch
     }),
     'Se validó el usuario, pero no se pudo guardar la sesión local. Recargá la página e intentá nuevamente.'
   ).catch((error) => {
-    console.warn('La sesión se guardó manualmente, pero Supabase Auth no terminó setSession.', error);
+    if (import.meta.env.DEV) {
+      console.warn('La sesión se guardó manualmente, pero Supabase Auth no terminó setSession.', error);
+    }
   });
 
   return fetchProfileWithToken(authData.user, authData.access_token);

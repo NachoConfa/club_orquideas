@@ -133,7 +133,9 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
           },
         });
       } catch (error) {
-        console.error('Error renderizando Turnstile:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error renderizando Turnstile:', error);
+        }
         callbacksRef.current.onVerify('');
         setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
         callbacksRef.current.onError?.();
@@ -162,7 +164,9 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
           return;
         }
 
-        console.error('Error cargando Turnstile:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error cargando Turnstile:', error);
+        }
         callbacksRef.current.onVerify('');
         setLoadError(TURNSTILE_LOAD_FAILED_MESSAGE);
         callbacksRef.current.onError?.();
@@ -175,7 +179,9 @@ const TurnstileWidget = ({ onVerify, onExpire, onError, action = 'form', classNa
         try {
           window.turnstile.remove(widgetIdRef.current);
         } catch (error) {
-          console.warn('No se pudo remover el widget de Turnstile:', error);
+          if (import.meta.env.DEV) {
+            console.warn('No se pudo remover el widget de Turnstile:', error);
+          }
         }
 
         widgetIdRef.current = null;

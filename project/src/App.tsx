@@ -520,7 +520,9 @@ const readJsonStorage = <T,>(key: string, fallback: T): T => {
   try {
     return JSON.parse(rawValue) as T;
   } catch (error) {
-    console.warn(`Dato local invalido removido: ${key}`, error);
+    if (import.meta.env.DEV) {
+      console.warn(`Dato local invalido removido: ${key}`, error);
+    }
     localStorage.removeItem(key);
     return fallback;
   }
@@ -533,7 +535,9 @@ const readArrayStorage = <T,>(key: string): T[] => {
     return value as T[];
   }
 
-  console.warn(`Dato local invalido removido: ${key}`);
+  if (import.meta.env.DEV) {
+    console.warn(`Dato local invalido removido: ${key}`);
+  }
   localStorage.removeItem(key);
   return [];
 };
@@ -917,7 +921,9 @@ function AppShell({ routePage }: { routePage: AppPage }) {
       try {
         await signOutFromSupabase();
       } catch (error) {
-        console.error('Error cerrando sesión de Supabase:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error cerrando sesión de Supabase:', error);
+        }
       }
     }
 

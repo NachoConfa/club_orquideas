@@ -248,7 +248,9 @@ export const getShippingZones = async (): Promise<ShippingZone[]> => {
     const zones = toShippingZones(await response.json());
     return zones.length > 0 ? getZonesWithFallbacks(zones) : fallbackShippingZones;
   } catch (error) {
-    console.warn('No se pudieron cargar zonas desde Supabase. Se usan zonas locales.', error);
+    if (import.meta.env.DEV) {
+      console.warn('No se pudieron cargar zonas desde Supabase. Se usan zonas locales.', error);
+    }
     return fallbackShippingZones;
   } finally {
     globalThis.clearTimeout(timeoutId);

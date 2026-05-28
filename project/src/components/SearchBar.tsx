@@ -16,13 +16,12 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSubmit, searchQuery }
   const clearSearch = () => {
     onSearch('');
     onSubmit?.('');
-    setIsExpanded(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative w-full">
+    <form onSubmit={handleSubmit} className="relative min-w-0 w-full">
       <div
-        className="flex w-full items-center rounded-full border border-[#F1E3D4] bg-white px-4 py-2 shadow-sm transition-all duration-300 focus-within:border-[#0F8F61] focus-within:ring-2 focus-within:ring-[#E8F7EF]"
+        className="flex min-w-0 w-full items-center rounded-full border border-[#F1E3D4] bg-white px-3 py-2 shadow-sm transition-all duration-300 focus-within:border-[#0F8F61] focus-within:ring-2 focus-within:ring-[#E8F7EF] sm:px-4"
       >
         <button
           type="submit"
@@ -33,10 +32,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onSubmit, searchQuery }
         </button>
         <input
           type="text"
-          placeholder="Buscar plantas, macetas, otros productos..."
+          placeholder="Buscar productos..."
           value={searchQuery}
           onChange={(event) => onSearch(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[#16352B] outline-none placeholder:text-[#6B7280]/70"
+          className="min-w-0 flex-1 bg-transparent text-sm text-[#16352B] outline-none placeholder:text-[#6B7280]/70 sm:text-base"
         />
         {searchQuery && (
           <button

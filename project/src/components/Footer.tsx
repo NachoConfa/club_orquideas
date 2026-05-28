@@ -17,7 +17,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF8EF] ring-1 ring-white/30">
                 <img
                   src="/modo-plantas-logo-icono-512.png"
-                  alt="Modo Plantas"
+                  alt="Logo de Modo Plantas"
                   loading="lazy"
                   decoding="async"
                   className="h-full w-full object-contain"

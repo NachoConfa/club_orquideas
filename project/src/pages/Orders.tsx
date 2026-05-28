@@ -167,7 +167,9 @@ const Orders: React.FC<OrdersProps> = ({ onBack, user }) => {
       const userOrders = await getSupabaseOrdersForUser(user.id);
       setOrders(userOrders);
     } catch (loadError) {
-      console.error('Error cargando pedidos de Supabase:', loadError);
+      if (import.meta.env.DEV) {
+        console.error('Error cargando pedidos de Supabase:', loadError);
+      }
       setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar tus pedidos.');
       setOrders([]);
     } finally {
