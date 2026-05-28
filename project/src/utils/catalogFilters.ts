@@ -254,10 +254,16 @@ export const getProductPrices = (product: Product) => {
 };
 
 export const productHasAvailableStock = (product: Product) => {
-  const variantStock = (product.variants ?? []).map((variant) => Number(variant.stock));
+  const quantityVariantStock = (product.variants ?? [])
+    .filter((variant) => variant.stockMode !== 'consult')
+    .map((variant) => Number(variant.stock));
 
-  if (variantStock.length > 0) {
-    return variantStock.some((stock) => Number.isFinite(stock) && stock > 0);
+  if (quantityVariantStock.length > 0) {
+    return quantityVariantStock.some((stock) => Number.isFinite(stock) && stock > 0);
+  }
+
+  if (product.stockMode === 'consult') {
+    return false;
   }
 
   return Boolean(product.inStock) || Number(product.stock ?? 0) > 0;

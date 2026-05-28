@@ -10,6 +10,7 @@ import {
 import TurnstileWidget from '../components/TurnstileWidget';
 import { useToast } from '../components/feedback/ToastProvider';
 import type { CheckoutResultData } from './CheckoutResultPage';
+import type { StockMode } from '../types/product';
 import { sendOrderReceivedEmail } from '../services/emailService';
 import { trackOrderCreated } from '../services/analyticsService';
 import { createMercadoPagoPreference } from '../services/mercadoPagoService';
@@ -40,6 +41,7 @@ interface CartItem {
   size: string;
   floweringStems?: number;
   stock?: number;
+  stockMode?: StockMode;
 }
 
 interface CheckoutProps {
@@ -428,6 +430,11 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
 
     if (items.length === 0) {
       toast.warning('Tu carrito está vacío.');
+      return;
+    }
+
+    if (items.some((item) => item.stockMode === 'consult')) {
+      toast.warning('Este producto requiere consulta de disponibilidad.');
       return;
     }
 

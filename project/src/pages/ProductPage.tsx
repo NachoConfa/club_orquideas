@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CreditCard,
   Heart,
+  MessageCircle,
   Minus,
   PackageCheck,
   Plus,
@@ -27,6 +28,7 @@ interface ProductPageProps {
 }
 
 const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
+const WHATSAPP_NUMBER = '5491122906442';
 
 const getBaseProductVariant = (product: Product): ProductVariant => ({
   size: product.size,
@@ -34,6 +36,7 @@ const getBaseProductVariant = (product: Product): ProductVariant => ({
   floweringStems: product.floweringStems,
   price: product.price,
   stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
+  stockMode: product.stockMode || 'quantity',
   image: product.image,
 });
 
@@ -44,7 +47,10 @@ const getActiveProductVariants = (product: Product): ProductVariant[] =>
     .sort((first, second) => Number(first.sortOrder ?? 0) - Number(second.sortOrder ?? 0));
 
 const getPreferredVariant = (variants: ProductVariant[]) =>
-  variants.find((variant) => Number(variant.stock) > 0) || variants[0] || null;
+  variants.find((variant) => variant.stockMode !== 'consult' && Number(variant.stock) > 0) ||
+  variants.find((variant) => variant.stockMode === 'consult') ||
+  variants[0] ||
+  null;
 
 const getVariantDetails = (variant: ProductVariant) =>
   [
@@ -52,6 +58,8 @@ const getVariantDetails = (variant: ProductVariant) =>
     variant.size,
     variant.floweringStems ? `${variant.floweringStems} ${variant.floweringStems === 1 ? 'vara' : 'varas'}` : '',
   ].filter(Boolean);
+
+const getVariantLabel = (variant: ProductVariant) => getVariantDetails(variant).join(' / ');
 
 const ProductPage = ({
   product,
@@ -85,8 +93,10 @@ const ProductPage = ({
 
   const activeImage = selectedVariant?.image || product?.image || '';
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+  const activeStockMode = selectedVariant?.stockMode || product?.stockMode || 'quantity';
+  const requiresAvailabilityConsult = activeStockMode === 'consult';
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
-  const isOutOfStock = activeStock <= 0;
+  const isOutOfStock = !requiresAvailabilityConsult && activeStock <= 0;
   const activeDetails = selectedVariant ? getVariantDetails(selectedVariant) : [];
   const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
@@ -102,8 +112,13 @@ const ProductPage = ({
   }, [product]);
 
   useEffect(() => {
+    if (requiresAvailabilityConsult) {
+      setQuantity(1);
+      return;
+    }
+
     setQuantity((current) => Math.min(Math.max(1, current), Math.max(1, activeStock)));
-  }, [activeStock]);
+  }, [activeStock, requiresAvailabilityConsult]);
 
   if (isLoading) {
     return (
@@ -168,6 +183,11 @@ const ProductPage = ({
       return;
     }
 
+    if (requiresAvailabilityConsult) {
+      setMessage('Este producto requiere consulta de disponibilidad.');
+      return;
+    }
+
     onAddToCart({
       id: product.id,
       sourceId: product.sourceId,
@@ -180,12 +200,19 @@ const ProductPage = ({
       size: selectedVariant.size || product.size,
       floweringStems: selectedVariant.floweringStems ?? product.floweringStems,
       stock: activeStock,
+      stockMode: activeStockMode,
     });
     setMessage('Producto agregado al carrito.');
   };
 
   const decreaseQuantity = () => setQuantity((current) => Math.max(1, current - 1));
   const increaseQuantity = () => setQuantity((current) => Math.min(activeStock, current + 1));
+  const openAvailabilityWhatsApp = () => {
+    const variantLabel = selectedVariant && hasRealVariants ? getVariantLabel(selectedVariant) : '';
+    const variantLine = variantLabel ? `\nVariante: ${variantLabel}` : '';
+    const text = `Hola, quiero consultar disponibilidad de: ${product.name}${variantLine}`;
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <main className="overflow-x-hidden bg-[#FFF8EF]">
@@ -247,7 +274,11 @@ const ProductPage = ({
               <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
                 <p className="break-words text-3xl font-bold text-[#16352B] sm:text-4xl">{formatMoney(activePrice)}</p>
                 <p className={`font-semibold ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
-                  {isOutOfStock ? 'Agotado' : `Stock: ${activeStock} unidades`}
+                  {requiresAvailabilityConsult
+                    ? 'Consultar disponibilidad'
+                    : isOutOfStock
+                      ? 'Agotado'
+                      : `Stock: ${activeStock} unidades`}
                 </p>
               </div>
               {activeDetails.length > 0 && (
@@ -262,6 +293,7 @@ const ProductPage = ({
                   {activeVariants.map((variant) => {
                     const isSelected = selectedVariant?.id === variant.id;
                     const variantStock = Math.max(0, Number(variant.stock ?? 0));
+                    const variantRequiresConsult = variant.stockMode === 'consult';
                     const variantDetails = getVariantDetails(variant).join(' · ') || 'Variante';
 
                     return (
@@ -269,7 +301,7 @@ const ProductPage = ({
                         key={variant.id}
                         type="button"
                         onClick={() => handleSelectVariant(variant)}
-                        disabled={variantStock <= 0}
+                        disabled={!variantRequiresConsult && variantStock <= 0}
                         className={`w-full rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
                           isSelected
                             ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61]'
@@ -280,8 +312,12 @@ const ProductPage = ({
                           <span className="font-semibold">{variantDetails}</span>
                           <span className="font-bold">{formatMoney(Number(variant.price ?? 0))}</span>
                         </span>
-                        <span className={`mt-1 block text-xs ${variantStock > 0 ? 'text-[#6B7280]' : 'text-red-600'}`}>
-                          {variantStock > 0 ? `Stock: ${variantStock}` : 'Sin stock'}
+                        <span className={`mt-1 block text-xs ${variantRequiresConsult || variantStock > 0 ? 'text-[#6B7280]' : 'text-red-600'}`}>
+                          {variantRequiresConsult
+                            ? 'Consultar disponibilidad'
+                            : variantStock > 0
+                              ? `Stock: ${variantStock}`
+                              : 'Sin stock'}
                         </span>
                       </button>
                     );
@@ -306,28 +342,30 @@ const ProductPage = ({
               )
             )}
 
-            <div className="mt-6">
-              <p className="mb-2 text-sm font-semibold text-[#16352B]">Cantidad</p>
-              <div className="inline-flex items-center rounded-lg border border-[#F1E3D4] bg-white">
-                <button
-                  type="button"
-                  onClick={decreaseQuantity}
-                  disabled={quantity <= 1}
-                  className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="min-w-[3rem] text-center font-semibold text-[#16352B]">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={increaseQuantity}
-                  disabled={isOutOfStock || quantity >= activeStock}
-                  className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+            {!requiresAvailabilityConsult && (
+              <div className="mt-6">
+                <p className="mb-2 text-sm font-semibold text-[#16352B]">Cantidad</p>
+                <div className="inline-flex items-center rounded-lg border border-[#F1E3D4] bg-white">
+                  <button
+                    type="button"
+                    onClick={decreaseQuantity}
+                    disabled={quantity <= 1}
+                    className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[3rem] text-center font-semibold text-[#16352B]">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={increaseQuantity}
+                    disabled={isOutOfStock || quantity >= activeStock}
+                    className="p-3 text-[#6B7280] hover:text-[#16352B] disabled:opacity-40"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {message && (
               <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#F1E3D4] bg-[#FFF8EF] px-3 py-2 text-sm text-[#16352B]">
@@ -338,12 +376,12 @@ const ProductPage = ({
 
             <button
               type="button"
-              onClick={handleAddToCart}
+              onClick={requiresAvailabilityConsult ? openAvailabilityWhatsApp : handleAddToCart}
               disabled={isOutOfStock}
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0f8f61] px-6 py-4 font-semibold text-white transition-colors hover:bg-[#0c7a52] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              <ShoppingCart className="h-5 w-5" />
-              {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+              {requiresAvailabilityConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+              {requiresAvailabilityConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
             </button>
 
             <div className="mt-6 grid gap-3 text-sm text-[#6B7280] sm:grid-cols-3">

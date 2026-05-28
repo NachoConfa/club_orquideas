@@ -337,6 +337,7 @@ const ProductForm = ({
           flowering_stems: Number(form.flowering_stems || 0) > 0 ? Number(form.flowering_stems) : '',
           price: form.price || '',
           stock: Number(form.stock || 0),
+          stock_mode: form.stock_mode || 'quantity',
           image_url: form.image_url || '',
           is_active: true,
           sort_order: form.variants.length + 1,
@@ -508,13 +509,31 @@ const ProductForm = ({
         </label>
 
         <label className="text-sm font-medium text-gray-700">
+          Modo de stock
+          <select
+            value={form.stock_mode}
+            onChange={(event) => updateField('stock_mode', event.target.value as AdminProductInput['stock_mode'])}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="quantity">Stock con cantidad</option>
+            <option value="consult">Consultar disponibilidad</option>
+          </select>
+          {form.stock_mode === 'consult' && (
+            <span className="mt-1 block text-xs font-normal text-gray-500">
+              El stock numérico queda como respaldo, pero este producto no se venderá directo.
+            </span>
+          )}
+        </label>
+
+        <label className="text-sm font-medium text-gray-700">
           Stock
           <input
             type="number"
             min="0"
             value={form.stock}
             onChange={(event) => updateField('stock', Number(event.target.value))}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+            disabled={form.stock_mode === 'consult'}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
             required
           />
         </label>
@@ -679,13 +698,30 @@ const ProductForm = ({
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">
+                    Modo de stock
+                    <select
+                      value={variant.stock_mode}
+                      onChange={(event) =>
+                        updateVariant(index, 'stock_mode', event.target.value as AdminProductVariantInput['stock_mode'])
+                      }
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="quantity">Stock con cantidad</option>
+                      <option value="consult">Consultar disponibilidad</option>
+                    </select>
+                    {variant.stock_mode === 'consult' && (
+                      <span className="mt-1 block font-normal text-gray-500">No se venderá directo desde la tienda.</span>
+                    )}
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
                     Stock
                     <input
                       type="number"
                       min="0"
                       value={variant.stock}
                       onChange={(event) => updateVariant(index, 'stock', Number(event.target.value))}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      disabled={variant.stock_mode === 'consult'}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">
@@ -981,7 +1017,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     }
 
     const activeProducts = products.filter((product) => product.is_active).length;
-    const lowStockProducts = products.filter((product) => Number(product.stock) <= 3).length;
+    const lowStockProducts = products.filter((product) => product.stock_mode !== 'consult' && Number(product.stock) <= 3).length;
     const pendingOrders = orders.filter(
       (order) => ['pending', 'pendiente', 'awaiting_payment', 'received'].includes(getStatus(order)) || isPendingPayment(order)
     ).length;
@@ -1335,7 +1371,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                   <div>
                     <h2 className="mb-3 text-lg font-semibold text-gray-900">Stock bajo</h2>
                     <RecordTable
-                      records={products.filter((product) => Number(product.stock) <= 3).slice(0, 6) as unknown as AdminRecord[]}
+                      records={products.filter((product) => product.stock_mode !== 'consult' && Number(product.stock) <= 3).slice(0, 6) as unknown as AdminRecord[]}
                       emptyMessage="No hay productos con stock bajo."
                       columns={[
                         { key: 'name', label: 'Producto' },
@@ -1411,7 +1447,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                           </td>
                           <td className="px-4 py-3 text-gray-700">{product.orchid_type}</td>
                           <td className="px-4 py-3 text-gray-700">{formatCurrency(product.price)}</td>
-                          <td className="px-4 py-3 text-gray-700">{product.stock}</td>
+                          <td className="px-4 py-3 text-gray-700">
+                            {product.stock_mode === 'consult' ? 'Consultar disponibilidad' : product.stock}
+                          </td>
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${

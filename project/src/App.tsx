@@ -556,6 +556,7 @@ const buildCartKey = (
 
 const normalizeCartItem = (item: CartItemInput): CartItem => ({
   ...item,
+  stockMode: item.stockMode === 'consult' ? 'consult' : 'quantity',
   cartKey: item.cartKey || buildCartKey(item),
 });
 

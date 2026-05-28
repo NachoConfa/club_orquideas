@@ -12,6 +12,12 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onToggleFavorite, isFavorite }) => {
   const categoryLabel = getCategoryDisplayLabel(product.category);
+  const activeVariants = (product.variants ?? []).filter((variant) => variant.isActive !== false);
+  const requiresAvailabilityConsult =
+    activeVariants.length > 0
+      ? activeVariants.every((variant) => variant.stockMode === 'consult')
+      : product.stockMode === 'consult';
+  const isUnavailable = !requiresAvailabilityConsult && !product.inStock;
 
   const handleOpenDetails = () => {
     onOpenDetails(product);
@@ -60,7 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
             </div>
           )}
         </div>
-        {!product.inStock && (
+        {isUnavailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#16352B]/55">
             <span className="rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-[#16352B]">Sin stock</span>
           </div>
@@ -100,7 +106,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
             )}
           </div>
           <div className="text-xs text-[#6B7280] sm:text-sm">
-            {product.size} • {product.color}
+            {requiresAvailabilityConsult ? 'Consultar disponibilidad' : `${product.size} · ${product.color}`}
           </div>
         </div>
 
@@ -109,16 +115,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
             event.stopPropagation();
             handleOpenDetails();
           }}
-          disabled={!product.inStock}
+          disabled={isUnavailable}
           className={`w-full py-2 px-3 sm:px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-1 sm:space-x-2 text-sm sm:text-base ${
-            product.inStock
+            !isUnavailable
               ? 'bg-[#0F8F61] text-white hover:bg-[#0C7A52] transform hover:scale-[1.02]'
               : 'cursor-not-allowed bg-[#F1E3D4] text-[#6B7280]'
           }`}
         >
           <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">{product.inStock ? 'Ver producto' : 'Sin stock'}</span>
-          <span className="sm:hidden">{product.inStock ? 'Ver' : 'Sin stock'}</span>
+          <span className="hidden sm:inline">{isUnavailable ? 'Sin stock' : 'Ver producto'}</span>
+          <span className="sm:hidden">{isUnavailable ? 'Sin stock' : 'Ver'}</span>
         </button>
       </div>
     </div>

@@ -10,6 +10,7 @@ export interface AdminProduct {
   description: string;
   price: number;
   stock: number;
+  stock_mode?: AdminStockMode | null;
   orchid_type: string;
   color: string;
   size: string;
@@ -23,6 +24,7 @@ export interface AdminProduct {
 }
 
 export type AdminMoneyInput = number | string;
+export type AdminStockMode = 'quantity' | 'consult';
 
 export interface AdminProductVariant {
   id: string;
@@ -32,6 +34,7 @@ export interface AdminProductVariant {
   flowering_stems: number | null;
   price: number;
   stock: number;
+  stock_mode?: AdminStockMode | null;
   image_url: string | null;
   is_active: boolean;
   sort_order: number;
@@ -46,6 +49,7 @@ export interface AdminProductVariantInput {
   flowering_stems: number | '';
   price: AdminMoneyInput;
   stock: number;
+  stock_mode: AdminStockMode;
   image_url: string;
   is_active: boolean;
   sort_order: number;
@@ -57,6 +61,7 @@ export interface AdminProductInput {
   description: string;
   price: AdminMoneyInput;
   stock: number;
+  stock_mode: AdminStockMode;
   orchid_type: string;
   color: string;
   size: string;
@@ -140,8 +145,10 @@ export interface AnalyticsReportData {
 
 const PRODUCT_COLUMNS =
   'id, category_id, name, slug, description, price, stock, orchid_type, color, size, flowering_stems, image_url, is_featured, is_active, created_at, updated_at';
+const PRODUCT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_COLUMNS}, stock_mode`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order, created_at, updated_at';
+const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
 const ORDER_COLUMNS = [
   'id',
   'user_id',
@@ -224,6 +231,11 @@ const isMissingProductVariantsTableError = (error: { code?: string; message?: st
   );
 };
 
+const isMissingStockModeColumnError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return error.code === 'PGRST204' || error.code === '42703' || message.includes('stock_mode');
+};
+
 const isMissingProfileEmailColumnError = (error: { code?: string; message?: string }) => {
   const message = error.message?.toLowerCase() ?? '';
   return error.code === 'PGRST204' || error.code === '42703' || message.includes('email');
@@ -286,6 +298,7 @@ const toProductPayload = (product: AdminProductInput) => ({
   description: product.description.trim(),
   price: parseAdminMoneyValue(product.price),
   stock: Number(product.stock),
+  stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
   orchid_type: product.orchid_type.trim(),
   color: product.color.trim(),
   size: product.size.trim(),
@@ -333,6 +346,7 @@ const toVariantPayload = (productId: string, variant: AdminProductVariantInput) 
     flowering_stems: floweringStems,
     price: parseAdminMoneyValue(variant.price, 'precio de variante'),
     stock,
+    stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
     image_url: variant.image_url.trim() || null,
     is_active: variant.is_active,
     sort_order: sortOrder,
@@ -345,22 +359,30 @@ const getVariantsForProducts = async (productIds: string[]) => {
   }
 
   const client = getClient();
-  const { data, error } = await client
+  let result = await client
     .from('product_variants')
-    .select(PRODUCT_VARIANT_COLUMNS)
+    .select(PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE)
     .in('product_id', productIds)
     .order('sort_order', { ascending: true });
 
-  if (error) {
-    if (isMissingProductVariantsTableError(error)) {
+  if (result.error && isMissingStockModeColumnError(result.error)) {
+    result = await client
+      .from('product_variants')
+      .select(PRODUCT_VARIANT_COLUMNS)
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true });
+  }
+
+  if (result.error) {
+    if (isMissingProductVariantsTableError(result.error)) {
       return new Map<string, AdminProductVariant[]>();
     }
 
-    throw error;
+    throw result.error;
   }
 
   const variantsByProduct = new Map<string, AdminProductVariant[]>();
-  ((data ?? []) as AdminProductVariant[]).forEach((variant) => {
+  ((result.data ?? []) as AdminProductVariant[]).forEach((variant) => {
     const variants = variantsByProduct.get(variant.product_id) ?? [];
     variants.push(variant);
     variantsByProduct.set(variant.product_id, variants);
@@ -468,6 +490,7 @@ export const emptyAdminProductInput = (): AdminProductInput => ({
   description: '',
   price: '',
   stock: 0,
+  stock_mode: 'quantity',
   orchid_type: 'Phalaenopsis',
   color: 'Variado',
   size: 'Mediana',
@@ -485,6 +508,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
   description: product.description || '',
   price: String(product.price ?? ''),
   stock: Number(product.stock),
+  stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
   orchid_type: product.orchid_type || '',
   color: product.color || '',
   size: product.size || '',
@@ -499,6 +523,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
     flowering_stems: variant.flowering_stems == null ? '' : Number(variant.flowering_stems),
     price: String(variant.price ?? ''),
     stock: Number(variant.stock || 0),
+    stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
     image_url: variant.image_url || '',
     is_active: Boolean(variant.is_active),
     sort_order: Number(variant.sort_order || 0),
@@ -508,28 +533,39 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
 
 export const getAdminProducts = async (limit = ADMIN_PAGE_LIMIT) => {
   const client = getClient();
-  const { data, error } = await withAdminTimeout(
+  let result = await withAdminTimeout(
     client
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
       .order('created_at', { ascending: false })
       .limit(limit),
     'La carga de productos del panel tardó demasiado.'
   );
 
-  if (error) {
-    throw error;
+  if (result.error && isMissingStockModeColumnError(result.error)) {
+    result = await withAdminTimeout(
+      client
+        .from('products')
+        .select(PRODUCT_COLUMNS)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      'La carga de productos del panel tardó demasiado.'
+    );
   }
 
-  return attachVariantsToProducts((data ?? []) as AdminProduct[]);
+  if (result.error) {
+    throw result.error;
+  }
+
+  return attachVariantsToProducts((result.data ?? []) as AdminProduct[]);
 };
 
 export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) => {
   const client = getClient();
-  const { data, error } = await withAdminTimeout(
+  let result = await withAdminTimeout(
     client
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
       .eq('is_active', true)
       .lte('stock', 3)
       .order('stock', { ascending: true })
@@ -537,11 +573,25 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
     'La carga del resumen de productos tardo demasiado.'
   );
 
-  if (error) {
-    throw error;
+  if (result.error && isMissingStockModeColumnError(result.error)) {
+    result = await withAdminTimeout(
+      client
+        .from('products')
+        .select(PRODUCT_COLUMNS)
+        .eq('is_active', true)
+        .lte('stock', 3)
+        .order('stock', { ascending: true })
+        .limit(limit),
+      'La carga del resumen de productos tardo demasiado.'
+    );
   }
 
-  return attachVariantsToProducts((data ?? []) as AdminProduct[]);
+  if (result.error) {
+    throw result.error;
+  }
+
+  const quantityProducts = ((result.data ?? []) as AdminProduct[]).filter((product) => product.stock_mode !== 'consult');
+  return attachVariantsToProducts(quantityProducts);
 };
 
 export const createAdminProduct = async (product: AdminProductInput) => {
@@ -549,7 +599,7 @@ export const createAdminProduct = async (product: AdminProductInput) => {
   const { data, error } = await client
     .from('products')
     .insert({ id: createUuid(), ...toProductPayload(product) })
-    .select(PRODUCT_COLUMNS)
+    .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
     .single();
 
   if (error) {
@@ -567,7 +617,7 @@ export const updateAdminProduct = async (id: string, product: AdminProductInput)
     .from('products')
     .update(toProductPayload(product))
     .eq('id', id)
-    .select(PRODUCT_COLUMNS)
+    .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
     .single();
 
   if (error) {
@@ -1211,7 +1261,7 @@ export const getAdminDashboardData = async (): Promise<AdminDashboardData> => {
     recentPayments,
   ] = await Promise.allSettled([
     getCount('products', (query) => query.eq('is_active', true)),
-    getCount('products', (query) => query.eq('is_active', true).lte('stock', 3)),
+    getAdminLowStockProducts(1000).then((products) => products.length),
     getCount('orders', (query) => query.in('payment_status', PENDING_PAYMENT_STATUSES)),
     getPaymentAmountByStatuses(PAID_PAYMENT_STATUSES),
     getPaymentAmountByStatuses(PENDING_PAYMENT_STATUSES),

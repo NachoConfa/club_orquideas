@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
-import { AlertCircle, Minus, Plus, ShoppingCart, X } from 'lucide-react';
+import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from 'lucide-react';
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
@@ -13,6 +13,7 @@ interface ProductDetailModalProps {
 }
 
 const formatMoney = (value: number) => `$${value.toLocaleString('es-AR')}`;
+const WHATSAPP_NUMBER = '5491122906442';
 
 const uniqueValues = (values: Array<string | undefined>) =>
   Array.from(new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]));
@@ -26,6 +27,7 @@ const getProductVariants = (product: Product): ProductVariant[] =>
           color: product.color,
           price: product.price,
           stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
+          stockMode: product.stockMode || 'quantity',
           image: product.image,
         },
       ];
@@ -73,8 +75,10 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
 
   const activeImage = selectedImage || selectedVariant?.image || product?.image || '';
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+  const activeStockMode = selectedVariant?.stockMode || product?.stockMode || 'quantity';
+  const requiresAvailabilityConsult = activeStockMode === 'consult';
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
-  const isOutOfStock = activeStock <= 0;
+  const isOutOfStock = !requiresAvailabilityConsult && activeStock <= 0;
   const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
   useEffect(() => {
@@ -122,8 +126,13 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
   }, [isOpen, onClose]);
 
   useEffect(() => {
+    if (requiresAvailabilityConsult) {
+      setQuantity(1);
+      return;
+    }
+
     setQuantity((current) => Math.min(Math.max(1, current), Math.max(1, activeStock)));
-  }, [activeStock]);
+  }, [activeStock, requiresAvailabilityConsult]);
 
   if (!isOpen || !product) {
     return null;
@@ -145,6 +154,11 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
       return;
     }
 
+    if (requiresAvailabilityConsult) {
+      setMessage('Este producto requiere consulta de disponibilidad.');
+      return;
+    }
+
     onAddToCart({
       id: product.id,
       sourceId: product.sourceId,
@@ -156,12 +170,21 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
       color: selectedColor || selectedVariant?.color || product.color,
       size: selectedSize || selectedVariant?.size || product.size,
       stock: activeStock,
+      stockMode: activeStockMode,
     });
     onClose();
   };
 
   const decreaseQuantity = () => setQuantity((current) => Math.max(1, current - 1));
   const increaseQuantity = () => setQuantity((current) => Math.min(activeStock, current + 1));
+  const openAvailabilityWhatsApp = () => {
+    const details = [selectedVariant?.color || selectedColor, selectedVariant?.size || selectedSize, selectedVariant?.floweringStems ? `${selectedVariant.floweringStems} varas` : '']
+      .filter(Boolean)
+      .join(' / ');
+    const variantLine = details ? `\nVariante: ${details}` : '';
+    const text = `Hola, quiero consultar disponibilidad de: ${product.name}${variantLine}`;
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
   const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
       onClose();
@@ -297,7 +320,8 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                           <span className="block font-semibold">{size}</span>
                           {variantForSize && (
                             <span className="mt-1 block text-xs text-gray-500">
-                              {formatMoney(variantForSize.price)} · Stock {stock}
+                              {formatMoney(variantForSize.price)} ·{' '}
+                              {variantForSize.stockMode === 'consult' ? 'Consultar disponibilidad' : `Stock ${stock}`}
                             </span>
                           )}
                         </button>
@@ -316,34 +340,40 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                   <div className="text-right">
                     <p className="text-sm text-gray-500">Stock disponible</p>
                     <p className={`font-semibold ${isOutOfStock ? 'text-red-600' : 'text-emerald-700'}`}>
-                      {isOutOfStock ? 'Agotado' : `Stock: ${activeStock} unidades`}
+                      {requiresAvailabilityConsult
+                        ? 'Consultar disponibilidad'
+                        : isOutOfStock
+                          ? 'Agotado'
+                          : `Stock: ${activeStock} unidades`}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold text-gray-800">Cantidad</p>
-                <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white">
-                  <button
-                    type="button"
-                    onClick={decreaseQuantity}
-                    disabled={quantity <= 1}
-                    className="p-3 text-gray-600 hover:text-gray-900 disabled:opacity-40"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="min-w-[3rem] text-center font-semibold text-gray-900">{quantity}</span>
-                  <button
-                    type="button"
-                    onClick={increaseQuantity}
-                    disabled={isOutOfStock || quantity >= activeStock}
-                    className="p-3 text-gray-600 hover:text-gray-900 disabled:opacity-40"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+              {!requiresAvailabilityConsult && (
+                <div className="mt-6">
+                  <p className="mb-2 text-sm font-semibold text-gray-800">Cantidad</p>
+                  <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white">
+                    <button
+                      type="button"
+                      onClick={decreaseQuantity}
+                      disabled={quantity <= 1}
+                      className="p-3 text-gray-600 hover:text-gray-900 disabled:opacity-40"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-[3rem] text-center font-semibold text-gray-900">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={increaseQuantity}
+                      disabled={isOutOfStock || quantity >= activeStock}
+                      className="p-3 text-gray-600 hover:text-gray-900 disabled:opacity-40"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {message && (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -354,12 +384,12 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
 
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={requiresAvailabilityConsult ? openAvailabilityWhatsApp : handleAddToCart}
                 disabled={isOutOfStock}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 font-semibold text-white transition-all hover:from-emerald-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500"
               >
-                <ShoppingCart className="h-5 w-5" />
-                {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+                {requiresAvailabilityConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+                {requiresAvailabilityConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
               </button>
             </div>
         </div>

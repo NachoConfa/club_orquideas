@@ -1,3 +1,5 @@
+import type { StockMode } from './product';
+
 export interface CartItem {
   cartKey: string;
   id: number;
@@ -11,6 +13,7 @@ export interface CartItem {
   size: string;
   floweringStems?: number;
   stock?: number;
+  stockMode?: StockMode;
 }
 
 export type CartItemInput = Omit<CartItem, 'cartKey'> & {

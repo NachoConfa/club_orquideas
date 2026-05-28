@@ -1,3 +1,5 @@
+export type StockMode = 'quantity' | 'consult';
+
 export interface ProductVariant {
   id?: string;
   productId?: string;
@@ -6,6 +8,7 @@ export interface ProductVariant {
   floweringStems?: number;
   price: number;
   stock: number;
+  stockMode?: StockMode;
   image?: string;
   isActive?: boolean;
   sortOrder?: number;
@@ -30,6 +33,7 @@ export interface Product {
   type: string;
   description?: string;
   stock?: number;
+  stockMode?: StockMode;
   floweringStems?: number;
   images?: string[];
   colors?: string[];

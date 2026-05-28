@@ -1,5 +1,5 @@
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-import type { Product, ProductAttributes } from '../types/product';
+import type { Product, ProductAttributes, StockMode } from '../types/product';
 import {
   SUPABASE_AUTH_STORAGE_KEY,
   getSupabaseConfigMessage,
@@ -14,6 +14,7 @@ type ProductRow = {
   price: number;
   description?: string | null;
   stock?: number | null;
+  stock_mode?: string | null;
   orchid_type?: string | null;
   color?: string | null;
   size?: string | null;
@@ -54,6 +55,7 @@ type ProductVariantRow = {
   flowering_stems?: number | null;
   price?: number | null;
   stock?: number | null;
+  stock_mode?: string | null;
   image_url?: string | null;
   is_active?: boolean | null;
   sort_order?: number | null;
@@ -145,14 +147,24 @@ const DEFAULT_PRODUCT_IMAGE =
   'https://images.pexels.com/photos/1407305/pexels-photo-1407305.jpeg?auto=compress&cs=tinysrgb&w=500';
 const PRODUCT_COLUMNS =
   'id, name, description, price, stock, orchid_type, color, size, image_url, is_active';
-const PRODUCT_COLUMNS_WITH_OPTIONAL =
+const PRODUCT_COLUMNS_WITH_BASE_OPTIONAL =
   `${PRODUCT_COLUMNS}, slug, flowering_stems`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL =
+  `${PRODUCT_COLUMNS_WITH_BASE_OPTIONAL}, stock_mode`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
+const PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL =
+  `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
 
 const isMissingOptionalProductColumnError = (error: { code?: string; message?: string }) => {
   const message = error.message?.toLowerCase() ?? '';
-  return error.code === 'PGRST204' || error.code === '42703' || message.includes('slug') || message.includes('flowering_stems');
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    message.includes('slug') ||
+    message.includes('flowering_stems') ||
+    message.includes('stock_mode')
+  );
 };
 
 const isMissingProductVariantsTableError = (error: { code?: string; message?: string }) => {
@@ -181,6 +193,8 @@ const toStableNumericId = (id: number | string) => {
 const isProductAttributes = (value: unknown): value is ProductAttributes =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+const normalizeStockMode = (value?: string | null): StockMode => (value === 'consult' ? 'consult' : 'quantity');
+
 const sanitizeProductDescription = (description?: string | null) => {
   if (!description?.trim()) {
     return undefined;
@@ -204,6 +218,7 @@ const mapProductVariant = (variant: ProductVariantRow) => ({
   floweringStems: variant.flowering_stems == null ? undefined : Number(variant.flowering_stems),
   price: Number(variant.price ?? 0),
   stock: Math.max(0, Number(variant.stock ?? 0)),
+  stockMode: normalizeStockMode(variant.stock_mode),
   image: variant.image_url?.trim() || undefined,
   isActive: variant.is_active !== false,
   sortOrder: Number(variant.sort_order ?? 0),
@@ -220,6 +235,7 @@ const mapProduct = (product: ProductRow): Product => {
     color: product.color || 'Variado',
     price: Number(product.price),
     stock: fallbackStock,
+    stockMode: normalizeStockMode(product.stock_mode),
     image: baseImage,
   };
 
@@ -240,6 +256,7 @@ const mapProduct = (product: ProductRow): Product => {
     type: product.type || product.orchid_type || 'Orquideas',
     description: sanitizeProductDescription(product.description),
     stock: product.stock == null ? undefined : fallbackStock,
+    stockMode: normalizeStockMode(product.stock_mode),
     floweringStems: product.flowering_stems == null ? undefined : Number(product.flowering_stems),
     images,
     colors: [fallbackVariant.color],
@@ -290,6 +307,11 @@ const mapProductsWithDetails = (
     const hasRealVariants = realVariants.length > 0;
     const variantStock = realVariants.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock ?? 0)), 0);
     const variantPrices = realVariants.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price));
+    const hasQuantityVariantWithStock = realVariants.some(
+      (variant) => variant.stockMode !== 'consult' && Number(variant.stock) > 0
+    );
+    const hasConsultVariant = realVariants.some((variant) => variant.stockMode === 'consult');
+    const allVariantsRequireConsult = realVariants.length > 0 && realVariants.every((variant) => variant.stockMode === 'consult');
 
     return {
       ...mappedProduct,
@@ -298,7 +320,8 @@ const mapProductsWithDetails = (
       colors: colors.length > 0 ? colors : [mappedProduct.color],
       variants,
       stock: hasRealVariants ? variantStock : mappedProduct.stock,
-      inStock: hasRealVariants ? realVariants.some((variant) => Number(variant.stock) > 0) : mappedProduct.inStock,
+      stockMode: hasRealVariants && allVariantsRequireConsult ? 'consult' : mappedProduct.stockMode,
+      inStock: hasRealVariants ? hasQuantityVariantWithStock || hasConsultVariant : mappedProduct.inStock,
     };
   });
 };
@@ -510,6 +533,13 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
   if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
     productsResult = await client
       .from('products')
+      .select(PRODUCT_COLUMNS_WITH_BASE_OPTIONAL)
+      .eq('is_active', true);
+  }
+
+  if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
+    productsResult = await client
+      .from('products')
       .select(PRODUCT_COLUMNS)
       .eq('is_active', true);
   }
@@ -523,11 +553,23 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
   );
   const [imagesResult, variantsResult] = await Promise.allSettled([
     client.from('product_images').select('product_id, image_url, sort_order').order('sort_order', { ascending: true }),
-    client
-      .from('product_variants')
-      .select(PRODUCT_VARIANT_COLUMNS)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true }),
+    (async () => {
+      let result = await client
+        .from('product_variants')
+        .select(PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (result.error && isMissingOptionalProductColumnError(result.error)) {
+        result = await client
+          .from('product_variants')
+          .select(PRODUCT_VARIANT_COLUMNS)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+      }
+
+      return result;
+    })(),
   ]);
   const imageRows =
     imagesResult.status === 'fulfilled' && !imagesResult.value.error
