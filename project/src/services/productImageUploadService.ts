@@ -13,7 +13,7 @@ interface ProductImageUploadOptions {
   productId?: string;
   productSlug?: string;
   variant?: boolean;
-  folder?: 'products' | 'care-guides';
+  folder?: 'products' | 'care-guides' | 'events';
 }
 
 interface ProductImageDeleteResult {
@@ -112,14 +112,17 @@ const countImageUsage = async (tableName: string, publicUrl: string) => {
 };
 
 const isImageUrlStillUsed = async (publicUrl: string) => {
-  const [productsCount, variantsCount, careGuidesCount, careGuideVariantsCount] = await Promise.all([
-    countImageUsage('products', publicUrl),
-    countImageUsage('product_variants', publicUrl),
-    countImageUsage('care_guides', publicUrl),
-    countImageUsage('care_guide_variants', publicUrl),
-  ]);
+  const [productsCount, variantsCount, careGuidesCount, careGuideVariantsCount, eventsCount, eventSectionsCount] =
+    await Promise.all([
+      countImageUsage('products', publicUrl),
+      countImageUsage('product_variants', publicUrl),
+      countImageUsage('care_guides', publicUrl),
+      countImageUsage('care_guide_variants', publicUrl),
+      countImageUsage('events', publicUrl),
+      countImageUsage('event_sections', publicUrl),
+    ]);
 
-  return productsCount + variantsCount + careGuidesCount + careGuideVariantsCount > 0;
+  return productsCount + variantsCount + careGuidesCount + careGuideVariantsCount + eventsCount + eventSectionsCount > 0;
 };
 
 export const uploadProductImage = async (file: File, options: ProductImageUploadOptions = {}) => {
@@ -135,7 +138,7 @@ export const uploadProductImage = async (file: File, options: ProductImageUpload
     throw new Error('La imagen no puede superar los 5 MB.');
   }
 
-  const rootFolder = options.folder === 'care-guides' ? 'care-guides' : 'products';
+  const rootFolder = options.folder === 'care-guides' ? 'care-guides' : options.folder === 'events' ? 'events' : 'products';
   const productFolder = sanitizeSegment(options.productSlug || options.productId || 'producto');
   const uploadFolder = options.variant ? `${rootFolder}/${productFolder}/variants` : `${rootFolder}/${productFolder}`;
   const randomSuffix = Math.random().toString(36).slice(2, 8);

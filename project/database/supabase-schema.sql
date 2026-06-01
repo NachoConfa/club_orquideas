@@ -299,6 +299,101 @@ create index if not exists care_guides_slug_idx on public.care_guides(slug);
 create index if not exists care_guides_active_sort_idx on public.care_guides(is_active, sort_order);
 create index if not exists care_guide_variants_guide_active_sort_idx on public.care_guide_variants(care_guide_id, is_active, sort_order);
 
+create table if not exists public.events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text unique not null,
+  short_description text,
+  description text,
+  image_url text,
+  event_date date,
+  event_time text,
+  location text,
+  modality text,
+  status text not null default 'upcoming',
+  capacity text,
+  whatsapp_message text,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint events_status_check check (status in ('upcoming', 'available', 'finished'))
+);
+
+alter table public.events add column if not exists title text;
+alter table public.events add column if not exists slug text;
+alter table public.events add column if not exists short_description text;
+alter table public.events add column if not exists description text;
+alter table public.events add column if not exists image_url text;
+alter table public.events add column if not exists event_date date;
+alter table public.events add column if not exists event_time text;
+alter table public.events add column if not exists location text;
+alter table public.events add column if not exists modality text;
+alter table public.events add column if not exists status text;
+alter table public.events add column if not exists capacity text;
+alter table public.events add column if not exists whatsapp_message text;
+alter table public.events add column if not exists is_active boolean not null default true;
+alter table public.events add column if not exists sort_order integer not null default 0;
+alter table public.events add column if not exists created_at timestamptz not null default now();
+alter table public.events add column if not exists updated_at timestamptz not null default now();
+
+update public.events
+set status = 'upcoming'
+where status is null or status not in ('upcoming', 'available', 'finished');
+
+alter table public.events alter column status set default 'upcoming';
+alter table public.events alter column status set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'events_slug_key'
+      and conrelid = 'public.events'::regclass
+  ) then
+    alter table public.events add constraint events_slug_key unique (slug);
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'events_status_check'
+      and conrelid = 'public.events'::regclass
+  ) then
+    alter table public.events
+    add constraint events_status_check
+    check (status in ('upcoming', 'available', 'finished'));
+  end if;
+end;
+$$;
+
+create table if not exists public.event_sections (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  title text not null,
+  description text,
+  image_url text,
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.event_sections add column if not exists event_id uuid references public.events(id) on delete cascade;
+alter table public.event_sections add column if not exists title text;
+alter table public.event_sections add column if not exists description text;
+alter table public.event_sections add column if not exists image_url text;
+alter table public.event_sections add column if not exists sort_order integer not null default 0;
+alter table public.event_sections add column if not exists is_active boolean not null default true;
+alter table public.event_sections add column if not exists created_at timestamptz not null default now();
+alter table public.event_sections add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists events_slug_idx on public.events(slug);
+create index if not exists events_active_sort_idx on public.events(is_active, sort_order);
+create index if not exists events_status_idx on public.events(status);
+create index if not exists event_sections_event_active_sort_idx on public.event_sections(event_id, is_active, sort_order);
+
 create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id) on delete cascade,
@@ -1074,6 +1169,8 @@ alter table public.shipping_zones enable row level security;
 alter table public.product_images enable row level security;
 alter table public.care_guides enable row level security;
 alter table public.care_guide_variants enable row level security;
+alter table public.events enable row level security;
+alter table public.event_sections enable row level security;
 alter table public.product_variants enable row level security;
 alter table public.analytics_events enable row level security;
 
@@ -1183,6 +1280,58 @@ using (public.is_admin((select auth.uid())));
 drop policy if exists "Admins manage care guide variants" on public.care_guide_variants;
 create policy "Admins manage care guide variants"
 on public.care_guide_variants
+for all
+to authenticated
+using (public.is_admin((select auth.uid())))
+with check (public.is_admin((select auth.uid())));
+
+drop policy if exists "Active events are public" on public.events;
+create policy "Active events are public"
+on public.events
+for select
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can read all events" on public.events;
+create policy "Admins can read all events"
+on public.events
+for select
+to authenticated
+using (public.is_admin((select auth.uid())));
+
+drop policy if exists "Admins manage events" on public.events;
+create policy "Admins manage events"
+on public.events
+for all
+to authenticated
+using (public.is_admin((select auth.uid())))
+with check (public.is_admin((select auth.uid())));
+
+drop policy if exists "Active event sections are public" on public.event_sections;
+create policy "Active event sections are public"
+on public.event_sections
+for select
+to anon, authenticated
+using (
+  is_active = true
+  and exists (
+    select 1
+    from public.events
+    where events.id = event_sections.event_id
+      and events.is_active = true
+  )
+);
+
+drop policy if exists "Admins can read all event sections" on public.event_sections;
+create policy "Admins can read all event sections"
+on public.event_sections
+for select
+to authenticated
+using (public.is_admin((select auth.uid())));
+
+drop policy if exists "Admins manage event sections" on public.event_sections;
+create policy "Admins manage event sections"
+on public.event_sections
 for all
 to authenticated
 using (public.is_admin((select auth.uid())))
@@ -1392,12 +1541,16 @@ grant select on public.product_images to anon, authenticated;
 grant select on public.product_variants to anon, authenticated;
 grant select on public.care_guides to anon, authenticated;
 grant select on public.care_guide_variants to anon, authenticated;
+grant select on public.events to anon, authenticated;
+grant select on public.event_sections to anon, authenticated;
 revoke update on public.profiles from anon, authenticated;
 grant insert, update, delete on public.products to authenticated;
 grant insert, update, delete on public.product_images to authenticated;
 grant insert, update, delete on public.product_variants to authenticated;
 grant insert, update, delete on public.care_guides to authenticated;
 grant insert, update, delete on public.care_guide_variants to authenticated;
+grant insert, update, delete on public.events to authenticated;
+grant insert, update, delete on public.event_sections to authenticated;
 grant select, insert on public.profiles to authenticated;
 grant update (full_name, phone, address) on public.profiles to authenticated;
 grant select, insert, update on public.orders to authenticated;

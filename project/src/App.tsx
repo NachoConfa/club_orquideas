@@ -48,7 +48,8 @@ const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'))
 const Checkout = lazy(() => import('./pages/Checkout'));
 const CheckoutResultPage = lazy(() => import('./pages/CheckoutResultPage'));
 const Orders = lazy(() => import('./pages/Orders'));
-const Accessories = lazy(() => import('./pages/Accessories'));
+const EventsPage = lazy(() => import('./pages/EventsPage'));
+const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
 const CareGuidesPage = lazy(() => import('./pages/CareGuidesPage'));
 const CareGuideDetailPage = lazy(() => import('./pages/CareGuideDetailPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -73,6 +74,7 @@ type AppUser = AuthenticatedUser | {
 type AppPage =
   | 'home'
   | 'accessories'
+  | 'event-detail'
   | 'care'
   | 'care-detail'
   | 'orchids'
@@ -96,6 +98,7 @@ type AppPage =
 const APP_PAGE_PATHS: Record<AppPage, string> = {
   home: '/',
   accessories: '/eventos',
+  'event-detail': '/eventos',
   care: '/cuidados',
   'care-detail': '/cuidados',
   orchids: '/orquideas',
@@ -1669,27 +1672,9 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           onSearchSubmit={submitGlobalSearch}
           user={user}
         />
-        <Accessories
-          products={catalogProducts}
-          isLoading={isLoadingProducts}
-          onBack={() => navigateToPage('home')}
-          onAddToCart={addToCart}
-          onToggleFavorite={toggleFavorite}
-          favoriteItems={favoriteItems}
-        />
+        <EventsPage onBack={() => navigateToPage('home')} />
         <Footer onNavigate={navigateToPage} />
 
-        {selectedProduct && (
-          <Suspense fallback={null}>
-            <ProductDetailModal
-              product={selectedProduct}
-              isOpen
-              onClose={() => setSelectedProduct(null)}
-              onAddToCart={addSelectionToCart}
-            />
-          </Suspense>
-        )}
-        
         <Cart
           items={cartItems}
           isOpen={isCartOpen}
@@ -1750,6 +1735,68 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           user={user}
         />
         <CareGuidesPage onBack={() => navigateToPage('home')} />
+        <Footer onNavigate={navigateToPage} />
+
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (currentPage === 'event-detail') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+        <EventDetailPage onBack={() => navigateToPage('accessories')} />
         <Footer onNavigate={navigateToPage} />
 
         <Cart
@@ -2215,6 +2262,7 @@ function App() {
           <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
           <Route path="/macetas" element={<AppShell routePage="pots" />} />
           <Route path="/eventos" element={<AppShell routePage="accessories" />} />
+          <Route path="/eventos/:slug" element={<AppShell routePage="event-detail" />} />
           <Route path="/otros" element={<Navigate to="/eventos" replace />} />
           <Route path="/accesorios" element={<Navigate to="/eventos" replace />} />
           <Route path="/cuidados" element={<AppShell routePage="care" />} />

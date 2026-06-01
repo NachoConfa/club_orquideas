@@ -8,6 +8,7 @@ import {
   ClipboardList,
   CreditCard,
   Edit,
+  CalendarDays,
   LineChart,
   Loader2,
   Plus,
@@ -45,6 +46,7 @@ import { deleteUnusedProductImageByPublicUrl, uploadProductImage } from '../serv
 import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';
 import AdminCareGuides from '../components/admin/AdminCareGuides';
+import AdminEvents from '../components/admin/AdminEvents';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -52,7 +54,15 @@ interface AdminDashboardProps {
   onProductsChanged: () => void;
 }
 
-type AdminTab = 'dashboard' | 'products' | 'care-guides' | 'orders' | 'customers' | 'payments' | 'analytics';
+type AdminTab =
+  | 'dashboard'
+  | 'products'
+  | 'care-guides'
+  | 'events'
+  | 'orders'
+  | 'customers'
+  | 'payments'
+  | 'analytics';
 
 const formatCurrency = (value: unknown) =>
   Number(value || 0).toLocaleString('es-AR', {
@@ -837,6 +847,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     dashboard: false,
     products: false,
     'care-guides': false,
+    events: false,
     orders: false,
     customers: false,
     payments: false,
@@ -991,6 +1002,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     if (tab === 'dashboard') void loadDashboardData();
     if (tab === 'products') void loadProducts();
     if (tab === 'care-guides') markTabLoaded('care-guides');
+    if (tab === 'events') markTabLoaded('events');
     if (tab === 'orders') void loadOrders();
     if (tab === 'customers') void loadProfiles();
     if (tab === 'payments') void loadPayments();
@@ -1271,6 +1283,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'products', label: 'Productos', icon: <Boxes className="h-4 w-4" /> },
     { id: 'care-guides', label: 'Cuidados', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <ClipboardList className="h-4 w-4" /> },
     { id: 'customers', label: 'Clientes', icon: <Users className="h-4 w-4" /> },
     { id: 'payments', label: 'Pagos', icon: <CreditCard className="h-4 w-4" /> },
@@ -1496,6 +1509,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         )}
 
         {activeTab === 'care-guides' && <AdminCareGuides />}
+
+        {activeTab === 'events' && <AdminEvents />}
 
         {activeTab === 'orders' && isLoadingOrders && !loadedTabs.orders ? (
           <AdminTableSkeleton rows={6} />
