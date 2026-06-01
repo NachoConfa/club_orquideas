@@ -49,7 +49,8 @@ const Checkout = lazy(() => import('./pages/Checkout'));
 const CheckoutResultPage = lazy(() => import('./pages/CheckoutResultPage'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Accessories = lazy(() => import('./pages/Accessories'));
-const CareGuide = lazy(() => import('./pages/CareGuide'));
+const CareGuidesPage = lazy(() => import('./pages/CareGuidesPage'));
+const CareGuideDetailPage = lazy(() => import('./pages/CareGuideDetailPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -73,6 +74,7 @@ type AppPage =
   | 'home'
   | 'accessories'
   | 'care'
+  | 'care-detail'
   | 'orchids'
   | 'interior'
   | 'exterior'
@@ -93,8 +95,9 @@ type AppPage =
 
 const APP_PAGE_PATHS: Record<AppPage, string> = {
   home: '/',
-  accessories: '/otros',
+  accessories: '/eventos',
   care: '/cuidados',
+  'care-detail': '/cuidados',
   orchids: '/orquideas',
   interior: '/plantas-interior',
   exterior: '/plantas-exterior',
@@ -214,7 +217,16 @@ const isPotProduct = (product: Product) => productHasCatalogTag(product, ['macet
 const isArrangementProduct = (product: Product) =>
   productHasCatalogTag(product, ['arreglo', 'arreglos', 'arrangement', 'arrangements']);
 const isAccessoryProduct = (product: Product) =>
-  productHasCatalogTag(product, ['accesorio', 'accesorios', 'accessory', 'accessories', 'otro', 'otros']);
+  productHasCatalogTag(product, [
+    'accesorio',
+    'accesorios',
+    'accessory',
+    'accessories',
+    'otro',
+    'otros',
+    'evento',
+    'eventos',
+  ]);
 const isInteriorProduct = (product: Product) =>
   productHasCatalogTag(product, [
     'interior',
@@ -253,7 +265,7 @@ const SEARCH_CATEGORY_LABELS: Record<SearchCategoryValue, string> = {
   exterior: 'Plantas de exterior',
   arrangements: 'Arreglos',
   pots: 'Macetas',
-  accessories: 'Otros',
+  accessories: 'Eventos',
 };
 
 const getProductSearchCategory = (product: Product): SearchCategoryValue => {
@@ -1737,20 +1749,71 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           onSearchSubmit={submitGlobalSearch}
           user={user}
         />
-        <CareGuide onBack={() => navigateToPage('home')} />
+        <CareGuidesPage onBack={() => navigateToPage('home')} />
         <Footer onNavigate={navigateToPage} />
 
-        {selectedProduct && (
-          <Suspense fallback={null}>
-            <ProductDetailModal
-              product={selectedProduct}
-              isOpen
-              onClose={() => setSelectedProduct(null)}
-              onAddToCart={addSelectionToCart}
-            />
-          </Suspense>
-        )}
-        
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (currentPage === 'care-detail') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+        <CareGuideDetailPage onBack={() => navigateToPage('care')} />
+        <Footer onNavigate={navigateToPage} />
+
         <Cart
           items={cartItems}
           isOpen={isCartOpen}
@@ -2151,9 +2214,11 @@ function App() {
           <Route path="/buscar" element={<AppShell routePage="search" />} />
           <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
           <Route path="/macetas" element={<AppShell routePage="pots" />} />
-          <Route path="/otros" element={<AppShell routePage="accessories" />} />
-          <Route path="/accesorios" element={<Navigate to="/otros" replace />} />
+          <Route path="/eventos" element={<AppShell routePage="accessories" />} />
+          <Route path="/otros" element={<Navigate to="/eventos" replace />} />
+          <Route path="/accesorios" element={<Navigate to="/eventos" replace />} />
           <Route path="/cuidados" element={<AppShell routePage="care" />} />
+          <Route path="/cuidados/:slug" element={<AppShell routePage="care-detail" />} />
           <Route path="/privacidad" element={<AppShell routePage="privacy" />} />
           <Route path="/terminos" element={<AppShell routePage="terms" />} />
           <Route path="*" element={<Navigate to="/" replace />} />

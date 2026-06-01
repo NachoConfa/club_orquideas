@@ -11,9 +11,11 @@ export const getCategoryDisplayLabel = (category?: string) => {
   if (
     normalizedCategory.includes('accesor') ||
     normalizedCategory === 'accessories' ||
-    normalizedCategory === 'otros'
+    normalizedCategory === 'otros' ||
+    normalizedCategory === 'eventos' ||
+    normalizedCategory.includes('evento')
   ) {
-    return 'Otros';
+    return 'Eventos';
   }
 
   return category || 'Producto';

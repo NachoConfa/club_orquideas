@@ -13,6 +13,7 @@ interface ProductImageUploadOptions {
   productId?: string;
   productSlug?: string;
   variant?: boolean;
+  folder?: 'products' | 'care-guides';
 }
 
 interface ProductImageDeleteResult {
@@ -85,25 +86,40 @@ export const getStoragePathFromPublicUrl = (publicUrl: string) => {
 
 export const isProductImagesBucketUrl = (publicUrl: string) => Boolean(getStoragePathFromPublicUrl(publicUrl));
 
-const isImageUrlStillUsed = async (publicUrl: string) => {
+const countImageUsage = async (tableName: string, publicUrl: string) => {
   if (!supabase) {
     throw new Error(getSupabaseConfigMessage());
   }
 
-  const [productsResult, variantsResult] = await Promise.all([
-    supabase.from('products').select('id', { count: 'exact', head: true }).eq('image_url', publicUrl),
-    supabase.from('product_variants').select('id', { count: 'exact', head: true }).eq('image_url', publicUrl),
+  const result = await supabase.from(tableName).select('id', { count: 'exact', head: true }).eq('image_url', publicUrl);
+  const message = result.error?.message?.toLowerCase() ?? '';
+
+  if (
+    result.error &&
+    (result.error.code === '42P01' ||
+      result.error.code === 'PGRST205' ||
+      message.includes('could not find the table') ||
+      message.includes('does not exist'))
+  ) {
+    return 0;
+  }
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return Number(result.count ?? 0);
+};
+
+const isImageUrlStillUsed = async (publicUrl: string) => {
+  const [productsCount, variantsCount, careGuidesCount, careGuideVariantsCount] = await Promise.all([
+    countImageUsage('products', publicUrl),
+    countImageUsage('product_variants', publicUrl),
+    countImageUsage('care_guides', publicUrl),
+    countImageUsage('care_guide_variants', publicUrl),
   ]);
 
-  if (productsResult.error) {
-    throw productsResult.error;
-  }
-
-  if (variantsResult.error) {
-    throw variantsResult.error;
-  }
-
-  return Number(productsResult.count ?? 0) > 0 || Number(variantsResult.count ?? 0) > 0;
+  return productsCount + variantsCount + careGuidesCount + careGuideVariantsCount > 0;
 };
 
 export const uploadProductImage = async (file: File, options: ProductImageUploadOptions = {}) => {
@@ -119,8 +135,9 @@ export const uploadProductImage = async (file: File, options: ProductImageUpload
     throw new Error('La imagen no puede superar los 5 MB.');
   }
 
+  const rootFolder = options.folder === 'care-guides' ? 'care-guides' : 'products';
   const productFolder = sanitizeSegment(options.productSlug || options.productId || 'producto');
-  const uploadFolder = options.variant ? `products/${productFolder}/variants` : `products/${productFolder}`;
+  const uploadFolder = options.variant ? `${rootFolder}/${productFolder}/variants` : `${rootFolder}/${productFolder}`;
   const randomSuffix = Math.random().toString(36).slice(2, 8);
   const safeFileName = sanitizeFileName(file.name, file.type);
   const filePath = `${uploadFolder}/${Date.now()}-${randomSuffix}-${safeFileName}`;

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   BarChart3,
+  BookOpen,
   Boxes,
   Check,
   ClipboardList,
@@ -43,6 +44,7 @@ import {
 import { deleteUnusedProductImageByPublicUrl, uploadProductImage } from '../services/productImageUploadService';
 import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';
+import AdminCareGuides from '../components/admin/AdminCareGuides';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -50,7 +52,7 @@ interface AdminDashboardProps {
   onProductsChanged: () => void;
 }
 
-type AdminTab = 'dashboard' | 'products' | 'orders' | 'customers' | 'payments' | 'analytics';
+type AdminTab = 'dashboard' | 'products' | 'care-guides' | 'orders' | 'customers' | 'payments' | 'analytics';
 
 const formatCurrency = (value: unknown) =>
   Number(value || 0).toLocaleString('es-AR', {
@@ -460,7 +462,7 @@ const ProductForm = ({
             <option value="exterior" label="Plantas de exterior" />
             <option value="Arreglos" />
             <option value="Macetas" />
-            <option value="Otros" />
+            <option value="Eventos" />
           </datalist>
         </label>
 
@@ -834,6 +836,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const [loadedTabs, setLoadedTabs] = useState<Record<AdminTab, boolean>>({
     dashboard: false,
     products: false,
+    'care-guides': false,
     orders: false,
     customers: false,
     payments: false,
@@ -987,6 +990,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
     if (tab === 'dashboard') void loadDashboardData();
     if (tab === 'products') void loadProducts();
+    if (tab === 'care-guides') markTabLoaded('care-guides');
     if (tab === 'orders') void loadOrders();
     if (tab === 'customers') void loadProfiles();
     if (tab === 'payments') void loadPayments();
@@ -1266,6 +1270,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'products', label: 'Productos', icon: <Boxes className="h-4 w-4" /> },
+    { id: 'care-guides', label: 'Cuidados', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <ClipboardList className="h-4 w-4" /> },
     { id: 'customers', label: 'Clientes', icon: <Users className="h-4 w-4" /> },
     { id: 'payments', label: 'Pagos', icon: <CreditCard className="h-4 w-4" /> },
@@ -1489,6 +1494,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
               </div>
           )
         )}
+
+        {activeTab === 'care-guides' && <AdminCareGuides />}
 
         {activeTab === 'orders' && isLoadingOrders && !loadedTabs.orders ? (
           <AdminTableSkeleton rows={6} />

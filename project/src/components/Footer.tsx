@@ -30,7 +30,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </div>
 
             <p className="mb-6 max-w-2xl leading-relaxed text-[#FFF8EF]/75">
-              Plantas, macetas y otros productos para llenar tus espacios de naturaleza. Seleccionamos cada
+              Plantas, macetas y detalles para llenar tus espacios de naturaleza. Seleccionamos cada
               producto con una mirada cálida, simple y cuidada para acompañar hogares, regalos y momentos especiales.
             </p>
 
@@ -65,7 +65,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li><button onClick={() => onNavigate('exterior')} className={footerLinkClass}>Plantas de exterior</button></li>
               <li><button onClick={() => onNavigate('arrangements')} className={footerLinkClass}>Arreglos</button></li>
               <li><button onClick={() => onNavigate('pots')} className={footerLinkClass}>Macetas</button></li>
-              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Otros</button></li>
+              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Eventos</button></li>
               <li><button onClick={() => onNavigate('care')} className={footerLinkClass}>Cuidados</button></li>
             </ul>
           </div>

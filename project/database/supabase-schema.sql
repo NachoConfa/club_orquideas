@@ -198,6 +198,107 @@ alter table public.product_images add column if not exists created_at timestampt
 create index if not exists product_images_product_id_idx on public.product_images(product_id);
 create index if not exists product_images_sort_order_idx on public.product_images(product_id, sort_order);
 
+create table if not exists public.care_guides (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text unique not null,
+  subtitle text,
+  category text,
+  difficulty text,
+  short_description text,
+  description text,
+  image_url text,
+  light text,
+  watering text,
+  temperature text,
+  humidity text,
+  fertilization text,
+  transplant text,
+  flowering text,
+  special_tips text[] not null default '{}',
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.care_guides add column if not exists title text;
+alter table public.care_guides add column if not exists slug text;
+alter table public.care_guides add column if not exists subtitle text;
+alter table public.care_guides add column if not exists category text;
+alter table public.care_guides add column if not exists difficulty text;
+alter table public.care_guides add column if not exists short_description text;
+alter table public.care_guides add column if not exists description text;
+alter table public.care_guides add column if not exists image_url text;
+alter table public.care_guides add column if not exists light text;
+alter table public.care_guides add column if not exists watering text;
+alter table public.care_guides add column if not exists temperature text;
+alter table public.care_guides add column if not exists humidity text;
+alter table public.care_guides add column if not exists fertilization text;
+alter table public.care_guides add column if not exists transplant text;
+alter table public.care_guides add column if not exists flowering text;
+alter table public.care_guides add column if not exists special_tips text[] not null default '{}';
+alter table public.care_guides add column if not exists is_active boolean not null default true;
+alter table public.care_guides add column if not exists sort_order integer not null default 0;
+alter table public.care_guides add column if not exists created_at timestamptz not null default now();
+alter table public.care_guides add column if not exists updated_at timestamptz not null default now();
+
+create table if not exists public.care_guide_variants (
+  id uuid primary key default gen_random_uuid(),
+  care_guide_id uuid not null references public.care_guides(id) on delete cascade,
+  title text not null,
+  subtitle text,
+  description text,
+  image_url text,
+  light text,
+  watering text,
+  temperature text,
+  humidity text,
+  fertilization text,
+  transplant text,
+  flowering text,
+  special_tips text[] not null default '{}',
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.care_guide_variants add column if not exists care_guide_id uuid references public.care_guides(id) on delete cascade;
+alter table public.care_guide_variants add column if not exists title text;
+alter table public.care_guide_variants add column if not exists subtitle text;
+alter table public.care_guide_variants add column if not exists description text;
+alter table public.care_guide_variants add column if not exists image_url text;
+alter table public.care_guide_variants add column if not exists light text;
+alter table public.care_guide_variants add column if not exists watering text;
+alter table public.care_guide_variants add column if not exists temperature text;
+alter table public.care_guide_variants add column if not exists humidity text;
+alter table public.care_guide_variants add column if not exists fertilization text;
+alter table public.care_guide_variants add column if not exists transplant text;
+alter table public.care_guide_variants add column if not exists flowering text;
+alter table public.care_guide_variants add column if not exists special_tips text[] not null default '{}';
+alter table public.care_guide_variants add column if not exists is_active boolean not null default true;
+alter table public.care_guide_variants add column if not exists sort_order integer not null default 0;
+alter table public.care_guide_variants add column if not exists created_at timestamptz not null default now();
+alter table public.care_guide_variants add column if not exists updated_at timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'care_guides_slug_key'
+      and conrelid = 'public.care_guides'::regclass
+  ) then
+    alter table public.care_guides add constraint care_guides_slug_key unique (slug);
+  end if;
+end;
+$$;
+
+create index if not exists care_guides_slug_idx on public.care_guides(slug);
+create index if not exists care_guides_active_sort_idx on public.care_guides(is_active, sort_order);
+create index if not exists care_guide_variants_guide_active_sort_idx on public.care_guide_variants(care_guide_id, is_active, sort_order);
+
 create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id) on delete cascade,
@@ -971,6 +1072,8 @@ alter table public.payments enable row level security;
 alter table public.customer_addresses enable row level security;
 alter table public.shipping_zones enable row level security;
 alter table public.product_images enable row level security;
+alter table public.care_guides enable row level security;
+alter table public.care_guide_variants enable row level security;
 alter table public.product_variants enable row level security;
 alter table public.analytics_events enable row level security;
 
@@ -1028,6 +1131,58 @@ using (
 drop policy if exists "Admins manage product images" on public.product_images;
 create policy "Admins manage product images"
 on public.product_images
+for all
+to authenticated
+using (public.is_admin((select auth.uid())))
+with check (public.is_admin((select auth.uid())));
+
+drop policy if exists "Active care guides are public" on public.care_guides;
+create policy "Active care guides are public"
+on public.care_guides
+for select
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can read all care guides" on public.care_guides;
+create policy "Admins can read all care guides"
+on public.care_guides
+for select
+to authenticated
+using (public.is_admin((select auth.uid())));
+
+drop policy if exists "Admins manage care guides" on public.care_guides;
+create policy "Admins manage care guides"
+on public.care_guides
+for all
+to authenticated
+using (public.is_admin((select auth.uid())))
+with check (public.is_admin((select auth.uid())));
+
+drop policy if exists "Active care guide variants are public" on public.care_guide_variants;
+create policy "Active care guide variants are public"
+on public.care_guide_variants
+for select
+to anon, authenticated
+using (
+  is_active = true
+  and exists (
+    select 1
+    from public.care_guides
+    where care_guides.id = care_guide_variants.care_guide_id
+      and care_guides.is_active = true
+  )
+);
+
+drop policy if exists "Admins can read all care guide variants" on public.care_guide_variants;
+create policy "Admins can read all care guide variants"
+on public.care_guide_variants
+for select
+to authenticated
+using (public.is_admin((select auth.uid())));
+
+drop policy if exists "Admins manage care guide variants" on public.care_guide_variants;
+create policy "Admins manage care guide variants"
+on public.care_guide_variants
 for all
 to authenticated
 using (public.is_admin((select auth.uid())))
@@ -1235,10 +1390,14 @@ grant usage on schema public to anon, authenticated;
 grant select on public.products to anon, authenticated;
 grant select on public.product_images to anon, authenticated;
 grant select on public.product_variants to anon, authenticated;
+grant select on public.care_guides to anon, authenticated;
+grant select on public.care_guide_variants to anon, authenticated;
 revoke update on public.profiles from anon, authenticated;
 grant insert, update, delete on public.products to authenticated;
 grant insert, update, delete on public.product_images to authenticated;
 grant insert, update, delete on public.product_variants to authenticated;
+grant insert, update, delete on public.care_guides to authenticated;
+grant insert, update, delete on public.care_guide_variants to authenticated;
 grant select, insert on public.profiles to authenticated;
 grant update (full_name, phone, address) on public.profiles to authenticated;
 grant select, insert, update on public.orders to authenticated;

@@ -103,7 +103,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={() => onNavigate('accessories')}
               className={desktopNavButtonClass}
             >
-              Otros
+              Eventos
             </button>
             <button 
               onClick={() => onNavigate('care')}
@@ -243,7 +243,7 @@ const Header: React.FC<HeaderProps> = ({
                 onClick={() => handleMobileNavClick('accessories')}
                 className="block w-full rounded-lg px-3 py-2 text-left font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]"
               >
-                Otros
+                Eventos
               </button>
               <button 
                 onClick={() => handleMobileNavClick('care')}

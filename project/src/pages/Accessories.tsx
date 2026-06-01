@@ -63,7 +63,14 @@ const Accessories: React.FC<AccessoriesProps> = ({
   const accessories = products.filter((product) => {
     const category = normalize(product.category);
     const type = normalize(product.type);
-    return category.includes('accesor') || type.includes('accesor') || category.includes('otro') || type.includes('otro');
+    return (
+      category.includes('accesor') ||
+      type.includes('accesor') ||
+      category.includes('otro') ||
+      type.includes('otro') ||
+      category.includes('evento') ||
+      type.includes('evento')
+    );
   });
 
   return (
@@ -80,10 +87,10 @@ const Accessories: React.FC<AccessoriesProps> = ({
 
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
-              Otros productos
+              Eventos
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Complementos seleccionados para el cuidado de tus plantas.
+              Productos y detalles preparados para eventos, regalos y momentos especiales.
             </p>
           </div>
         </div>
@@ -106,10 +113,10 @@ const Accessories: React.FC<AccessoriesProps> = ({
           <div className="bg-white rounded-xl shadow-lg p-10 text-center">
             <Package className="h-14 w-14 text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-700 mb-2">
-              No hay otros productos cargados
+              No hay eventos cargados
             </h2>
             <p className="text-gray-500">
-              Agregá productos desde el panel administrador usando la categoría correspondiente.
+              Agregá productos desde el panel administrador usando la categoría Eventos.
             </p>
           </div>
         ) : (
