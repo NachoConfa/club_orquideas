@@ -10,6 +10,43 @@ export interface EventSection {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  products?: EventSectionProduct[];
+}
+
+export interface EventRelatedProductVariant {
+  id: string;
+  product_id: string;
+  price: number;
+  stock: number;
+  stock_mode: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface EventRelatedProduct {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  price: number;
+  stock: number;
+  stock_mode: string | null;
+  orchid_type: string | null;
+  color: string | null;
+  size: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  variants?: EventRelatedProductVariant[];
+}
+
+export interface EventSectionProduct {
+  id: string;
+  event_section_id: string;
+  product_id: string;
+  sort_order: number;
+  created_at: string;
+  product?: EventRelatedProduct;
 }
 
 export interface StoreEvent {
@@ -40,6 +77,13 @@ export interface EventSectionInput {
   image_url: string;
   sort_order: number;
   is_active: boolean;
+  products: EventSectionProductInput[];
+}
+
+export interface EventSectionProductInput {
+  id?: string;
+  product_id: string;
+  sort_order: number;
 }
 
 export interface EventInput {

@@ -394,6 +394,37 @@ create index if not exists events_active_sort_idx on public.events(is_active, so
 create index if not exists events_status_idx on public.events(status);
 create index if not exists event_sections_event_active_sort_idx on public.event_sections(event_id, is_active, sort_order);
 
+create table if not exists public.event_section_products (
+  id uuid primary key default gen_random_uuid(),
+  event_section_id uuid not null references public.event_sections(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint event_section_products_section_product_key unique (event_section_id, product_id)
+);
+
+alter table public.event_section_products add column if not exists event_section_id uuid references public.event_sections(id) on delete cascade;
+alter table public.event_section_products add column if not exists product_id uuid references public.products(id) on delete cascade;
+alter table public.event_section_products add column if not exists sort_order integer not null default 0;
+alter table public.event_section_products add column if not exists created_at timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'event_section_products_section_product_key'
+      and conrelid = 'public.event_section_products'::regclass
+  ) then
+    alter table public.event_section_products
+    add constraint event_section_products_section_product_key unique (event_section_id, product_id);
+  end if;
+end;
+$$;
+
+create index if not exists event_section_products_section_sort_idx on public.event_section_products(event_section_id, sort_order);
+create index if not exists event_section_products_product_id_idx on public.event_section_products(product_id);
+
 create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id) on delete cascade,
@@ -1171,6 +1202,7 @@ alter table public.care_guides enable row level security;
 alter table public.care_guide_variants enable row level security;
 alter table public.events enable row level security;
 alter table public.event_sections enable row level security;
+alter table public.event_section_products enable row level security;
 alter table public.product_variants enable row level security;
 alter table public.analytics_events enable row level security;
 
@@ -1332,6 +1364,39 @@ using (public.is_admin((select auth.uid())));
 drop policy if exists "Admins manage event sections" on public.event_sections;
 create policy "Admins manage event sections"
 on public.event_sections
+for all
+to authenticated
+using (public.is_admin((select auth.uid())))
+with check (public.is_admin((select auth.uid())));
+
+drop policy if exists "Active event section products are public" on public.event_section_products;
+create policy "Active event section products are public"
+on public.event_section_products
+for select
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.event_sections
+    join public.events on events.id = event_sections.event_id
+    join public.products on products.id = event_section_products.product_id
+    where event_sections.id = event_section_products.event_section_id
+      and event_sections.is_active = true
+      and events.is_active = true
+      and products.is_active = true
+  )
+);
+
+drop policy if exists "Admins can read all event section products" on public.event_section_products;
+create policy "Admins can read all event section products"
+on public.event_section_products
+for select
+to authenticated
+using (public.is_admin((select auth.uid())));
+
+drop policy if exists "Admins manage event section products" on public.event_section_products;
+create policy "Admins manage event section products"
+on public.event_section_products
 for all
 to authenticated
 using (public.is_admin((select auth.uid())))
@@ -1543,6 +1608,7 @@ grant select on public.care_guides to anon, authenticated;
 grant select on public.care_guide_variants to anon, authenticated;
 grant select on public.events to anon, authenticated;
 grant select on public.event_sections to anon, authenticated;
+grant select on public.event_section_products to anon, authenticated;
 revoke update on public.profiles from anon, authenticated;
 grant insert, update, delete on public.products to authenticated;
 grant insert, update, delete on public.product_images to authenticated;
@@ -1551,6 +1617,7 @@ grant insert, update, delete on public.care_guides to authenticated;
 grant insert, update, delete on public.care_guide_variants to authenticated;
 grant insert, update, delete on public.events to authenticated;
 grant insert, update, delete on public.event_sections to authenticated;
+grant insert, update, delete on public.event_section_products to authenticated;
 grant select, insert on public.profiles to authenticated;
 grant update (full_name, phone, address) on public.profiles to authenticated;
 grant select, insert, update on public.orders to authenticated;

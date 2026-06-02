@@ -1,10 +1,25 @@
 import { getSupabaseConfigMessage, supabase } from '../lib/supabase';
-import type { EventInput, EventSection, EventSectionInput, EventStatus, StoreEvent } from '../types/event';
+import type {
+  EventInput,
+  EventRelatedProduct,
+  EventRelatedProductVariant,
+  EventSection,
+  EventSectionInput,
+  EventSectionProduct,
+  EventSectionProductInput,
+  EventStatus,
+  StoreEvent,
+} from '../types/event';
 
 const EVENT_COLUMNS =
   'id, title, slug, short_description, description, image_url, event_date, event_time, location, modality, status, capacity, whatsapp_message, is_active, sort_order, created_at, updated_at';
 const EVENT_SECTION_COLUMNS =
   'id, event_id, title, description, image_url, sort_order, is_active, created_at, updated_at';
+const EVENT_SECTION_PRODUCT_COLUMNS = 'id, event_section_id, product_id, sort_order, created_at';
+const EVENT_PRODUCT_COLUMNS =
+  'id, name, slug, description, price, stock, orchid_type, color, size, image_url, is_active, stock_mode';
+const EVENT_PRODUCT_VARIANT_COLUMNS =
+  'id, product_id, price, stock, stock_mode, image_url, is_active, sort_order';
 
 const getClient = () => {
   if (!supabase) {
@@ -35,6 +50,21 @@ const normalizeSlug = (value: string) =>
     .replace(/^-+|-+$/g, '') || `evento-${Date.now()}`;
 
 const normalizeText = (value: string) => value.trim() || null;
+
+const normalizeNumber = (value: unknown) => {
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
+};
+
+const isMissingTableError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return (
+    error?.code === '42P01' ||
+    error?.code === 'PGRST205' ||
+    message.includes('could not find the table') ||
+    message.includes('does not exist')
+  );
+};
 
 const normalizeEventStatus = (status?: string | null): EventStatus => {
   if (status === 'available' || status === 'finished') {
@@ -70,6 +100,128 @@ const toSectionPayload = (eventId: string, section: EventSectionInput) => ({
   is_active: section.is_active,
 });
 
+const mapRelatedProduct = (product: EventRelatedProduct): EventRelatedProduct => ({
+  id: String(product.id),
+  name: product.name,
+  slug: product.slug,
+  description: product.description,
+  price: normalizeNumber(product.price),
+  stock: normalizeNumber(product.stock),
+  stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
+  orchid_type: product.orchid_type,
+  color: product.color,
+  size: product.size,
+  image_url: product.image_url,
+  is_active: product.is_active !== false,
+  variants: [],
+});
+
+const mapRelatedProductVariant = (variant: EventRelatedProductVariant): EventRelatedProductVariant => ({
+  id: String(variant.id),
+  product_id: String(variant.product_id),
+  price: normalizeNumber(variant.price),
+  stock: normalizeNumber(variant.stock),
+  stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
+  image_url: variant.image_url,
+  is_active: variant.is_active !== false,
+  sort_order: normalizeNumber(variant.sort_order),
+});
+
+const attachProductsToSections = async (sections: EventSection[], onlyActive = false) => {
+  if (sections.length === 0) {
+    return sections;
+  }
+
+  const client = getClient();
+  const { data: relationData, error: relationError } = await client
+    .from('event_section_products')
+    .select(EVENT_SECTION_PRODUCT_COLUMNS)
+    .in('event_section_id', sections.map((section) => section.id))
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (isMissingTableError(relationError)) {
+    return sections.map((section) => ({ ...section, products: [] }));
+  }
+
+  if (relationError) {
+    throw relationError;
+  }
+
+  const relations = (relationData ?? []) as EventSectionProduct[];
+
+  if (relations.length === 0) {
+    return sections.map((section) => ({ ...section, products: [] }));
+  }
+
+  const productIds = Array.from(new Set(relations.map((relation) => relation.product_id).filter(Boolean)));
+
+  let productQuery = client.from('products').select(EVENT_PRODUCT_COLUMNS).in('id', productIds);
+
+  if (onlyActive) {
+    productQuery = productQuery.eq('is_active', true);
+  }
+
+  const { data: productData, error: productError } = await productQuery;
+
+  if (productError) {
+    throw productError;
+  }
+
+  let variantQuery = client
+    .from('product_variants')
+    .select(EVENT_PRODUCT_VARIANT_COLUMNS)
+    .in('product_id', productIds)
+    .order('sort_order', { ascending: true });
+
+  if (onlyActive) {
+    variantQuery = variantQuery.eq('is_active', true);
+  }
+
+  const { data: variantData, error: variantError } = await variantQuery;
+
+  if (variantError) {
+    throw variantError;
+  }
+
+  const variantsByProduct = new Map<string, EventRelatedProductVariant[]>();
+  ((variantData ?? []) as EventRelatedProductVariant[]).forEach((variant) => {
+    const productId = String(variant.product_id);
+    const variants = variantsByProduct.get(productId) ?? [];
+    variants.push(mapRelatedProductVariant(variant));
+    variantsByProduct.set(productId, variants);
+  });
+
+  const productsById = new Map<string, EventRelatedProduct>();
+  ((productData ?? []) as EventRelatedProduct[]).forEach((product) => {
+    const mappedProduct = mapRelatedProduct(product);
+    mappedProduct.variants = variantsByProduct.get(mappedProduct.id) ?? [];
+    productsById.set(mappedProduct.id, mappedProduct);
+  });
+
+  const relationsBySection = new Map<string, EventSectionProduct[]>();
+  relations.forEach((relation) => {
+    const product = productsById.get(String(relation.product_id));
+
+    if (!product) {
+      return;
+    }
+
+    const sectionRelations = relationsBySection.get(relation.event_section_id) ?? [];
+    sectionRelations.push({
+      ...relation,
+      sort_order: normalizeNumber(relation.sort_order),
+      product,
+    });
+    relationsBySection.set(relation.event_section_id, sectionRelations);
+  });
+
+  return sections.map((section) => ({
+    ...section,
+    products: relationsBySection.get(section.id) ?? [],
+  }));
+};
+
 const attachSectionsToEvents = async (events: StoreEvent[], onlyActive = false) => {
   if (events.length === 0) {
     return events;
@@ -93,8 +245,9 @@ const attachSectionsToEvents = async (events: StoreEvent[], onlyActive = false) 
     throw error;
   }
 
+  const sectionsWithProducts = await attachProductsToSections((data ?? []) as EventSection[], onlyActive);
   const sectionsByEvent = new Map<string, EventSection[]>();
-  ((data ?? []) as EventSection[]).forEach((section) => {
+  sectionsWithProducts.forEach((section) => {
     const sections = sectionsByEvent.get(section.event_id) ?? [];
     sections.push(section);
     sectionsByEvent.set(section.event_id, sections);
@@ -146,9 +299,61 @@ export const eventToInput = (event: StoreEvent): EventInput => ({
     image_url: section.image_url || '',
     sort_order: Number(section.sort_order || 0),
     is_active: Boolean(section.is_active),
+    products: (section.products ?? []).map((relation) => ({
+      id: relation.id,
+      product_id: relation.product_id,
+      sort_order: Number(relation.sort_order || 0),
+    })),
   })),
   deletedSectionIds: [],
 });
+
+const saveSectionProducts = async (sectionId: string, products: EventSectionProductInput[] = []) => {
+  const client = getClient();
+  const { error: deleteError } = await client.from('event_section_products').delete().eq('event_section_id', sectionId);
+
+  if (isMissingTableError(deleteError)) {
+    if (products.length === 0) {
+      return;
+    }
+
+    throw new Error('Falta crear la tabla event_section_products en Supabase.');
+  }
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  const uniqueProducts = Array.from(
+    new Map(
+      products
+        .filter((product) => product.product_id)
+        .map((product, index) => [
+          product.product_id,
+          {
+            id: product.id || createUuid(),
+            event_section_id: sectionId,
+            product_id: product.product_id,
+            sort_order: Number.isFinite(Number(product.sort_order)) ? Number(product.sort_order) : index + 1,
+          },
+        ])
+    ).values()
+  );
+
+  if (uniqueProducts.length === 0) {
+    return;
+  }
+
+  const { error: insertError } = await client.from('event_section_products').insert(uniqueProducts);
+
+  if (isMissingTableError(insertError)) {
+    throw new Error('Falta crear la tabla event_section_products en Supabase.');
+  }
+
+  if (insertError) {
+    throw insertError;
+  }
+};
 
 export const getActiveEvents = async () => {
   const client = getClient();
@@ -217,8 +422,10 @@ const saveEventSections = async (eventId: string, event: EventInput) => {
 
   for (const section of event.sections ?? []) {
     if (!section.title.trim()) {
-      throw new Error('Cada seccion del evento necesita un titulo.');
+      throw new Error('Cada sección del evento necesita un título.');
     }
+
+    let sectionId = section.id;
 
     if (section.id) {
       const { error } = await client
@@ -230,13 +437,21 @@ const saveEventSections = async (eventId: string, event: EventInput) => {
         throw error;
       }
     } else {
-      const { error } = await client
+      const { data, error } = await client
         .from('event_sections')
-        .insert({ id: createUuid(), ...toSectionPayload(eventId, section) });
+        .insert({ id: createUuid(), ...toSectionPayload(eventId, section) })
+        .select('id')
+        .single();
 
       if (error) {
         throw error;
       }
+
+      sectionId = data?.id;
+    }
+
+    if (sectionId) {
+      await saveSectionProducts(sectionId, section.products);
     }
   }
 };

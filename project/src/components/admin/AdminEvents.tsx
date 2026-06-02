@@ -8,8 +8,9 @@ import {
   getAdminEvents,
   updateEvent,
 } from '../../services/eventService';
+import { getAdminProducts, type AdminProduct } from '../../services/adminSupabaseService';
 import { deleteUnusedProductImageByPublicUrl, uploadProductImage } from '../../services/productImageUploadService';
-import type { EventInput, EventSectionInput, EventStatus, StoreEvent } from '../../types/event';
+import type { EventInput, EventSectionInput, EventSectionProductInput, EventStatus, StoreEvent } from '../../types/event';
 import { useConfirm } from '../feedback/ConfirmProvider';
 import { useToast } from '../feedback/ToastProvider';
 
@@ -36,6 +37,19 @@ const getStatusLabel = (status: string | null | undefined) => {
   if (status === 'finished') return 'Finalizado';
   return 'Próximamente';
 };
+
+const formatCurrency = (value: unknown) =>
+  Number(value || 0).toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  });
+
+const getProductSearchText = (product: AdminProduct) =>
+  [product.name, product.orchid_type, product.color, product.size, product.slug]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
 interface EventImageUploadFieldProps {
   label: string;
@@ -95,15 +109,25 @@ interface EventFormProps {
   form: EventInput;
   title: string;
   isSaving: boolean;
+  productOptions: AdminProduct[];
   onChange: (form: EventInput) => void;
   onCancel: () => void;
   onSubmit: () => void;
 }
 
-const EventForm: React.FC<EventFormProps> = ({ form, title, isSaving, onChange, onCancel, onSubmit }) => {
+const EventForm: React.FC<EventFormProps> = ({
+  form,
+  title,
+  isSaving,
+  productOptions,
+  onChange,
+  onCancel,
+  onSubmit,
+}) => {
   const toast = useToast();
   const [uploadingMainImage, setUploadingMainImage] = useState(false);
   const [uploadingSectionImageIndex, setUploadingSectionImageIndex] = useState<number | null>(null);
+  const [productSearchBySection, setProductSearchBySection] = useState<Record<number, string>>({});
 
   const updateField = <K extends keyof EventInput>(key: K, value: EventInput[K]) => {
     onChange({ ...form, [key]: value });
@@ -118,6 +142,61 @@ const EventForm: React.FC<EventFormProps> = ({ form, title, isSaving, onChange, 
     });
   };
 
+  const updateSectionProducts = (index: number, products: EventSectionProductInput[]) => {
+    updateSection(index, 'products', products);
+  };
+
+  const getSectionProduct = (productId: string) => productOptions.find((product) => product.id === productId);
+
+  const getAvailableProducts = (section: EventSectionInput, index: number) => {
+    const selectedProductIds = new Set(section.products.map((product) => product.product_id));
+    const query = (productSearchBySection[index] ?? '').trim().toLowerCase();
+
+    return productOptions
+      .filter((product) => product.is_active)
+      .filter((product) => !selectedProductIds.has(product.id))
+      .filter((product) => !query || getProductSearchText(product).includes(query))
+      .slice(0, 8);
+  };
+
+  const addSectionProduct = (sectionIndex: number, product: AdminProduct) => {
+    const section = form.sections[sectionIndex];
+    if (!section || section.products.some((relation) => relation.product_id === product.id)) {
+      return;
+    }
+
+    updateSectionProducts(sectionIndex, [
+      ...section.products,
+      {
+        product_id: product.id,
+        sort_order: section.products.length + 1,
+      },
+    ]);
+    setProductSearchBySection((currentSearch) => ({ ...currentSearch, [sectionIndex]: '' }));
+  };
+
+  const removeSectionProduct = (sectionIndex: number, productIndex: number) => {
+    const section = form.sections[sectionIndex];
+    if (!section) return;
+
+    updateSectionProducts(
+      sectionIndex,
+      section.products.filter((_, currentIndex) => currentIndex !== productIndex)
+    );
+  };
+
+  const updateSectionProductOrder = (sectionIndex: number, productIndex: number, sortOrder: number) => {
+    const section = form.sections[sectionIndex];
+    if (!section) return;
+
+    updateSectionProducts(
+      sectionIndex,
+      section.products.map((product, currentIndex) =>
+        currentIndex === productIndex ? { ...product, sort_order: sortOrder } : product
+      )
+    );
+  };
+
   const addSection = () => {
     onChange({
       ...form,
@@ -129,6 +208,7 @@ const EventForm: React.FC<EventFormProps> = ({ form, title, isSaving, onChange, 
           image_url: '',
           sort_order: form.sections.length + 1,
           is_active: true,
+          products: [],
         },
       ],
     });
@@ -421,6 +501,118 @@ const EventForm: React.FC<EventFormProps> = ({ form, title, isSaving, onChange, 
                       previewAlt={`Vista previa de sección ${index + 1}`}
                     />
                   </div>
+                  <div className="md:col-span-2 rounded-lg border border-emerald-100 bg-white p-3">
+                    <div className="mb-3">
+                      <h5 className="text-sm font-semibold text-gray-800">Productos de esta sección</h5>
+                      <p className="text-xs text-gray-500">
+                        Asociá productos existentes. El precio, stock y variantes se editan desde Productos.
+                      </p>
+                    </div>
+
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={productSearchBySection[index] ?? ''}
+                        onChange={(searchEvent) =>
+                          setProductSearchBySection((currentSearch) => ({
+                            ...currentSearch,
+                            [index]: searchEvent.target.value,
+                          }))
+                        }
+                        placeholder="Buscar producto para agregar..."
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {getAvailableProducts(section, index).map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => addSectionProduct(index, product)}
+                          className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50"
+                        >
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="h-10 w-10 rounded-md object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-md bg-emerald-50" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-semibold text-gray-800">{product.name}</span>
+                            <span className="block text-xs text-gray-500">{formatCurrency(product.price)}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {section.products.length === 0 ? (
+                      <div className="mt-3 rounded-lg border border-dashed border-gray-200 px-3 py-4 text-center text-xs text-gray-500">
+                        Todavía no hay productos asociados a esta sección.
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {section.products.map((relation, productIndex) => {
+                          const product = getSectionProduct(relation.product_id);
+
+                          return (
+                            <div
+                              key={`${relation.product_id}-${productIndex}`}
+                              className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center"
+                            >
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                {product?.image_url ? (
+                                  <img
+                                    src={product.image_url}
+                                    alt={product.name}
+                                    className="h-12 w-12 rounded-lg object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                  />
+                                ) : (
+                                  <div className="h-12 w-12 rounded-lg bg-emerald-50" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-gray-800">
+                                    {product?.name ?? 'Producto no encontrado'}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {product
+                                      ? `${formatCurrency(product.price)} · ${product.orchid_type || 'Producto'}`
+                                      : relation.product_id}
+                                  </div>
+                                </div>
+                              </div>
+                              <label className="text-xs font-medium text-gray-600">
+                                Orden
+                                <input
+                                  type="number"
+                                  value={relation.sort_order}
+                                  onChange={(orderEvent) =>
+                                    updateSectionProductOrder(index, productIndex, Number(orderEvent.target.value))
+                                  }
+                                  className="mt-1 w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => removeSectionProduct(index, productIndex)}
+                                className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                                title="Quitar producto"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -448,6 +640,7 @@ const EventForm: React.FC<EventFormProps> = ({ form, title, isSaving, onChange, 
 
 const AdminEvents: React.FC = () => {
   const [events, setEvents] = useState<StoreEvent[]>([]);
+  const [productOptions, setProductOptions] = useState<AdminProduct[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -481,8 +674,19 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  const loadProductOptions = async () => {
+    try {
+      setProductOptions(await getAdminProducts());
+    } catch (loadError) {
+      if (import.meta.env.DEV) {
+        console.warn('No se pudieron cargar productos para asociar a eventos:', loadError);
+      }
+    }
+  };
+
   useEffect(() => {
     void loadEvents();
+    void loadProductOptions();
   }, []);
 
   const cleanupUnusedImages = async (imageUrls: string[]) => {
@@ -609,6 +813,7 @@ const AdminEvents: React.FC = () => {
           form={form}
           title={editingEvent ? `Editar ${editingEvent.title}` : 'Nuevo evento'}
           isSaving={isSaving}
+          productOptions={productOptions}
           onChange={setForm}
           onCancel={cancelForm}
           onSubmit={saveEvent}

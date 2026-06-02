@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock, MapPin, MessageCircle, PartyPopper, RefreshCw, Users } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { getEventStatusLabel } from '../components/EventCard';
 import { getActiveEventBySlug } from '../services/eventService';
-import type { EventSection, StoreEvent } from '../types/event';
+import type { EventRelatedProduct, EventSection, StoreEvent } from '../types/event';
 
 interface EventDetailPageProps {
   onBack: () => void;
@@ -31,6 +31,45 @@ const buildWhatsAppUrl = (event: StoreEvent) => {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 };
 
+const createProductSlug = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const getRelatedProductSlug = (product: EventRelatedProduct) =>
+  product.slug?.trim() || createProductSlug(product.name) || `producto-${product.id}`;
+
+const getRelatedProductPrice = (product: EventRelatedProduct) => {
+  const activeVariants = (product.variants ?? []).filter((variant) => variant.is_active !== false);
+  const prices = activeVariants.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price));
+
+  return prices.length > 0 ? Math.min(...prices) : Number(product.price || 0);
+};
+
+const getRelatedProductImage = (product: EventRelatedProduct) =>
+  product.image_url || (product.variants ?? []).find((variant) => variant.image_url)?.image_url || '';
+
+const getRelatedProductAvailabilityLabel = (product: EventRelatedProduct) => {
+  const activeVariants = (product.variants ?? []).filter((variant) => variant.is_active !== false);
+
+  if (activeVariants.length > 0) {
+    const allConsult = activeVariants.every((variant) => variant.stock_mode === 'consult');
+    if (allConsult) return 'Consultar disponibilidad';
+
+    const hasStock = activeVariants.some((variant) => variant.stock_mode !== 'consult' && Number(variant.stock) > 0);
+    return hasStock ? 'Disponible' : 'Sin stock';
+  }
+
+  if (product.stock_mode === 'consult') return 'Consultar disponibilidad';
+  return Number(product.stock) > 0 ? 'Disponible' : 'Sin stock';
+};
+
+const formatPrice = (value: number) => `$${value.toLocaleString('es-AR')}`;
+
 const EventDetailSkeleton = () => (
   <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.75fr)]">
     <div className="aspect-[4/3] animate-pulse rounded-3xl bg-[#F8EFE3]" />
@@ -43,7 +82,54 @@ const EventDetailSkeleton = () => (
   </div>
 );
 
-const EventSectionCard: React.FC<{ section: EventSection }> = ({ section }) => (
+const EventRelatedProductCard: React.FC<{
+  product: EventRelatedProduct;
+  onOpen: (product: EventRelatedProduct) => void;
+}> = ({ product, onOpen }) => {
+  const imageUrl = getRelatedProductImage(product);
+  const availabilityLabel = getRelatedProductAvailabilityLabel(product);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(product)}
+      className="group overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0F8F61]"
+    >
+      <div className="relative aspect-[4/3] bg-[#F8EFE3]">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={product.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[#0F8F61]">
+            <PartyPopper className="h-10 w-10" />
+          </div>
+        )}
+      </div>
+      <div className="space-y-2 p-4">
+        <span className="rounded-full bg-[#E8F7EF] px-3 py-1 text-xs font-semibold text-[#0F8F61]">
+          {product.orchid_type || 'Producto'}
+        </span>
+        <h4 className="line-clamp-2 text-base font-semibold text-[#16352B] group-hover:text-[#0F8F61]">
+          {product.name}
+        </h4>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-lg font-bold text-[#16352B]">{formatPrice(getRelatedProductPrice(product))}</span>
+          <span className="text-xs text-[#6B756F]">{availabilityLabel}</span>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+const EventSectionCard: React.FC<{
+  section: EventSection;
+  onOpenProduct: (product: EventRelatedProduct) => void;
+}> = ({ section, onOpenProduct }) => (
   <article className="overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white shadow-sm">
     {section.image_url && (
       <img src={section.image_url} alt={section.title} className="h-52 w-full object-cover" loading="lazy" decoding="async" />
@@ -51,17 +137,35 @@ const EventSectionCard: React.FC<{ section: EventSection }> = ({ section }) => (
     <div className="p-5">
       <h3 className="text-lg font-semibold text-[#16352B]">{section.title}</h3>
       {section.description && <p className="mt-2 leading-7 text-[#6B756F]">{section.description}</p>}
+      {section.products && section.products.length > 0 && (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {section.products.map((relation) =>
+            relation.product ? (
+              <EventRelatedProductCard
+                key={relation.id}
+                product={relation.product}
+                onOpen={onOpenProduct}
+              />
+            ) : null
+          )}
+        </div>
+      )}
     </div>
   </article>
 );
 
 const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState<StoreEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const activeSections = useMemo(() => event?.sections ?? [], [event]);
+
+  const openRelatedProduct = (product: EventRelatedProduct) => {
+    navigate(`/producto/${getRelatedProductSlug(product)}`);
+  };
 
   const loadEvent = async () => {
     if (!slug) {
@@ -199,9 +303,9 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
             {activeSections.length > 0 && (
               <section>
                 <h2 className="mb-4 text-2xl font-semibold text-[#16352B]">Más información</h2>
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-5">
                   {activeSections.map((section) => (
-                    <EventSectionCard key={section.id} section={section} />
+                    <EventSectionCard key={section.id} section={section} onOpenProduct={openRelatedProduct} />
                   ))}
                 </div>
               </section>
