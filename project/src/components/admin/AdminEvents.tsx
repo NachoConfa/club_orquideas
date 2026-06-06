@@ -14,8 +14,40 @@ import type { EventInput, EventSectionInput, EventSectionProductInput, EventStat
 import { useConfirm } from '../feedback/ConfirmProvider';
 import { useToast } from '../feedback/ToastProvider';
 
+const toSafeText = (value: unknown) => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).trim();
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object') {
+    const errorRecord = error as { message?: unknown; details?: unknown; hint?: unknown };
+    const message = [errorRecord.message, errorRecord.details, errorRecord.hint]
+      .map((value) => toSafeText(value))
+      .filter(Boolean)
+      .join(' · ');
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
+
 const getUniqueImageUrls = (urls: Array<string | null | undefined>) =>
-  Array.from(new Set(urls.map((url) => url?.trim()).filter((url): url is string => Boolean(url))));
+  Array.from(new Set(urls.map((url) => toSafeText(url)).filter(Boolean)));
 
 const getEventImageUrls = (event: StoreEvent) =>
   getUniqueImageUrls([event.image_url, ...(event.sections ?? []).map((section) => section.image_url)]);
@@ -30,7 +62,7 @@ const getDeletedSectionImageUrls = (event: StoreEvent, form: EventInput) => {
   );
 };
 
-const getUploadKey = (form: EventInput) => form.slug?.trim() || form.title.trim() || 'evento';
+const getUploadKey = (form: EventInput) => toSafeText(form.slug) || toSafeText(form.title) || 'evento';
 
 const getStatusLabel = (status: string | null | undefined) => {
   if (status === 'available') return 'Disponible';
@@ -146,10 +178,14 @@ const EventForm: React.FC<EventFormProps> = ({
     updateSection(index, 'products', products);
   };
 
-  const getSectionProduct = (productId: string) => productOptions.find((product) => product.id === productId);
+  const getSectionProducts = (section: EventSectionInput) =>
+    Array.isArray(section.products) ? section.products : [];
+
+  const getSectionProduct = (productId: unknown) =>
+    productOptions.find((product) => product.id === toSafeText(productId));
 
   const getAvailableProducts = (section: EventSectionInput, index: number) => {
-    const selectedProductIds = new Set(section.products.map((product) => product.product_id));
+    const selectedProductIds = new Set(getSectionProducts(section).map((product) => toSafeText(product.product_id)));
     const query = (productSearchBySection[index] ?? '').trim().toLowerCase();
 
     return productOptions
@@ -161,15 +197,17 @@ const EventForm: React.FC<EventFormProps> = ({
 
   const addSectionProduct = (sectionIndex: number, product: AdminProduct) => {
     const section = form.sections[sectionIndex];
-    if (!section || section.products.some((relation) => relation.product_id === product.id)) {
+    const sectionProducts = section ? getSectionProducts(section) : [];
+
+    if (!section || sectionProducts.some((relation) => toSafeText(relation.product_id) === product.id)) {
       return;
     }
 
     updateSectionProducts(sectionIndex, [
-      ...section.products,
+      ...sectionProducts,
       {
         product_id: product.id,
-        sort_order: section.products.length + 1,
+        sort_order: sectionProducts.length + 1,
       },
     ]);
     setProductSearchBySection((currentSearch) => ({ ...currentSearch, [sectionIndex]: '' }));
@@ -181,7 +219,7 @@ const EventForm: React.FC<EventFormProps> = ({
 
     updateSectionProducts(
       sectionIndex,
-      section.products.filter((_, currentIndex) => currentIndex !== productIndex)
+      getSectionProducts(section).filter((_, currentIndex) => currentIndex !== productIndex)
     );
   };
 
@@ -191,7 +229,7 @@ const EventForm: React.FC<EventFormProps> = ({
 
     updateSectionProducts(
       sectionIndex,
-      section.products.map((product, currentIndex) =>
+      getSectionProducts(section).map((product, currentIndex) =>
         currentIndex === productIndex ? { ...product, sort_order: sortOrder } : product
       )
     );
@@ -551,13 +589,13 @@ const EventForm: React.FC<EventFormProps> = ({
                       ))}
                     </div>
 
-                    {section.products.length === 0 ? (
+                    {getSectionProducts(section).length === 0 ? (
                       <div className="mt-3 rounded-lg border border-dashed border-gray-200 px-3 py-4 text-center text-xs text-gray-500">
                         Todavía no hay productos asociados a esta sección.
                       </div>
                     ) : (
                       <div className="mt-3 space-y-2">
-                        {section.products.map((relation, productIndex) => {
+                        {getSectionProducts(section).map((relation, productIndex) => {
                           const product = getSectionProduct(relation.product_id);
 
                           return (
@@ -624,7 +662,7 @@ const EventForm: React.FC<EventFormProps> = ({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={isSaving || !form.title.trim()}
+          disabled={isSaving || !toSafeText(form.title)}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -738,7 +776,9 @@ const AdminEvents: React.FC = () => {
         toast.warning('El evento se guardó, pero no pudimos borrar una o más imágenes sin uso.');
       }
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el evento.');
+      const message = getErrorMessage(saveError, 'No se pudo guardar el evento.');
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }

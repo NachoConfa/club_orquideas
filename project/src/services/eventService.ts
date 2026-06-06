@@ -40,8 +40,106 @@ const createUuid = () => {
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-${(8 + Math.floor(Math.random() * 4)).toString(16)}${randomHex(3)}-${randomHex(12)}`;
 };
 
-const normalizeSlug = (value: string) =>
-  value
+export const toRequiredText = (value: unknown) => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).trim();
+};
+
+export const toTextOrNull = (value: unknown) => toRequiredText(value) || null;
+
+export const toNumberOrDefault = (value: unknown, fallback = 0) => {
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
+};
+
+const toStringIdOrNull = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  return value.trim() || null;
+};
+
+const toBooleanOrDefault = (value: unknown, fallback = false) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  const normalizedValue = toRequiredText(value).toLowerCase();
+
+  if (['true', '1', 'yes', 'si', 'sí'].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (['false', '0', 'no'].includes(normalizedValue)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const isValidCalendarDate = (year: number, month: number, day: number) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+};
+
+const formatDateParts = (year: number, month: number, day: number) => {
+  if (!isValidCalendarDate(year, month, day)) {
+    return null;
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+export const normalizeDateForSupabase = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    return formatDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+  }
+
+  const textValue = toRequiredText(value);
+
+  if (!textValue) {
+    return null;
+  }
+
+  const isoMatch = textValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (isoMatch) {
+    return formatDateParts(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const argentineMatch = textValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (argentineMatch) {
+    return formatDateParts(
+      Number(argentineMatch[3]),
+      Number(argentineMatch[2]),
+      Number(argentineMatch[1])
+    );
+  }
+
+  return null;
+};
+
+const normalizeSlug = (value: unknown) =>
+  toRequiredText(value)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -49,11 +147,8 @@ const normalizeSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || `evento-${Date.now()}`;
 
-const normalizeText = (value: string) => value.trim() || null;
-
 const normalizeNumber = (value: unknown) => {
-  const parsedValue = Number(value);
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
+  return toNumberOrDefault(value, 0);
 };
 
 const isMissingTableError = (error: { code?: string; message?: string } | null) => {
@@ -66,38 +161,94 @@ const isMissingTableError = (error: { code?: string; message?: string } | null) 
   );
 };
 
-const normalizeEventStatus = (status?: string | null): EventStatus => {
-  if (status === 'available' || status === 'finished') {
-    return status;
+type SupabaseErrorLike = {
+  code?: unknown;
+  message?: unknown;
+  details?: unknown;
+  hint?: unknown;
+};
+
+const getSupabaseErrorData = (error: unknown) => {
+  const source = error && typeof error === 'object' ? (error as SupabaseErrorLike) : {};
+
+  return {
+    code: toTextOrNull(source.code),
+    message: toTextOrNull(source.message),
+    details: toTextOrNull(source.details),
+    hint: toTextOrNull(source.hint),
+  };
+};
+
+const throwSupabaseError = (operation: string, payload: unknown, error: unknown): never => {
+  const errorData = getSupabaseErrorData(error);
+
+  console.error(`[Eventos] ${operation}`, {
+    payload,
+    error: errorData,
+  });
+
+  const message =
+    [errorData.message, errorData.details, errorData.hint].filter(Boolean).join(' · ') ||
+    'No se pudo completar la operación en Supabase.';
+
+  throw new Error(message);
+};
+
+const normalizeEventStatus = (status: unknown): EventStatus => {
+  const normalizedStatus = toRequiredText(status)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (normalizedStatus === 'available' || normalizedStatus === 'disponible') {
+    return 'available';
+  }
+
+  if (normalizedStatus === 'finished' || normalizedStatus === 'finalizado') {
+    return 'finished';
   }
 
   return 'upcoming';
 };
 
-const toEventPayload = (event: EventInput) => ({
-  title: event.title.trim(),
-  slug: normalizeSlug(event.slug || event.title),
-  short_description: normalizeText(event.short_description),
-  description: normalizeText(event.description),
-  image_url: normalizeText(event.image_url),
-  event_date: event.event_date || null,
-  event_time: normalizeText(event.event_time),
-  location: normalizeText(event.location),
-  modality: normalizeText(event.modality),
-  status: normalizeEventStatus(event.status),
-  capacity: normalizeText(event.capacity),
-  whatsapp_message: normalizeText(event.whatsapp_message),
-  is_active: event.is_active,
-  sort_order: Number.isFinite(Number(event.sort_order)) ? Number(event.sort_order) : 0,
-});
+const toEventPayload = (event: EventInput) => {
+  const title = toRequiredText(event.title);
+  const rawDate = toRequiredText(event.event_date);
+  const eventDate = normalizeDateForSupabase(event.event_date);
 
-const toSectionPayload = (eventId: string, section: EventSectionInput) => ({
-  event_id: eventId,
-  title: section.title.trim(),
-  description: normalizeText(section.description),
-  image_url: normalizeText(section.image_url),
-  sort_order: Number.isFinite(Number(section.sort_order)) ? Number(section.sort_order) : 0,
-  is_active: section.is_active,
+  if (!title) {
+    throw new Error('El evento necesita un título.');
+  }
+
+  if (rawDate && !eventDate) {
+    throw new Error('La fecha del evento debe tener formato DD/MM/AAAA o AAAA-MM-DD.');
+  }
+
+  return {
+    title,
+    slug: normalizeSlug(event.slug || title),
+    short_description: toTextOrNull(event.short_description),
+    description: toTextOrNull(event.description),
+    image_url: toTextOrNull(event.image_url),
+    event_date: eventDate,
+    event_time: toTextOrNull(event.event_time),
+    location: toTextOrNull(event.location),
+    modality: toTextOrNull(event.modality),
+    status: normalizeEventStatus(event.status),
+    capacity: toTextOrNull(event.capacity),
+    whatsapp_message: toTextOrNull(event.whatsapp_message),
+    is_active: toBooleanOrDefault(event.is_active, true),
+    sort_order: toNumberOrDefault(event.sort_order, 0),
+  };
+};
+
+const toSectionPayload = (eventId: unknown, section: EventSectionInput) => ({
+  event_id: toRequiredText(eventId),
+  title: toRequiredText(section.title),
+  description: toTextOrNull(section.description),
+  image_url: toTextOrNull(section.image_url),
+  sort_order: toNumberOrDefault(section.sort_order, 0),
+  is_active: toBooleanOrDefault(section.is_active, true),
 });
 
 const mapRelatedProduct = (product: EventRelatedProduct): EventRelatedProduct => ({
@@ -278,42 +429,49 @@ export const emptyEventInput = (): EventInput => ({
 });
 
 export const eventToInput = (event: StoreEvent): EventInput => ({
-  title: event.title,
-  slug: event.slug,
-  short_description: event.short_description || '',
-  description: event.description || '',
-  image_url: event.image_url || '',
-  event_date: event.event_date || '',
-  event_time: event.event_time || '',
-  location: event.location || '',
-  modality: event.modality || '',
+  title: toRequiredText(event.title),
+  slug: toRequiredText(event.slug),
+  short_description: toRequiredText(event.short_description),
+  description: toRequiredText(event.description),
+  image_url: toRequiredText(event.image_url),
+  event_date: normalizeDateForSupabase(event.event_date) ?? '',
+  event_time: toRequiredText(event.event_time),
+  location: toRequiredText(event.location),
+  modality: toRequiredText(event.modality),
   status: normalizeEventStatus(event.status),
-  capacity: event.capacity || '',
-  whatsapp_message: event.whatsapp_message || '',
-  is_active: Boolean(event.is_active),
-  sort_order: Number(event.sort_order || 0),
-  sections: (event.sections ?? []).map((section) => ({
-    id: section.id,
-    title: section.title,
-    description: section.description || '',
-    image_url: section.image_url || '',
-    sort_order: Number(section.sort_order || 0),
-    is_active: Boolean(section.is_active),
-    products: (section.products ?? []).map((relation) => ({
-      id: relation.id,
-      product_id: relation.product_id,
-      sort_order: Number(relation.sort_order || 0),
-    })),
+  capacity: toRequiredText(event.capacity),
+  whatsapp_message: toRequiredText(event.whatsapp_message),
+  is_active: toBooleanOrDefault(event.is_active, true),
+  sort_order: toNumberOrDefault(event.sort_order, 0),
+  sections: (Array.isArray(event.sections) ? event.sections : []).map((section) => ({
+    id: toRequiredText(section.id) || undefined,
+    title: toRequiredText(section.title),
+    description: toRequiredText(section.description),
+    image_url: toRequiredText(section.image_url),
+    sort_order: toNumberOrDefault(section.sort_order, 0),
+    is_active: toBooleanOrDefault(section.is_active, true),
+    products: (Array.isArray(section.products) ? section.products : [])
+      .map((relation) => ({
+        id: toRequiredText(relation.id) || undefined,
+        product_id: toRequiredText(relation.product_id),
+        sort_order: toNumberOrDefault(relation.sort_order, 0),
+      }))
+      .filter((relation) => Boolean(relation.product_id)),
   })),
   deletedSectionIds: [],
 });
 
 const saveSectionProducts = async (sectionId: string, products: EventSectionProductInput[] = []) => {
   const client = getClient();
-  const { error: deleteError } = await client.from('event_section_products').delete().eq('event_section_id', sectionId);
+  const normalizedSectionId = toRequiredText(sectionId);
+  const productInputs = Array.isArray(products) ? products : [];
+  const { error: deleteError } = await client
+    .from('event_section_products')
+    .delete()
+    .eq('event_section_id', normalizedSectionId);
 
   if (isMissingTableError(deleteError)) {
-    if (products.length === 0) {
+    if (productInputs.length === 0) {
       return;
     }
 
@@ -321,24 +479,39 @@ const saveSectionProducts = async (sectionId: string, products: EventSectionProd
   }
 
   if (deleteError) {
-    throw deleteError;
+    throwSupabaseError(
+      'No se pudieron limpiar los productos relacionados de la sección.',
+      { event_section_id: normalizedSectionId },
+      deleteError
+    );
   }
 
-  const uniqueProducts = Array.from(
-    new Map(
-      products
-        .filter((product) => product.product_id)
-        .map((product, index) => [
-          product.product_id,
-          {
-            id: product.id || createUuid(),
-            event_section_id: sectionId,
-            product_id: product.product_id,
-            sort_order: Number.isFinite(Number(product.sort_order)) ? Number(product.sort_order) : index + 1,
-          },
-        ])
-    ).values()
-  );
+  const uniqueProductsById = new Map<
+    string,
+    {
+      id: string;
+      event_section_id: string;
+      product_id: string;
+      sort_order: number;
+    }
+  >();
+
+  productInputs.forEach((product, index) => {
+    const productId = toStringIdOrNull(product?.product_id);
+
+    if (!productId) {
+      return;
+    }
+
+    uniqueProductsById.set(productId, {
+      id: toStringIdOrNull(product?.id) || createUuid(),
+      event_section_id: normalizedSectionId,
+      product_id: productId,
+      sort_order: toNumberOrDefault(product?.sort_order, index + 1),
+    });
+  });
+
+  const uniqueProducts = Array.from(uniqueProductsById.values());
 
   if (uniqueProducts.length === 0) {
     return;
@@ -351,7 +524,7 @@ const saveSectionProducts = async (sectionId: string, products: EventSectionProd
   }
 
   if (insertError) {
-    throw insertError;
+    throwSupabaseError('No se pudieron guardar los productos relacionados de la sección.', uniqueProducts, insertError);
   }
 };
 
@@ -411,61 +584,74 @@ export const getAdminEvents = async () => {
 
 const saveEventSections = async (eventId: string, event: EventInput) => {
   const client = getClient();
-  const deletedSectionIds = event.deletedSectionIds ?? [];
+  const normalizedEventId = toRequiredText(eventId);
+  const deletedSectionIds = (Array.isArray(event.deletedSectionIds) ? event.deletedSectionIds : [])
+    .map((sectionId) => toRequiredText(sectionId))
+    .filter(Boolean);
 
   if (deletedSectionIds.length > 0) {
     const { error } = await client.from('event_sections').delete().in('id', deletedSectionIds);
     if (error) {
-      throw error;
+      throwSupabaseError('No se pudieron eliminar las secciones quitadas.', { deletedSectionIds }, error);
     }
   }
 
-  for (const section of event.sections ?? []) {
-    if (!section.title.trim()) {
+  const sections = Array.isArray(event.sections) ? event.sections : [];
+
+  for (const section of sections) {
+    const sectionTitle = toRequiredText(section?.title);
+
+    if (!sectionTitle) {
       throw new Error('Cada sección del evento necesita un título.');
     }
 
-    let sectionId = section.id;
+    let sectionId = toRequiredText(section?.id);
+    const sectionPayload = toSectionPayload(normalizedEventId, {
+      ...section,
+      title: sectionTitle,
+    });
 
-    if (section.id) {
+    if (sectionId) {
       const { error } = await client
         .from('event_sections')
-        .update(toSectionPayload(eventId, section))
-        .eq('id', section.id);
+        .update(sectionPayload)
+        .eq('id', sectionId);
 
       if (error) {
-        throw error;
+        throwSupabaseError('No se pudo actualizar una sección del evento.', sectionPayload, error);
       }
     } else {
+      const insertPayload = { id: createUuid(), ...sectionPayload };
       const { data, error } = await client
         .from('event_sections')
-        .insert({ id: createUuid(), ...toSectionPayload(eventId, section) })
+        .insert(insertPayload)
         .select('id')
         .single();
 
       if (error) {
-        throw error;
+        throwSupabaseError('No se pudo crear una sección del evento.', insertPayload, error);
       }
 
-      sectionId = data?.id;
+      sectionId = toRequiredText(data?.id);
     }
 
     if (sectionId) {
-      await saveSectionProducts(sectionId, section.products);
+      await saveSectionProducts(sectionId, Array.isArray(section.products) ? section.products : []);
     }
   }
 };
 
 export const createEvent = async (event: EventInput) => {
   const client = getClient();
+  const eventPayload = { id: createUuid(), ...toEventPayload(event) };
   const { data, error } = await client
     .from('events')
-    .insert({ id: createUuid(), ...toEventPayload(event) })
+    .insert(eventPayload)
     .select(EVENT_COLUMNS)
     .single();
 
   if (error) {
-    throw error;
+    throwSupabaseError('No se pudo crear el evento.', eventPayload, error);
   }
 
   const createdEvent = data as StoreEvent;
@@ -475,15 +661,17 @@ export const createEvent = async (event: EventInput) => {
 
 export const updateEvent = async (id: string, event: EventInput) => {
   const client = getClient();
+  const eventId = toRequiredText(id);
+  const eventPayload = toEventPayload(event);
   const { data, error } = await client
     .from('events')
-    .update(toEventPayload(event))
-    .eq('id', id)
+    .update(eventPayload)
+    .eq('id', eventId)
     .select(EVENT_COLUMNS)
     .single();
 
   if (error) {
-    throw error;
+    throwSupabaseError('No se pudo actualizar el evento.', { id: eventId, ...eventPayload }, error);
   }
 
   const updatedEvent = data as StoreEvent;
