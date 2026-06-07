@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Droplets, Sun, Thermometer, Scissors, Heart, AlertCircle, Flower2 } from 'lucide-react';
+import { ArrowLeft, Droplets, Sun, Thermometer, Scissors, Heart, AlertCircle, Flower2 } from '../lib/icons';
 
 interface CareGuideProps {
   onBack: () => void;

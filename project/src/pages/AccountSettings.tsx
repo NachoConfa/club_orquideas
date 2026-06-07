@@ -14,7 +14,7 @@ import {
   Shield,
   Truck,
   User,
-} from 'lucide-react';
+} from '../lib/icons';
 import TurnstileWidget from '../components/TurnstileWidget';
 import { getSupabaseOrdersForUser, type CustomerOrder } from '../services/orderSupabaseService';
 import { isSupabaseReady, sendSupabasePasswordReset, updateSupabaseProfile } from '../services/supabaseService';

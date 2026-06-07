@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Leaf, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Leaf, RefreshCw } from '../lib/icons';
 import { useNavigate } from 'react-router-dom';
 import CareGuideCard from '../components/CareGuideCard';
 import { getActiveCareGuides } from '../services/careGuideService';

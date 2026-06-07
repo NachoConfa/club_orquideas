@@ -17,6 +17,7 @@ type ProductRow = {
   stock?: number | null;
   stock_mode?: string | null;
   occasions?: string[] | null;
+  visible_in_store?: boolean | null;
   orchid_type?: string | null;
   color?: string | null;
   size?: string | null;
@@ -156,8 +157,10 @@ const PRODUCT_COLUMNS_WITH_STOCK_MODE =
   `${PRODUCT_COLUMNS_WITH_BASE_OPTIONAL}, stock_mode`;
 const PRODUCT_COLUMNS_WITH_PRICE_MODE =
   `${PRODUCT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
+const PRODUCT_COLUMNS_WITH_VISIBILITY =
+  `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, visible_in_store`;
 const PRODUCT_COLUMNS_WITH_OPTIONAL =
-  `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions`;
+  `${PRODUCT_COLUMNS_WITH_VISIBILITY}, occasions`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE =
@@ -174,8 +177,14 @@ const isMissingOptionalProductColumnError = (error: { code?: string; message?: s
     message.includes('flowering_stems') ||
     message.includes('stock_mode') ||
     message.includes('price_mode') ||
-    message.includes('occasions')
+    message.includes('occasions') ||
+    message.includes('visible_in_store')
   );
+};
+
+const isMissingStoreVisibilityColumnError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return error?.code === 'PGRST204' || error?.code === '42703' || message.includes('visible_in_store');
 };
 
 const isMissingProductVariantsTableError = (error: { code?: string; message?: string }) => {
@@ -282,6 +291,7 @@ const mapProduct = (product: ProductRow): Product => {
     color: product.color || 'Variado',
     size: product.size || 'Mediana',
     inStock: product.in_stock ?? (product.is_active !== false && fallbackStock > 0),
+    visibleInStore: product.visible_in_store !== false,
     type: product.type || product.orchid_type || 'Orquideas',
     description: sanitizeProductDescription(product.description),
     stock: product.stock == null ? undefined : fallbackStock,
@@ -563,9 +573,25 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
   let productsResult = await client
     .from('products')
     .select(PRODUCT_COLUMNS_WITH_OPTIONAL)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('visible_in_store', true);
+
+  if (productsResult.error && isMissingStoreVisibilityColumnError(productsResult.error)) {
+    productsResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
+      .eq('is_active', true);
+  }
 
   if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
+    productsResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS_WITH_VISIBILITY)
+      .eq('is_active', true)
+      .eq('visible_in_store', true);
+  }
+
+  if (productsResult.error && isMissingStoreVisibilityColumnError(productsResult.error)) {
     productsResult = await client
       .from('products')
       .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
@@ -644,6 +670,114 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
   }
 
   return mapProductsWithDetails(productRows, imageRows, variantRows);
+};
+
+export const getSupabaseProductBySlug = async (slug: string): Promise<Product | null> => {
+  const client = getClient();
+  const normalizedSlug = slug.trim();
+
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  let productResult = await client
+    .from('products')
+    .select(PRODUCT_COLUMNS_WITH_OPTIONAL)
+    .eq('slug', normalizedSlug)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (productResult.error && isMissingOptionalProductColumnError(productResult.error)) {
+    productResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS_WITH_VISIBILITY)
+      .eq('slug', normalizedSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+  }
+
+  if (productResult.error && isMissingOptionalProductColumnError(productResult.error)) {
+    productResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
+      .eq('slug', normalizedSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+  }
+
+  if (productResult.error && isMissingOptionalProductColumnError(productResult.error)) {
+    productResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS_WITH_BASE_OPTIONAL)
+      .eq('slug', normalizedSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+  }
+
+  if (productResult.error && isMissingOptionalProductColumnError(productResult.error)) {
+    productResult = await client
+      .from('products')
+      .select(PRODUCT_COLUMNS)
+      .eq('slug', normalizedSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+  }
+
+  if (productResult.error) {
+    throw productResult.error;
+  }
+
+  if (!productResult.data) {
+    return null;
+  }
+
+  const productId = String((productResult.data as ProductRow).id);
+  const [imagesResult, variantsResult] = await Promise.allSettled([
+    client
+      .from('product_images')
+      .select('product_id, image_url, sort_order')
+      .eq('product_id', productId)
+      .order('sort_order', { ascending: true }),
+    (async () => {
+      let result = await client
+        .from('product_variants')
+        .select(PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL)
+        .eq('product_id', productId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (result.error && isMissingOptionalProductColumnError(result.error)) {
+        result = await client
+          .from('product_variants')
+          .select(PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE)
+          .eq('product_id', productId)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+      }
+
+      if (result.error && isMissingOptionalProductColumnError(result.error)) {
+        result = await client
+          .from('product_variants')
+          .select(PRODUCT_VARIANT_COLUMNS)
+          .eq('product_id', productId)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+      }
+
+      return result;
+    })(),
+  ]);
+
+  const imageRows =
+    imagesResult.status === 'fulfilled' && !imagesResult.value.error
+      ? ((imagesResult.value.data ?? []) as ProductImageRow[])
+      : [];
+  const variantRows =
+    variantsResult.status === 'fulfilled' && !variantsResult.value.error
+      ? ((variantsResult.value.data ?? []) as ProductVariantRow[])
+      : [];
+
+  return mapProductsWithDetails([productResult.data as ProductRow], imageRows, variantRows)[0] ?? null;
 };
 
 export const getAuthenticatedUserFromSession = async (session: Session | null): Promise<AuthenticatedUser | null> => {

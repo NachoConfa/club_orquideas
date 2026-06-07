@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, Clock, MapPin, MessageCircle, PartyPopper, RefreshCw, Users } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, MapPin, MessageCircle, PartyPopper, RefreshCw, Users } from '../lib/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEventStatusLabel } from '../components/EventCard';
 import ProductImage from '../components/ProductImage';
@@ -202,7 +202,7 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
       if (import.meta.env.DEV) {
         console.error('Error cargando evento:', loadError);
       }
-      setError('No pudimos cargar este evento. Intentá nuevamente.');
+      setError('No pudimos cargar esta charla. Intentá nuevamente.');
       setEvent(null);
     } finally {
       setIsLoading(false);
@@ -222,7 +222,7 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
           className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#0F8F61] hover:text-[#0C7A52]"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver a eventos
+          Volver a charlas
         </button>
 
         {isLoading ? (
@@ -244,7 +244,7 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
                 onClick={onBack}
                 className="rounded-full border border-[#F1E3D4] bg-white px-5 py-2 text-sm font-semibold text-[#16352B] hover:bg-[#E8F7EF]"
               >
-                Volver a eventos
+                Volver a charlas
               </button>
             </div>
           </div>

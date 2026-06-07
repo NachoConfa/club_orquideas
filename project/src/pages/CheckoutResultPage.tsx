@@ -7,7 +7,7 @@ import {
   PackageCheck,
   RotateCcw,
   ShoppingBag,
-} from 'lucide-react';
+} from '../lib/icons';
 import type { CartItem } from '../types/cart';
 
 export type CheckoutResultStatus = 'success' | 'failure' | 'pending';

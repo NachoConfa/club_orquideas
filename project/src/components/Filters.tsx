@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Filter, SlidersHorizontal, X } from 'lucide-react';
+import { Filter, SlidersHorizontal, X } from '../lib/icons';
 import type { CatalogFilterGroup, CatalogFilterState, PriceBounds } from '../utils/catalogFilters';
 import { sanitizePriceInput } from '../utils/catalogFilters';
 

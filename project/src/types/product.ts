@@ -33,6 +33,7 @@ export interface Product {
   color: string;
   size: string;
   inStock: boolean;
+  visibleInStore?: boolean;
   type: string;
   description?: string;
   stock?: number;

@@ -11,7 +11,7 @@ import {
   Thermometer,
   Wind,
   Wrench,
-} from 'lucide-react';
+} from '../lib/icons';
 import type { Product } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
 

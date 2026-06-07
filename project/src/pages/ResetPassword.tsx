@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock } from '../lib/icons';
 import {
   getCurrentSupabaseUser,
   isSupabaseReady,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
-import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from 'lucide-react';
+import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from '../lib/icons';
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ImageOff } from 'lucide-react';
+import { ImageOff } from '../lib/icons';
 
 interface ProductImageProps {
   src?: string | null;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CalendarDays, MapPin, PartyPopper } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, PartyPopper } from '../lib/icons';
 import type { StoreEvent } from '../types/event';
 
 interface EventCardProps {

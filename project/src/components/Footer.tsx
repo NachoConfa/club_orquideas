@@ -1,8 +1,8 @@
 import React from 'react';
-import { Instagram, MapPin, Phone } from 'lucide-react';
+import { Instagram, MapPin, Phone } from '../lib/icons';
 
 interface FooterProps {
-  onNavigate: (page: 'home' | 'accessories' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy') => void;
+  onNavigate: (page: 'home' | 'accessories' | 'collections' | 'care' | 'orchids' | 'interior' | 'exterior' | 'arrangements' | 'pots' | 'checkout' | 'terms' | 'privacy') => void;
 }
 
 const footerLinkClass = 'text-left text-[#FFF8EF]/75 transition-colors hover:text-white';
@@ -66,7 +66,8 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li><button onClick={() => onNavigate('exterior')} className={footerLinkClass}>Plantas de exterior</button></li>
               <li><button onClick={() => onNavigate('arrangements')} className={footerLinkClass}>Arreglos</button></li>
               <li><button onClick={() => onNavigate('pots')} className={footerLinkClass}>Macetas</button></li>
-              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Eventos</button></li>
+              <li><button onClick={() => onNavigate('accessories')} className={footerLinkClass}>Charlas</button></li>
+              <li><button onClick={() => onNavigate('collections')} className={footerLinkClass}>Colecciones</button></li>
               <li><button onClick={() => onNavigate('care')} className={footerLinkClass}>Cuidados</button></li>
             </ul>
           </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '../lib/icons';
 
 type HeroPage = 'orchids' | 'pots' | 'arrangements' | 'care';
 

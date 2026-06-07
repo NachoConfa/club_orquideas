@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, PartyPopper, RefreshCw } from 'lucide-react';
+import { ArrowLeft, PartyPopper, RefreshCw } from '../lib/icons';
 import { useNavigate } from 'react-router-dom';
 import EventCard from '../components/EventCard';
 import { getActiveEvents } from '../services/eventService';
@@ -39,9 +39,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ onBack }) => {
       setEvents(activeEvents);
     } catch (loadError) {
       if (import.meta.env.DEV) {
-        console.error('Error cargando eventos:', loadError);
+        console.error('Error cargando charlas:', loadError);
       }
-      setError('No pudimos cargar los eventos. Intentá nuevamente.');
+      setError('No pudimos cargar las charlas. Intentá nuevamente.');
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -69,7 +69,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ onBack }) => {
             <PartyPopper className="h-4 w-4" />
             Encuentros y propuestas
           </span>
-          <h1 className="mt-4 text-3xl font-semibold text-[#16352B] sm:text-4xl">Eventos</h1>
+          <h1 className="mt-4 text-3xl font-semibold text-[#16352B] sm:text-4xl">Charlas</h1>
           <p className="mt-3 max-w-2xl leading-7 text-[#6B756F]">
             Actividades, talleres y propuestas especiales para conectar con las plantas y la naturaleza.
           </p>
@@ -97,7 +97,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ onBack }) => {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-[#EADBC8] bg-white px-6 py-12 text-center shadow-sm">
-            <h2 className="text-xl font-semibold text-[#16352B]">Todavía no hay eventos cargados.</h2>
+            <h2 className="text-xl font-semibold text-[#16352B]">Todavía no hay charlas cargadas.</h2>
             <p className="mt-2 text-[#6B756F]">Pronto vamos a sumar nuevas propuestas de Modo Plantas.</p>
           </div>
         )}

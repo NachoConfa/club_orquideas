@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, CreditCard, Eye, Home, MapPin, Package, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, CreditCard, Eye, Home, MapPin, Package, Truck, XCircle } from '../lib/icons';
 import { cancelSupabaseOrder, getSupabaseOrdersForUser, type CustomerOrder } from '../services/orderSupabaseService';
 import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';

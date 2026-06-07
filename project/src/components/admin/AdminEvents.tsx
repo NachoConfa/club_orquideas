@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Copy, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from 'lucide-react';
+import { Check, Copy, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from '../../lib/icons';
 import {
   createEvent,
   deleteEvent,

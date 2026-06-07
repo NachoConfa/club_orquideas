@@ -6,7 +6,7 @@ import {
   Home,
   Shield,
   Truck,
-} from 'lucide-react';
+} from '../lib/icons';
 import TurnstileWidget from '../components/TurnstileWidget';
 import { useToast } from '../components/feedback/ToastProvider';
 import type { CheckoutResultData } from './CheckoutResultPage';

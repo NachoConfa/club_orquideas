@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X } from '../lib/icons';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;

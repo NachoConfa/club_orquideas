@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Heart, ShoppingCart, Trash2 } from 'lucide-react';
+import { X, Heart, ShoppingCart, Trash2 } from '../lib/icons';
 import type { Product } from '../types/product';
 
 interface FavoritesProps {

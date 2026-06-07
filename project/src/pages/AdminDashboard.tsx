@@ -10,6 +10,7 @@ import {
   CreditCard,
   Edit,
   CalendarDays,
+  Layers3,
   LineChart,
   Loader2,
   Plus,
@@ -19,7 +20,7 @@ import {
   Trash2,
   Users,
   X,
-} from 'lucide-react';
+} from '../lib/icons';
 import {
   AdminProduct,
   AdminProductInput,
@@ -49,6 +50,7 @@ import { useConfirm } from '../components/feedback/ConfirmProvider';
 import { useToast } from '../components/feedback/ToastProvider';
 import AdminCareGuides from '../components/admin/AdminCareGuides';
 import AdminEvents from '../components/admin/AdminEvents';
+import AdminCollections from '../components/admin/AdminCollections';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -59,6 +61,7 @@ interface AdminDashboardProps {
 type AdminTab =
   | 'dashboard'
   | 'products'
+  | 'collections'
   | 'care-guides'
   | 'events'
   | 'orders'
@@ -760,8 +763,22 @@ const ProductForm = ({
             onChange={(event) => updateField('is_active', event.target.checked)}
             className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
           />
-          Visible en tienda
+          Activo / visible
         </label>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.visible_in_store}
+            onChange={(event) => updateField('visible_in_store', event.target.checked)}
+            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+          />
+          Mostrar en tienda general
+        </label>
+        {!form.visible_in_store && (
+          <p className="basis-full text-xs text-gray-500">
+            Este producto no aparecerá en catálogos, destacados ni búsqueda general, pero puede usarse en colecciones.
+          </p>
+        )}
       </div>
 
       <div className="mt-6 rounded-lg border border-emerald-100 bg-white p-4">
@@ -994,6 +1011,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRange>('30d');
   const [dashboardSummary, setDashboardSummary] = useState<AdminDashboardSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [productVisibilityFilter, setProductVisibilityFilter] = useState<'all' | 'store' | 'hidden'>('all');
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -1003,6 +1021,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const [loadedTabs, setLoadedTabs] = useState<Record<AdminTab, boolean>>({
     dashboard: false,
     products: false,
+    collections: false,
     'care-guides': false,
     events: false,
     orders: false,
@@ -1158,6 +1177,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
     if (tab === 'dashboard') void loadDashboardData();
     if (tab === 'products') void loadProducts();
+    if (tab === 'collections') markTabLoaded('collections');
     if (tab === 'care-guides') markTabLoaded('care-guides');
     if (tab === 'events') markTabLoaded('events');
     if (tab === 'orders') void loadOrders();
@@ -1216,6 +1236,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
         .some((value) => value.toLowerCase().includes(query))
     );
   }, [products, searchQuery]);
+
+  const visibleFilteredProducts = useMemo(() => {
+    if (productVisibilityFilter === 'store') {
+      return filteredProducts.filter((product) => product.visible_in_store !== false);
+    }
+
+    if (productVisibilityFilter === 'hidden') {
+      return filteredProducts.filter((product) => product.visible_in_store === false);
+    }
+
+    return filteredProducts;
+  }, [filteredProducts, productVisibilityFilter]);
 
   const startCreateProduct = () => {
     setEditingProduct(null);
@@ -1463,6 +1495,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'products', label: 'Productos', icon: <Boxes className="h-4 w-4" /> },
+    { id: 'collections', label: 'Colecciones', icon: <Layers3 className="h-4 w-4" /> },
     { id: 'care-guides', label: 'Cuidados', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <ClipboardList className="h-4 w-4" /> },
@@ -1604,6 +1637,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                       className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
+                  <select
+                    value={productVisibilityFilter}
+                    onChange={(event) => setProductVisibilityFilter(event.target.value as typeof productVisibilityFilter)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="store">Visibles en tienda</option>
+                    <option value="hidden">Solo colecciones</option>
+                  </select>
                   <button
                     onClick={startCreateProduct}
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700"
@@ -1633,11 +1675,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                         <th className="px-4 py-3">Precio</th>
                         <th className="px-4 py-3">Stock</th>
                         <th className="px-4 py-3">Estado</th>
+                        <th className="px-4 py-3">Tienda</th>
                         <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredProducts.map((product) => (
+                      {visibleFilteredProducts.map((product) => (
                         <tr key={product.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900">{product.name}</div>
@@ -1663,6 +1706,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                             >
                               {product.is_active ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                               {product.is_active ? 'Visible' : 'Oculto'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                                product.visible_in_store === false
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {product.visible_in_store === false ? 'Solo colecciones' : 'Tienda general'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -1700,6 +1754,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
               </div>
           )
         )}
+
+        {activeTab === 'collections' && <AdminCollections />}
 
         {activeTab === 'care-guides' && <AdminCareGuides />}
 

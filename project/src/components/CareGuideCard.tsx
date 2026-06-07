@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Leaf } from 'lucide-react';
+import { ArrowRight, Leaf } from '../lib/icons';
 import type { CareGuide } from '../types/careGuide';
 
 interface CareGuideCardProps {

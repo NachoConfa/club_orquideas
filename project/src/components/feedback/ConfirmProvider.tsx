@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X } from '../../lib/icons';
 
 type ConfirmTone = 'default' | 'danger';
 

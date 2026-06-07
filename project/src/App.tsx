@@ -17,6 +17,7 @@ import { sendProductAvailabilityEmail } from './services/emailService';
 import {
   getAuthenticatedUserFromSession,
   getBasicAuthenticatedUserFromSession,
+  getSupabaseProductBySlug,
   getSupabaseProducts,
   isSupabaseReady,
   onSupabaseAuthChange,
@@ -34,15 +35,8 @@ import {
   type CatalogCategory,
   type CatalogFilterGroup,
 } from './utils/catalogFilters';
-import {
-  trackAddToCart,
-  trackAddToFavorite,
-  trackCheckoutStarted,
-  trackProductView,
-  trackRemoveFromFavorite,
-} from './services/analyticsService';
 import { getProductSlug } from './utils/productSlug';
-import { Flower, Star, Heart, ShoppingBag } from 'lucide-react';
+import { Flower, Star, Heart, ShoppingBag } from './lib/icons';
 
 const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
 const Checkout = lazy(() => import('./pages/Checkout'));
@@ -50,6 +44,8 @@ const CheckoutResultPage = lazy(() => import('./pages/CheckoutResultPage'));
 const Orders = lazy(() => import('./pages/Orders'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
+const CollectionsPage = lazy(() => import('./pages/CollectionsPage'));
+const CollectionDetailPage = lazy(() => import('./pages/CollectionDetailPage'));
 const CareGuidesPage = lazy(() => import('./pages/CareGuidesPage'));
 const CareGuideDetailPage = lazy(() => import('./pages/CareGuideDetailPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -58,6 +54,38 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ProductPage = lazy(() => import('./pages/ProductPage'));
+
+type AnalyticsModule = typeof import('./services/analyticsService');
+
+const withAnalytics = (callback: (analytics: AnalyticsModule) => void) => {
+  void import('./services/analyticsService')
+    .then(callback)
+    .catch((error) => {
+      if (import.meta.env.DEV) {
+        console.warn('No se pudo cargar analytics:', error);
+      }
+    });
+};
+
+const trackProductView = (product: Product) => {
+  withAnalytics((analytics) => analytics.trackProductView(product));
+};
+
+const trackAddToCart = (item: CartItem | CartItemInput) => {
+  withAnalytics((analytics) => analytics.trackAddToCart(item));
+};
+
+const trackAddToFavorite = (product: Product) => {
+  withAnalytics((analytics) => analytics.trackAddToFavorite(product));
+};
+
+const trackRemoveFromFavorite = (product: Product) => {
+  withAnalytics((analytics) => analytics.trackRemoveFromFavorite(product));
+};
+
+const trackCheckoutStarted = (amount: number) => {
+  withAnalytics((analytics) => analytics.trackCheckoutStarted(amount));
+};
 
 type AppUser = AuthenticatedUser | {
   id?: string;
@@ -75,6 +103,8 @@ type AppPage =
   | 'home'
   | 'accessories'
   | 'event-detail'
+  | 'collections'
+  | 'collection-detail'
   | 'care'
   | 'care-detail'
   | 'orchids'
@@ -99,6 +129,8 @@ const APP_PAGE_PATHS: Record<AppPage, string> = {
   home: '/',
   accessories: '/eventos',
   'event-detail': '/eventos',
+  collections: '/colecciones',
+  'collection-detail': '/colecciones',
   care: '/cuidados',
   'care-detail': '/cuidados',
   orchids: '/orquideas',
@@ -271,7 +303,7 @@ const SEARCH_CATEGORY_LABELS: Record<SearchCategoryValue, string> = {
   exterior: 'Plantas de exterior',
   arrangements: 'Arreglos',
   pots: 'Macetas',
-  accessories: 'Eventos',
+  accessories: 'Charlas',
 };
 
 const getProductSearchCategory = (product: Product): SearchCategoryValue => {
@@ -722,6 +754,8 @@ function AppShell({ routePage }: { routePage: AppPage }) {
   const [postAuthPage, setPostAuthPage] = useState<AppPage | null>(null);
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResultData | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [routeProduct, setRouteProduct] = useState<Product | null>(null);
+  const [isLoadingRouteProduct, setIsLoadingRouteProduct] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -1158,9 +1192,13 @@ function AppShell({ routePage }: { routePage: AppPage }) {
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const favoritesCount = favoriteItems.length;
-  const productPageProduct =
+  const catalogProductForRoute =
     currentPage === 'product' && routeProductSlug
       ? catalogProducts.find((product) => getProductSlug(product) === routeProductSlug) ?? null
+      : null;
+  const productPageProduct =
+    currentPage === 'product' && routeProductSlug
+      ? catalogProductForRoute ?? (routeProduct && getProductSlug(routeProduct) === routeProductSlug ? routeProduct : null)
       : null;
   const productPageRelatedProducts = productPageProduct
     ? catalogProducts
@@ -1168,6 +1206,40 @@ function AppShell({ routePage }: { routePage: AppPage }) {
         .filter((product) => product.category === productPageProduct.category || product.type === productPageProduct.type)
         .slice(0, 4)
     : [];
+
+  useEffect(() => {
+    if (currentPage !== 'product' || !routeProductSlug || catalogProductForRoute) {
+      setRouteProduct(null);
+      setIsLoadingRouteProduct(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingRouteProduct(true);
+
+    getSupabaseProductBySlug(routeProductSlug)
+      .then((product) => {
+        if (!isMounted) return;
+        setRouteProduct(product);
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.error('Error cargando producto por slug:', error);
+        }
+        if (isMounted) {
+          setRouteProduct(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingRouteProduct(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [catalogProductForRoute, currentPage, routeProductSlug]);
   const normalizedSearchPageQuery = searchPageQuery.trim();
   const globalSearchResults = normalizedSearchPageQuery
     ? catalogProducts.filter((product) => productMatchesSearchQuery(product, normalizedSearchPageQuery))
@@ -1283,6 +1355,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1352,6 +1425,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             onFavoritesClick={() => setIsFavoritesOpen(true)}
             onUserClick={() => openAuthModal()}
             onNavigate={navigateToPage}
+            onPathNavigate={navigate}
             searchQuery={searchQuery}
             onSearch={setSearchQuery}
             onSearchSubmit={submitGlobalSearch}
@@ -1466,6 +1540,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1474,7 +1549,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
 
         <ProductPage
           product={productPageProduct}
-          isLoading={isLoadingProducts}
+          isLoading={isLoadingProducts || isLoadingRouteProduct}
           relatedProducts={productPageRelatedProducts}
           isFavorite={Boolean(productPageProduct && favoriteItems.some((item) => item.id === productPageProduct.id))}
           onBack={navigateBackFromProduct}
@@ -1539,6 +1614,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1691,6 +1767,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1753,12 +1830,139 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
           user={user}
         />
         <CareGuidesPage onBack={() => navigateToPage('home')} />
+        <Footer onNavigate={navigateToPage} />
+
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (currentPage === 'collections') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          onPathNavigate={navigate}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+        <CollectionsPage onBack={() => navigateToPage('home')} />
+        <Footer onNavigate={navigateToPage} />
+
+        <Cart
+          items={cartItems}
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveItem={removeFromCart}
+          onCheckout={handleCheckoutRequest}
+        />
+
+        <Favorites
+          items={favoriteItems}
+          isOpen={isFavoritesOpen}
+          onClose={() => setIsFavoritesOpen(false)}
+          onRemoveItem={removeFavorite}
+          onAddToCart={addToCart}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onLogin={handleLogin}
+          user={user}
+          onLogout={handleLogout}
+          initialMode={authModalMode}
+          notice={authModalNotice}
+          onNavigateToSettings={() => {
+            closeAuthModal();
+            navigateToPage('account-settings');
+          }}
+          onNavigateToAdmin={() => {
+            closeAuthModal();
+            navigateToPage('admin');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (currentPage === 'collection-detail') {
+    return (
+      <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
+        <Header
+          cartCount={cartCount}
+          favoritesCount={favoritesCount}
+          onCartClick={() => setIsCartOpen(true)}
+          onFavoritesClick={() => setIsFavoritesOpen(true)}
+          onUserClick={() => {
+            if (user) {
+              navigateToPage('account-settings');
+            } else {
+              openAuthModal();
+            }
+          }}
+          onNavigate={navigateToPage}
+          onPathNavigate={navigate}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          onSearchSubmit={submitGlobalSearch}
+          user={user}
+        />
+        <CollectionDetailPage onBack={() => navigateToPage('collections')} />
         <Footer onNavigate={navigateToPage} />
 
         <Cart
@@ -1815,6 +2019,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1877,6 +2082,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
             }
           }}
           onNavigate={navigateToPage}
+          onPathNavigate={navigate}
           searchQuery={searchQuery}
           onSearch={setSearchQuery}
           onSearchSubmit={submitGlobalSearch}
@@ -1963,6 +2169,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           }
         }}
         onNavigate={navigateToPage}
+        onPathNavigate={navigate}
         searchQuery={searchQuery}
         onSearch={setSearchQuery}
         onSearchSubmit={submitGlobalSearch}
@@ -2287,6 +2494,8 @@ function App() {
           <Route path="/macetas" element={<AppShell routePage="pots" />} />
           <Route path="/eventos" element={<AppShell routePage="accessories" />} />
           <Route path="/eventos/:slug" element={<AppShell routePage="event-detail" />} />
+          <Route path="/colecciones" element={<AppShell routePage="collections" />} />
+          <Route path="/colecciones/:slug" element={<AppShell routePage="collection-detail" />} />
           <Route path="/otros" element={<Navigate to="/eventos" replace />} />
           <Route path="/accesorios" element={<Navigate to="/eventos" replace />} />
           <Route path="/cuidados" element={<AppShell routePage="care" />} />

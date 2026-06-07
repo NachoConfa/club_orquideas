@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { X, User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { X, User, Mail, Lock, Eye, EyeOff } from '../lib/icons';
 import TurnstileWidget from './TurnstileWidget';
 import {
   TURNSTILE_FAILED_MESSAGE,

@@ -13,6 +13,7 @@ export interface AdminProduct {
   stock: number;
   stock_mode?: AdminStockMode | null;
   occasions?: string[] | null;
+  visible_in_store?: boolean | null;
   orchid_type: string;
   color: string;
   size: string;
@@ -70,6 +71,7 @@ export interface AdminProductInput {
   stock: AdminStockInput;
   stock_mode: AdminStockMode;
   occasions: string[];
+  visible_in_store: boolean;
   orchid_type: string;
   color: string;
   size: string;
@@ -155,7 +157,7 @@ const PRODUCT_COLUMNS =
   'id, category_id, name, slug, description, price, stock, orchid_type, color, size, flowering_stems, image_url, is_featured, is_active, created_at, updated_at';
 const PRODUCT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_COLUMNS}, stock_mode`;
 const PRODUCT_COLUMNS_WITH_PRICE_MODE = `${PRODUCT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
-const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions, visible_in_store`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order, created_at, updated_at';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
@@ -285,7 +287,8 @@ const isMissingOptionalModeColumnError = (error: { code?: string; message?: stri
     error.code === '42703' ||
     message.includes('stock_mode') ||
     message.includes('price_mode') ||
-    message.includes('occasions')
+    message.includes('occasions') ||
+    message.includes('visible_in_store')
   );
 };
 
@@ -400,6 +403,7 @@ const toProductPayload = (product: AdminProductInput) => ({
   stock: parseAdminStockValue(product.stock, 'stock del producto'),
   stock_mode: normalizeStockMode(product.stock_mode),
   occasions: normalizeTextArray(product.occasions),
+  visible_in_store: product.visible_in_store !== false,
   orchid_type: product.orchid_type.trim(),
   color: product.color.trim(),
   size: product.size.trim(),
@@ -599,6 +603,7 @@ export const emptyAdminProductInput = (): AdminProductInput => ({
   stock: 0,
   stock_mode: 'quantity',
   occasions: [],
+  visible_in_store: true,
   orchid_type: 'Phalaenopsis',
   color: 'Variado',
   size: 'Mediana',
@@ -619,6 +624,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
   stock: Number(product.stock),
   stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
   occasions: normalizeTextArray(product.occasions),
+  visible_in_store: product.visible_in_store !== false,
   orchid_type: product.orchid_type || '',
   color: product.color || '',
   size: product.size || '',

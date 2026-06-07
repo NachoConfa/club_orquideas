@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star } from '../lib/icons';
 import type { Product } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
 import ProductImage from './ProductImage';

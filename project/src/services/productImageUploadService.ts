@@ -13,7 +13,7 @@ interface ProductImageUploadOptions {
   productId?: string;
   productSlug?: string;
   variant?: boolean;
-  folder?: 'products' | 'care-guides' | 'events';
+  folder?: 'products' | 'care-guides' | 'events' | 'collections';
 }
 
 interface ProductImageDeleteResult {
@@ -112,17 +112,37 @@ const countImageUsage = async (tableName: string, publicUrl: string) => {
 };
 
 const isImageUrlStillUsed = async (publicUrl: string) => {
-  const [productsCount, variantsCount, careGuidesCount, careGuideVariantsCount, eventsCount, eventSectionsCount] =
-    await Promise.all([
+  const [
+    productsCount,
+    variantsCount,
+    careGuidesCount,
+    careGuideVariantsCount,
+    eventsCount,
+    eventSectionsCount,
+    collectionsCount,
+    collectionSectionsCount,
+  ] = await Promise.all([
       countImageUsage('products', publicUrl),
       countImageUsage('product_variants', publicUrl),
       countImageUsage('care_guides', publicUrl),
       countImageUsage('care_guide_variants', publicUrl),
       countImageUsage('events', publicUrl),
       countImageUsage('event_sections', publicUrl),
+      countImageUsage('product_collections', publicUrl),
+      countImageUsage('product_collection_sections', publicUrl),
     ]);
 
-  return productsCount + variantsCount + careGuidesCount + careGuideVariantsCount + eventsCount + eventSectionsCount > 0;
+  return (
+    productsCount +
+      variantsCount +
+      careGuidesCount +
+      careGuideVariantsCount +
+      eventsCount +
+      eventSectionsCount +
+      collectionsCount +
+      collectionSectionsCount >
+    0
+  );
 };
 
 export const uploadProductImage = async (file: File, options: ProductImageUploadOptions = {}) => {
@@ -138,7 +158,14 @@ export const uploadProductImage = async (file: File, options: ProductImageUpload
     throw new Error('La imagen no puede superar los 5 MB.');
   }
 
-  const rootFolder = options.folder === 'care-guides' ? 'care-guides' : options.folder === 'events' ? 'events' : 'products';
+  const rootFolder =
+    options.folder === 'care-guides'
+      ? 'care-guides'
+      : options.folder === 'events'
+        ? 'events'
+        : options.folder === 'collections'
+          ? 'collections'
+          : 'products';
   const productFolder = sanitizeSegment(options.productSlug || options.productId || 'producto');
   const uploadFolder = options.variant ? `${rootFolder}/${productFolder}/variants` : `${rootFolder}/${productFolder}`;
   const randomSuffix = Math.random().toString(36).slice(2, 8);

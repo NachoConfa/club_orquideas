@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Truck,
-} from 'lucide-react';
+} from '../lib/icons';
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
