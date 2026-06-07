@@ -261,9 +261,6 @@ const ProductPage = ({
             </div>
 
             <h1 className="break-words text-3xl font-bold leading-tight text-[#16352B] sm:text-4xl">{product.name}</h1>
-            <p className="mt-4 whitespace-pre-line text-base leading-7 text-[#6B7280]">
-              {product.description || 'Producto seleccionado de nuestro catálogo.'}
-            </p>
 
             {hasRealVariants && (
               <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#E8F7EF] px-4 py-3 text-sm text-[#16352B]">
@@ -385,8 +382,52 @@ const ProductPage = ({
               {requiresAvailabilityConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
               {requiresAvailabilityConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
             </button>
+          </section>
+        </div>
 
-            <div className="mt-6 grid gap-3 text-sm text-[#6B7280] sm:grid-cols-3">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+          <article className="min-w-0 rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">
+            <h2 className="text-2xl font-bold text-[#16352B]">Descripción</h2>
+            <p className="mt-4 whitespace-pre-line text-base leading-8 text-[#1F2933]">
+              {product.description || 'Producto seleccionado de nuestro catálogo.'}
+            </p>
+          </article>
+
+          <aside className="min-w-0 rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">
+            <h2 className="text-2xl font-bold text-[#16352B]">Detalles del producto</h2>
+            <dl className="mt-4 space-y-4 text-sm">
+              <div className="flex items-start justify-between gap-4 border-b border-[#F1E3D4] pb-3">
+                <dt className="font-semibold text-[#6B7280]">Categoría</dt>
+                <dd className="text-right font-semibold text-[#16352B]">{categoryLabel}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4 border-b border-[#F1E3D4] pb-3">
+                <dt className="font-semibold text-[#6B7280]">Disponibilidad</dt>
+                <dd className={`text-right font-semibold ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
+                  {requiresAvailabilityConsult
+                    ? 'Consultar disponibilidad'
+                    : isOutOfStock
+                      ? 'Agotado'
+                      : `${activeStock} unidades`}
+                </dd>
+              </div>
+              {activeDetails.length > 0 && (
+                <div className="flex flex-col gap-2 border-b border-[#F1E3D4] pb-3">
+                  <dt className="font-semibold text-[#6B7280]">Opción seleccionada</dt>
+                  <dd className="flex flex-wrap gap-2">
+                    {activeDetails.map((detail) => (
+                      <span
+                        key={detail}
+                        className="rounded-full bg-[#e8f7ef] px-3 py-1 text-xs font-semibold text-[#0f8f61]"
+                      >
+                        {detail}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            <div className="mt-6 grid gap-3 text-sm text-[#6B7280]">
               <div className="flex items-center gap-2 rounded-lg bg-[#e8f7ef] px-3 py-3">
                 <Truck className="h-4 w-4 text-[#0f8f61]" />
                 Envíos a coordinar
@@ -400,8 +441,8 @@ const ProductPage = ({
                 Compra segura
               </div>
             </div>
-          </section>
-        </div>
+          </aside>
+        </section>
 
         {relatedProducts.length > 0 && (
           <section className="mt-12">
