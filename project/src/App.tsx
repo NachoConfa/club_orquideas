@@ -187,6 +187,7 @@ const getProductSearchValues = (product: Product) =>
     getProductSlug(product),
     product.floweringStems == null ? '' : `${product.floweringStems} varas`,
     ...(product.colors ?? []),
+    ...(product.occasions ?? []),
     ...(product.variants ?? []).flatMap((variant) => [
       variant.color,
       variant.size,
@@ -197,6 +198,8 @@ const getProductSearchValues = (product: Product) =>
     ...getAttributeText(product, 'type'),
     ...getAttributeText(product, 'product_type'),
     ...getAttributeText(product, 'orchid_type'),
+    ...getAttributeText(product, 'occasion'),
+    ...getAttributeText(product, 'occasions'),
   ]
     .map(normalizeCatalogValue)
     .filter(Boolean);
@@ -357,6 +360,11 @@ const getSearchFilterData = (products: Product[]) => {
     });
   }
 
+  const occasionOptions = uniqueSearchOptions(products, (product) => product.occasions ?? []);
+  if (occasionOptions.length > 0) {
+    groups.push({ key: 'occasion', label: 'Ocasión', display: 'checkbox', options: occasionOptions });
+  }
+
   const inStockCount = products.filter(productHasAvailableStock).length;
   if (inStockCount > 0 && inStockCount < products.length) {
     groups.push({
@@ -418,6 +426,14 @@ const applySearchFilters = (products: Product[], filters: ReturnType<typeof crea
           currentProduct.floweringStems,
           ...(currentProduct.variants ?? []).map((variant) => variant.floweringStems),
         ]).map((option) => option.value);
+        if (!selectedValues.some((value) => productValues.includes(value))) return false;
+        continue;
+      }
+
+      if (filterKey === 'occasion') {
+        const productValues = uniqueSearchOptions([product], (currentProduct) => currentProduct.occasions ?? []).map(
+          (option) => option.value
+        );
         if (!selectedValues.some((value) => productValues.includes(value))) return false;
       }
     }
@@ -564,7 +580,7 @@ const readArrayStorage = <T,>(key: string): T[] => {
 };
 
 const buildCartKey = (
-  item: Pick<CartItemInput, 'id' | 'sourceId' | 'variantId' | 'size' | 'color' | 'floweringStems' | 'price'>
+  item: Pick<CartItemInput, 'id' | 'sourceId' | 'variantId' | 'size' | 'color' | 'floweringStems' | 'price' | 'priceMode'>
 ) =>
   [
     item.sourceId || item.id,
@@ -572,11 +588,13 @@ const buildCartKey = (
     item.size || 'sin-tamano',
     item.color || 'sin-color',
     item.floweringStems || 'sin-varas',
+    item.priceMode || 'fixed',
     item.price,
   ].join('|');
 
 const normalizeCartItem = (item: CartItemInput): CartItem => ({
   ...item,
+  priceMode: item.priceMode === 'quote' ? 'quote' : 'fixed',
   stockMode: item.stockMode === 'consult' ? 'consult' : 'quantity',
   cartKey: item.cartKey || buildCartKey(item),
 });

@@ -46,7 +46,10 @@ const Favorites: React.FC<FavoritesProps> = ({ items, isOpen, onClose, onRemoveI
               </div>
             ) : (
               <div className="space-y-4">
-                {items.map((item) => (
+                {items.map((item) => {
+                  const requiresQuote = item.priceMode === 'quote';
+
+                  return (
                   <div key={item.id} className="bg-gray-50 rounded-lg p-4 animate-fadeIn">
                     <div className="flex items-center space-x-4">
                       <img
@@ -60,8 +63,10 @@ const Favorites: React.FC<FavoritesProps> = ({ items, isOpen, onClose, onRemoveI
                         <h3 className="font-medium text-gray-800 line-clamp-2">{item.name}</h3>
                         <p className="text-sm text-gray-500">{item.size} • {item.color}</p>
                         <div className="flex items-center space-x-2">
-                          <p className="text-lg font-semibold text-pink-600">${item.price.toLocaleString('es-AR')}</p>
-                          {item.originalPrice && (
+                          <p className="text-lg font-semibold text-pink-600">
+                            {requiresQuote ? 'A cotizar' : `$${item.price.toLocaleString('es-AR')}`}
+                          </p>
+                          {!requiresQuote && item.originalPrice && (
                             <p className="text-sm text-gray-500 line-through">${item.originalPrice.toLocaleString('es-AR')}</p>
                           )}
                         </div>
@@ -77,19 +82,20 @@ const Favorites: React.FC<FavoritesProps> = ({ items, isOpen, onClose, onRemoveI
                     <div className="mt-3">
                       <button
                         onClick={() => onAddToCart(item)}
-                        disabled={!item.inStock}
+                        disabled={!item.inStock && !requiresQuote}
                         className={`w-full py-2 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
-                          item.inStock
+                          item.inStock || requiresQuote
                             ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105'
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        <span>{item.inStock ? 'Agregar al Carrito' : 'Agotado'}</span>
+                        <span>{requiresQuote ? 'Consultar' : item.inStock ? 'Agregar al Carrito' : 'Agotado'}</span>
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

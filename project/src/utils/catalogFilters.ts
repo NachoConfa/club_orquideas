@@ -60,6 +60,11 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       label: 'Interior / exterior',
       sources: ['attributes.environment', 'attributes.placement', 'attributes.location'],
     },
+    {
+      key: 'occasion',
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
+    },
   ],
   pots: [
     {
@@ -88,6 +93,11 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       label: 'Alto',
       sources: ['attributes.height', 'attributes.height_cm', 'attributes.pot_height'],
     },
+    {
+      key: 'occasion',
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
+    },
   ],
   arrangements: [
     {
@@ -113,8 +123,8 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
     },
     {
       key: 'occasion',
-      label: 'Ocasion',
-      sources: ['attributes.occasion'],
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
     },
   ],
   interior: [
@@ -139,6 +149,11 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       label: 'Luz',
       sources: ['attributes.light', 'attributes.light_requirement'],
     },
+    {
+      key: 'occasion',
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
+    },
   ],
   exterior: [
     {
@@ -161,6 +176,11 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       key: 'sun',
       label: 'Sol',
       sources: ['attributes.sun', 'attributes.sun_exposure', 'attributes.light'],
+    },
+    {
+      key: 'occasion',
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
     },
   ],
 };
@@ -313,7 +333,7 @@ export const getAvailableFilters = (category: CatalogCategory, products: Product
         ),
       };
     })
-    .filter((group) => group.options.length > 1);
+    .filter((group) => (group.key === 'occasion' ? group.options.length > 0 : group.options.length > 1));
 
   const inStockCount = products.filter(productHasAvailableStock).length;
   if (inStockCount > 0 && inStockCount < products.length) {

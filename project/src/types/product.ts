@@ -1,4 +1,5 @@
 export type StockMode = 'quantity' | 'consult';
+export type PriceMode = 'fixed' | 'quote';
 
 export interface ProductVariant {
   id?: string;
@@ -7,6 +8,7 @@ export interface ProductVariant {
   color?: string;
   floweringStems?: number;
   price: number;
+  priceMode?: PriceMode;
   stock: number;
   stockMode?: StockMode;
   image?: string;
@@ -22,6 +24,7 @@ export interface Product {
   slug?: string;
   name: string;
   price: number;
+  priceMode?: PriceMode;
   originalPrice?: number;
   image: string;
   rating: number;
@@ -34,6 +37,7 @@ export interface Product {
   description?: string;
   stock?: number;
   stockMode?: StockMode;
+  occasions?: string[];
   floweringStems?: number;
   images?: string[];
   colors?: string[];

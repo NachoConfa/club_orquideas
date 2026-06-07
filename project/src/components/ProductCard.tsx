@@ -14,11 +14,15 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onToggleFavorite, isFavorite }) => {
   const categoryLabel = getCategoryDisplayLabel(product.category);
   const activeVariants = (product.variants ?? []).filter((variant) => variant.isActive !== false);
+  const requiresPriceQuote =
+    activeVariants.length > 0
+      ? activeVariants.every((variant) => variant.priceMode === 'quote')
+      : product.priceMode === 'quote';
   const requiresAvailabilityConsult =
     activeVariants.length > 0
       ? activeVariants.every((variant) => variant.stockMode === 'consult')
       : product.stockMode === 'consult';
-  const isUnavailable = !requiresAvailabilityConsult && !product.inStock;
+  const isUnavailable = !requiresPriceQuote && !requiresAvailabilityConsult && !product.inStock;
 
   const handleOpenDetails = () => {
     onOpenDetails(product);
@@ -62,7 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
               isFavorite ? 'text-[#D96C9F] fill-current' : 'text-[#6B7280] hover:text-[#0F8F61]'
             }`} />
           </button>
-          {product.originalPrice && (
+          {!requiresPriceQuote && product.originalPrice && (
             <div className="rounded-full bg-[#D96C9F] px-2 py-1 text-xs font-bold text-white">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </div>
@@ -102,8 +106,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 space-y-1 sm:space-y-0">
           <div className="flex items-center space-x-1 sm:space-x-2">
-            <span className="text-lg font-bold text-[#16352B] sm:text-xl">${product.price.toLocaleString('es-AR')}</span>
-            {product.originalPrice && (
+            <span className="text-lg font-bold text-[#16352B] sm:text-xl">
+              {requiresPriceQuote ? 'A cotizar' : `$${product.price.toLocaleString('es-AR')}`}
+            </span>
+            {!requiresPriceQuote && product.originalPrice && (
               <span className="text-xs text-[#6B7280] line-through sm:text-sm">${product.originalPrice.toLocaleString('es-AR')}</span>
             )}
           </div>

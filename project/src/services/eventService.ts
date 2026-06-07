@@ -17,8 +17,12 @@ const EVENT_SECTION_COLUMNS =
   'id, event_id, title, description, image_url, sort_order, is_active, created_at, updated_at';
 const EVENT_SECTION_PRODUCT_COLUMNS = 'id, event_section_id, product_id, sort_order, created_at';
 const EVENT_PRODUCT_COLUMNS =
+  'id, name, slug, description, price, stock, orchid_type, color, size, image_url, is_active, stock_mode, price_mode';
+const EVENT_PRODUCT_COLUMNS_WITHOUT_PRICE_MODE =
   'id, name, slug, description, price, stock, orchid_type, color, size, image_url, is_active, stock_mode';
 const EVENT_PRODUCT_VARIANT_COLUMNS =
+  'id, product_id, price, stock, stock_mode, price_mode, image_url, is_active, sort_order';
+const EVENT_PRODUCT_VARIANT_COLUMNS_WITHOUT_PRICE_MODE =
   'id, product_id, price, stock, stock_mode, image_url, is_active, sort_order';
 
 const getClient = () => {
@@ -192,6 +196,11 @@ const isMissingTableError = (error: { code?: string; message?: string } | null) 
   );
 };
 
+const isMissingPriceModeColumnError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return error?.code === 'PGRST204' || error?.code === '42703' || message.includes('price_mode');
+};
+
 type SupabaseErrorLike = {
   code?: unknown;
   message?: unknown;
@@ -288,6 +297,7 @@ const mapRelatedProduct = (product: EventRelatedProduct): EventRelatedProduct =>
   slug: product.slug,
   description: product.description,
   price: normalizeNumber(product.price),
+  price_mode: product.price_mode === 'quote' ? 'quote' : 'fixed',
   stock: normalizeNumber(product.stock),
   stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
   orchid_type: product.orchid_type,
@@ -302,6 +312,7 @@ const mapRelatedProductVariant = (variant: EventRelatedProductVariant): EventRel
   id: String(variant.id),
   product_id: String(variant.product_id),
   price: normalizeNumber(variant.price),
+  price_mode: variant.price_mode === 'quote' ? 'quote' : 'fixed',
   stock: normalizeNumber(variant.stock),
   stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
   image_url: variant.image_url,
@@ -344,7 +355,19 @@ const attachProductsToSections = async (sections: EventSection[], onlyActive = f
     productQuery = productQuery.eq('is_active', true);
   }
 
-  const { data: productData, error: productError } = await productQuery;
+  let { data: productData, error: productError } = await productQuery;
+
+  if (isMissingPriceModeColumnError(productError)) {
+    productQuery = client.from('products').select(EVENT_PRODUCT_COLUMNS_WITHOUT_PRICE_MODE).in('id', productIds);
+
+    if (onlyActive) {
+      productQuery = productQuery.eq('is_active', true);
+    }
+
+    const fallbackResult = await productQuery;
+    productData = fallbackResult.data;
+    productError = fallbackResult.error;
+  }
 
   if (productError) {
     throw productError;
@@ -360,7 +383,23 @@ const attachProductsToSections = async (sections: EventSection[], onlyActive = f
     variantQuery = variantQuery.eq('is_active', true);
   }
 
-  const { data: variantData, error: variantError } = await variantQuery;
+  let { data: variantData, error: variantError } = await variantQuery;
+
+  if (isMissingPriceModeColumnError(variantError)) {
+    variantQuery = client
+      .from('product_variants')
+      .select(EVENT_PRODUCT_VARIANT_COLUMNS_WITHOUT_PRICE_MODE)
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true });
+
+    if (onlyActive) {
+      variantQuery = variantQuery.eq('is_active', true);
+    }
+
+    const fallbackResult = await variantQuery;
+    variantData = fallbackResult.data;
+    variantError = fallbackResult.error;
+  }
 
   if (variantError) {
     throw variantError;

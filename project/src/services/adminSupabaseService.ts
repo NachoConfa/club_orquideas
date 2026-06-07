@@ -9,8 +9,10 @@ export interface AdminProduct {
   slug: string;
   description: string;
   price: number;
+  price_mode?: AdminPriceMode | null;
   stock: number;
   stock_mode?: AdminStockMode | null;
+  occasions?: string[] | null;
   orchid_type: string;
   color: string;
   size: string;
@@ -26,6 +28,7 @@ export interface AdminProduct {
 export type AdminMoneyInput = number | string;
 export type AdminStockInput = number | string;
 export type AdminStockMode = 'quantity' | 'consult';
+export type AdminPriceMode = 'fixed' | 'quote';
 
 export interface AdminProductVariant {
   id: string;
@@ -34,6 +37,7 @@ export interface AdminProductVariant {
   size: string | null;
   flowering_stems: number | null;
   price: number;
+  price_mode?: AdminPriceMode | null;
   stock: number;
   stock_mode?: AdminStockMode | null;
   image_url: string | null;
@@ -49,6 +53,7 @@ export interface AdminProductVariantInput {
   size: string;
   flowering_stems: number | '';
   price: AdminMoneyInput;
+  price_mode: AdminPriceMode;
   stock: AdminStockInput;
   stock_mode: AdminStockMode;
   image_url: string;
@@ -61,8 +66,10 @@ export interface AdminProductInput {
   slug?: string;
   description: string;
   price: AdminMoneyInput;
+  price_mode: AdminPriceMode;
   stock: AdminStockInput;
   stock_mode: AdminStockMode;
+  occasions: string[];
   orchid_type: string;
   color: string;
   size: string;
@@ -147,9 +154,12 @@ export interface AnalyticsReportData {
 const PRODUCT_COLUMNS =
   'id, category_id, name, slug, description, price, stock, orchid_type, color, size, flowering_stems, image_url, is_featured, is_active, created_at, updated_at';
 const PRODUCT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_COLUMNS}, stock_mode`;
+const PRODUCT_COLUMNS_WITH_PRICE_MODE = `${PRODUCT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order, created_at, updated_at';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
+const PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
 const ORDER_COLUMNS = [
   'id',
   'user_id',
@@ -268,6 +278,17 @@ const isMissingStockModeColumnError = (error: { code?: string; message?: string 
   return error.code === 'PGRST204' || error.code === '42703' || message.includes('stock_mode');
 };
 
+const isMissingOptionalModeColumnError = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    message.includes('stock_mode') ||
+    message.includes('price_mode') ||
+    message.includes('occasions')
+  );
+};
+
 const isMissingProfileEmailColumnError = (error: { code?: string; message?: string }) => {
   const message = error.message?.toLowerCase() ?? '';
   return error.code === 'PGRST204' || error.code === '42703' || message.includes('email');
@@ -327,6 +348,35 @@ export const parseAdminMoneyValue = (value: AdminMoneyInput, label = 'precio') =
 const normalizeStockMode = (stockMode?: AdminStockMode | null): AdminStockMode =>
   stockMode === 'consult' ? 'consult' : 'quantity';
 
+const normalizePriceMode = (priceMode?: AdminPriceMode | null): AdminPriceMode =>
+  priceMode === 'quote' ? 'quote' : 'fixed';
+
+const normalizeTextArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+};
+
+const parseAdminPriceForMode = (
+  value: AdminMoneyInput | null | undefined,
+  priceMode: AdminPriceMode,
+  label = 'precio'
+) => {
+  if (priceMode === 'quote' && (value === '' || value === null || value === undefined)) {
+    return 0;
+  }
+
+  return parseAdminMoneyValue(value ?? '', label);
+};
+
 const parseAdminStockValue = (value: AdminStockInput | null | undefined, label = 'stock') => {
   if (value === '' || value === null || value === undefined) {
     return 0;
@@ -345,9 +395,11 @@ const toProductPayload = (product: AdminProductInput) => ({
   name: product.name.trim(),
   slug: normalizeSlug(product.slug || product.name),
   description: product.description.trim(),
-  price: parseAdminMoneyValue(product.price),
+  price: parseAdminPriceForMode(product.price, normalizePriceMode(product.price_mode)),
+  price_mode: normalizePriceMode(product.price_mode),
   stock: parseAdminStockValue(product.stock, 'stock del producto'),
   stock_mode: normalizeStockMode(product.stock_mode),
+  occasions: normalizeTextArray(product.occasions),
   orchid_type: product.orchid_type.trim(),
   color: product.color.trim(),
   size: product.size.trim(),
@@ -389,7 +441,8 @@ const toVariantPayload = (productId: string, variant: AdminProductVariantInput) 
     color: variant.color.trim() || null,
     size: variant.size.trim() || null,
     flowering_stems: floweringStems,
-    price: parseAdminMoneyValue(variant.price, 'precio de variante'),
+    price: parseAdminPriceForMode(variant.price, normalizePriceMode(variant.price_mode), 'precio de variante'),
+    price_mode: normalizePriceMode(variant.price_mode),
     stock,
     stock_mode: normalizeStockMode(variant.stock_mode),
     image_url: variant.image_url.trim() || null,
@@ -406,11 +459,19 @@ const getVariantsForProducts = async (productIds: string[]) => {
   const client = getClient();
   let result = await client
     .from('product_variants')
-    .select(PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE)
+    .select(PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL_MODES)
     .in('product_id', productIds)
     .order('sort_order', { ascending: true });
 
-  if (result.error && isMissingStockModeColumnError(result.error)) {
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
+    result = await client
+      .from('product_variants')
+      .select(PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE)
+      .in('product_id', productIds)
+      .order('sort_order', { ascending: true });
+  }
+
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
     result = await client
       .from('product_variants')
       .select(PRODUCT_VARIANT_COLUMNS)
@@ -534,8 +595,10 @@ export const emptyAdminProductInput = (): AdminProductInput => ({
   name: '',
   description: '',
   price: '',
+  price_mode: 'fixed',
   stock: 0,
   stock_mode: 'quantity',
+  occasions: [],
   orchid_type: 'Phalaenopsis',
   color: 'Variado',
   size: 'Mediana',
@@ -552,8 +615,10 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
   slug: product.slug,
   description: product.description || '',
   price: String(product.price ?? ''),
+  price_mode: product.price_mode === 'quote' ? 'quote' : 'fixed',
   stock: Number(product.stock),
   stock_mode: product.stock_mode === 'consult' ? 'consult' : 'quantity',
+  occasions: normalizeTextArray(product.occasions),
   orchid_type: product.orchid_type || '',
   color: product.color || '',
   size: product.size || '',
@@ -567,6 +632,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
     size: variant.size || '',
     flowering_stems: variant.flowering_stems == null ? '' : Number(variant.flowering_stems),
     price: String(variant.price ?? ''),
+    price_mode: variant.price_mode === 'quote' ? 'quote' : 'fixed',
     stock: Number(variant.stock || 0),
     stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
     image_url: variant.image_url || '',
@@ -581,17 +647,28 @@ export const getAdminProducts = async (limit = ADMIN_PAGE_LIMIT) => {
   let result = await withAdminTimeout(
     client
       .from('products')
-      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+      .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
       .order('created_at', { ascending: false })
       .limit(limit),
     'La carga de productos del panel tardó demasiado.'
   );
 
-  if (result.error && isMissingStockModeColumnError(result.error)) {
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
     result = await withAdminTimeout(
       client
         .from('products')
-        .select(PRODUCT_COLUMNS)
+        .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      'La carga de productos del panel tardó demasiado.'
+    );
+  }
+
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
+    result = await withAdminTimeout(
+      client
+        .from('products')
+        .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
         .order('created_at', { ascending: false })
         .limit(limit),
       'La carga de productos del panel tardó demasiado.'
@@ -610,7 +687,7 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
   let result = await withAdminTimeout(
     client
       .from('products')
-      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+      .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
       .eq('is_active', true)
       .lte('stock', 3)
       .order('stock', { ascending: true })
@@ -618,11 +695,24 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
     'La carga del resumen de productos tardo demasiado.'
   );
 
-  if (result.error && isMissingStockModeColumnError(result.error)) {
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
     result = await withAdminTimeout(
       client
         .from('products')
-        .select(PRODUCT_COLUMNS)
+        .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
+        .eq('is_active', true)
+        .lte('stock', 3)
+        .order('stock', { ascending: true })
+        .limit(limit),
+      'La carga del resumen de productos tardo demasiado.'
+    );
+  }
+
+  if (result.error && isMissingOptionalModeColumnError(result.error)) {
+    result = await withAdminTimeout(
+      client
+        .from('products')
+        .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
         .eq('is_active', true)
         .lte('stock', 3)
         .order('stock', { ascending: true })
@@ -635,7 +725,9 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
     throw result.error;
   }
 
-  const quantityProducts = ((result.data ?? []) as AdminProduct[]).filter((product) => product.stock_mode !== 'consult');
+  const quantityProducts = ((result.data ?? []) as AdminProduct[]).filter(
+    (product) => product.price_mode !== 'quote' && product.stock_mode !== 'consult'
+  );
   return attachVariantsToProducts(quantityProducts);
 };
 
@@ -644,7 +736,7 @@ export const createAdminProduct = async (product: AdminProductInput) => {
   const { data, error } = await client
     .from('products')
     .insert({ id: createUuid(), ...toProductPayload(product) })
-    .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+    .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
     .single();
 
   if (error) {
@@ -668,6 +760,7 @@ export const duplicateAdminProduct = async (source: AdminProduct) => {
       size: variant.size || '',
       flowering_stems: variant.flowering_stems == null ? '' : Number(variant.flowering_stems),
       price: String(variant.price ?? ''),
+      price_mode: variant.price_mode === 'quote' ? 'quote' : 'fixed',
       stock: Number(variant.stock ?? 0),
       stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
       image_url: variant.image_url || '',
@@ -686,7 +779,7 @@ export const duplicateAdminProduct = async (source: AdminProduct) => {
         ...toProductPayload(duplicateInput),
         category_id: source.category_id,
       })
-      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+      .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
       .single();
 
     if (error) {
@@ -708,7 +801,7 @@ export const updateAdminProduct = async (id: string, product: AdminProductInput)
     .from('products')
     .update(toProductPayload(product))
     .eq('id', id)
-    .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+    .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
     .single();
 
   if (error) {

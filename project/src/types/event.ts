@@ -19,6 +19,7 @@ export interface EventRelatedProductVariant {
   id: string;
   product_id: string;
   price: number;
+  price_mode: string | null;
   stock: number;
   stock_mode: string | null;
   image_url: string | null;
@@ -32,6 +33,7 @@ export interface EventRelatedProduct {
   slug: string | null;
   description: string | null;
   price: number;
+  price_mode: string | null;
   stock: number;
   stock_mode: string | null;
   orchid_type: string | null;

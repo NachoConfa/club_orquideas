@@ -36,6 +36,7 @@ const getBaseProductVariant = (product: Product): ProductVariant => ({
   color: product.color,
   floweringStems: product.floweringStems,
   price: product.price,
+  priceMode: product.priceMode || 'fixed',
   stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
   stockMode: product.stockMode || 'quantity',
   image: product.image,
@@ -48,7 +49,8 @@ const getActiveProductVariants = (product: Product): ProductVariant[] =>
     .sort((first, second) => Number(first.sortOrder ?? 0) - Number(second.sortOrder ?? 0));
 
 const getPreferredVariant = (variants: ProductVariant[]) =>
-  variants.find((variant) => variant.stockMode !== 'consult' && Number(variant.stock) > 0) ||
+  variants.find((variant) => variant.priceMode !== 'quote' && variant.stockMode !== 'consult' && Number(variant.stock) > 0) ||
+  variants.find((variant) => variant.priceMode === 'quote') ||
   variants.find((variant) => variant.stockMode === 'consult') ||
   variants[0] ||
   null;
@@ -94,10 +96,13 @@ const ProductPage = ({
 
   const activeImage = selectedVariant?.image || product?.image || '';
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+  const activePriceMode = selectedVariant?.priceMode || product?.priceMode || 'fixed';
+  const requiresPriceQuote = activePriceMode === 'quote';
   const activeStockMode = selectedVariant?.stockMode || product?.stockMode || 'quantity';
   const requiresAvailabilityConsult = activeStockMode === 'consult';
+  const requiresManualConsult = requiresPriceQuote || requiresAvailabilityConsult;
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
-  const isOutOfStock = !requiresAvailabilityConsult && activeStock <= 0;
+  const isOutOfStock = !requiresManualConsult && activeStock <= 0;
   const activeDetails = selectedVariant ? getVariantDetails(selectedVariant) : [];
   const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
@@ -113,13 +118,13 @@ const ProductPage = ({
   }, [product]);
 
   useEffect(() => {
-    if (requiresAvailabilityConsult) {
+    if (requiresManualConsult) {
       setQuantity(1);
       return;
     }
 
     setQuantity((current) => Math.min(Math.max(1, current), Math.max(1, activeStock)));
-  }, [activeStock, requiresAvailabilityConsult]);
+  }, [activeStock, requiresManualConsult]);
 
   if (isLoading) {
     return (
@@ -184,8 +189,8 @@ const ProductPage = ({
       return;
     }
 
-    if (requiresAvailabilityConsult) {
-      setMessage('Este producto requiere consulta de disponibilidad.');
+    if (requiresManualConsult) {
+      setMessage(requiresPriceQuote ? 'Este producto se cotiza por WhatsApp.' : 'Este producto requiere consulta de disponibilidad.');
       return;
     }
 
@@ -195,6 +200,7 @@ const ProductPage = ({
       variantId: hasRealVariants ? selectedVariant.id : undefined,
       name: product.name,
       price: activePrice,
+      priceMode: activePriceMode,
       image: activeImage,
       quantity,
       color: selectedVariant.color || product.color,
@@ -211,7 +217,7 @@ const ProductPage = ({
   const openAvailabilityWhatsApp = () => {
     const variantLabel = selectedVariant && hasRealVariants ? getVariantLabel(selectedVariant) : '';
     const variantLine = variantLabel ? `\nVariante: ${variantLabel}` : '';
-    const text = `Hola, quiero consultar disponibilidad de: ${product.name}${variantLine}`;
+    const text = `Hola, quiero consultar ${requiresPriceQuote ? 'cotización' : 'disponibilidad'} de: ${product.name}${variantLine}`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -263,35 +269,47 @@ const ProductPage = ({
             <h1 className="break-words text-3xl font-bold leading-tight text-[#16352B] sm:text-4xl">{product.name}</h1>
 
             {hasRealVariants && (
-              <div className="mt-5 rounded-xl border border-[#CFE3D4] bg-[#E8F7EF] px-4 py-3 text-sm text-[#16352B]">
+              <div className="mt-4 rounded-lg border border-[#CFE3D4] bg-[#E8F7EF] px-3 py-2 text-xs leading-5 text-[#16352B] sm:text-sm">
                 Elegí una opción disponible. El precio, stock e imagen corresponden a la variante seleccionada.
               </div>
             )}
 
-            <div className="mt-6 rounded-2xl border border-[#F1E3D4] bg-[#FFF8EF] p-4">
-              <p className="text-sm text-[#6B7280]">Precio</p>
-              <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
-                <p className="break-words text-3xl font-bold text-[#16352B] sm:text-4xl">{formatMoney(activePrice)}</p>
-                <p className={`font-semibold ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
-                  {requiresAvailabilityConsult
-                    ? 'Consultar disponibilidad'
-                    : isOutOfStock
-                      ? 'Agotado'
-                      : `Stock: ${activeStock} unidades`}
+            <div className="mt-4 rounded-xl border border-[#F1E3D4] bg-[#FFF8EF] px-3 py-3 sm:px-4 sm:py-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-[#6B7280] sm:text-sm">Precio</p>
+                  <p className="mt-0.5 break-words text-2xl font-bold leading-none text-[#16352B] sm:text-3xl">
+                    {requiresPriceQuote ? 'A cotizar' : formatMoney(activePrice)}
+                  </p>
+                </div>
+                <p className={`mt-5 flex-shrink-0 text-right text-sm font-semibold leading-tight sm:mt-6 ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
+                  {requiresPriceQuote
+                    ? 'Cotización personalizada'
+                    : requiresAvailabilityConsult
+                      ? 'Consultar disponibilidad'
+                      : isOutOfStock
+                        ? 'Agotado'
+                        : `Stock: ${activeStock} unidades`}
                 </p>
               </div>
               {activeDetails.length > 0 && (
-                <p className="mt-2 text-sm text-[#6B7280]">{activeDetails.join(' · ')}</p>
+                <p className="mt-2 truncate text-xs leading-5 text-[#6B7280] sm:text-sm">{activeDetails.join(' · ')}</p>
+              )}
+              {requiresPriceQuote && (
+                <p className="mt-2 text-xs leading-5 text-[#6B7280]">
+                  Este producto se cotiza según disponibilidad, color, tamaño y preparación.
+                </p>
               )}
             </div>
 
             {hasRealVariants ? (
-              <div className="mt-6">
-                <p className="mb-3 text-sm font-semibold text-[#16352B]">Opciones disponibles</p>
-                <div className="space-y-2">
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-semibold text-[#16352B]">Opciones disponibles</p>
+                <div className="max-h-[190px] space-y-1 overflow-y-auto pr-1 sm:max-h-none sm:space-y-1.5 sm:overflow-visible sm:pr-0">
                   {activeVariants.map((variant) => {
                     const isSelected = selectedVariant?.id === variant.id;
                     const variantStock = Math.max(0, Number(variant.stock ?? 0));
+                    const variantRequiresQuote = variant.priceMode === 'quote';
                     const variantRequiresConsult = variant.stockMode === 'consult';
                     const variantDetails = getVariantDetails(variant).join(' · ') || 'Variante';
 
@@ -300,23 +318,29 @@ const ProductPage = ({
                         key={variant.id}
                         type="button"
                         onClick={() => handleSelectVariant(variant)}
-                        disabled={!variantRequiresConsult && variantStock <= 0}
-                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+                        disabled={!variantRequiresQuote && !variantRequiresConsult && variantStock <= 0}
+                        className={`w-full rounded-lg border px-3 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 sm:px-3.5 sm:py-2 ${
                           isSelected
-                            ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61]'
+                            ? 'border-[#0f8f61] bg-[#e8f7ef] text-[#0f8f61] shadow-[0_0_0_1px_rgba(15,143,97,0.18)]'
                             : 'border-[#F1E3D4] bg-white text-[#16352B] hover:border-[#0f8f61]'
                         }`}
                       >
-                        <span className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                          <span className="font-semibold">{variantDetails}</span>
-                          <span className="font-bold">{formatMoney(Number(variant.price ?? 0))}</span>
+                        <span className="flex items-start justify-between gap-3">
+                          <span className="min-w-0 text-sm font-semibold leading-tight">
+                            {variantDetails}
+                          </span>
+                          <span className="flex-shrink-0 text-sm font-bold">
+                            {variantRequiresQuote ? 'A cotizar' : formatMoney(Number(variant.price ?? 0))}
+                          </span>
                         </span>
-                        <span className={`mt-1 block text-xs ${variantRequiresConsult || variantStock > 0 ? 'text-[#6B7280]' : 'text-red-600'}`}>
-                          {variantRequiresConsult
-                            ? 'Consultar disponibilidad'
-                            : variantStock > 0
-                              ? `Stock: ${variantStock}`
-                              : 'Sin stock'}
+                        <span className={`mt-0.5 block text-[11px] leading-3 sm:leading-4 ${variantRequiresConsult || variantStock > 0 ? 'text-[#6B7280]' : 'text-red-600'}`}>
+                          {variantRequiresQuote
+                            ? 'Cotización por WhatsApp'
+                            : variantRequiresConsult
+                              ? 'Consultar disponibilidad'
+                              : variantStock > 0
+                                ? `Stock: ${variantStock}`
+                                : 'Sin stock'}
                         </span>
                       </button>
                     );
@@ -341,7 +365,7 @@ const ProductPage = ({
               )
             )}
 
-            {!requiresAvailabilityConsult && (
+            {!requiresManualConsult && (
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold text-[#16352B]">Cantidad</p>
                 <div className="inline-flex items-center rounded-lg border border-[#F1E3D4] bg-white">
@@ -375,12 +399,12 @@ const ProductPage = ({
 
             <button
               type="button"
-              onClick={requiresAvailabilityConsult ? openAvailabilityWhatsApp : handleAddToCart}
+              onClick={requiresManualConsult ? openAvailabilityWhatsApp : handleAddToCart}
               disabled={isOutOfStock}
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0f8f61] px-6 py-4 font-semibold text-white transition-colors hover:bg-[#0c7a52] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              {requiresAvailabilityConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
-              {requiresAvailabilityConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+              {requiresManualConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+              {requiresManualConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
             </button>
           </section>
         </div>
@@ -403,11 +427,13 @@ const ProductPage = ({
               <div className="flex items-start justify-between gap-4 border-b border-[#F1E3D4] pb-3">
                 <dt className="font-semibold text-[#6B7280]">Disponibilidad</dt>
                 <dd className={`text-right font-semibold ${isOutOfStock ? 'text-red-600' : 'text-[#0f8f61]'}`}>
-                  {requiresAvailabilityConsult
-                    ? 'Consultar disponibilidad'
-                    : isOutOfStock
-                      ? 'Agotado'
-                      : `${activeStock} unidades`}
+                  {requiresPriceQuote
+                    ? 'A cotizar'
+                    : requiresAvailabilityConsult
+                      ? 'Consultar disponibilidad'
+                      : isOutOfStock
+                        ? 'Agotado'
+                        : `${activeStock} unidades`}
                 </dd>
               </div>
               {activeDetails.length > 0 && (
@@ -465,7 +491,9 @@ const ProductPage = ({
                   />
                   <div className="p-4">
                     <p className="line-clamp-2 font-semibold text-[#16352B]">{relatedProduct.name}</p>
-                    <p className="mt-2 font-bold text-[#0f8f61]">{formatMoney(relatedProduct.price)}</p>
+                    <p className="mt-2 font-bold text-[#0f8f61]">
+                      {relatedProduct.priceMode === 'quote' ? 'A cotizar' : formatMoney(relatedProduct.price)}
+                    </p>
                   </div>
                 </button>
               ))}

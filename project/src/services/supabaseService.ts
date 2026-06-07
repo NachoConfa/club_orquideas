@@ -1,5 +1,5 @@
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-import type { Product, ProductAttributes, StockMode } from '../types/product';
+import type { PriceMode, Product, ProductAttributes, StockMode } from '../types/product';
 import {
   SUPABASE_AUTH_STORAGE_KEY,
   getSupabaseConfigMessage,
@@ -12,9 +12,11 @@ type ProductRow = {
   name: string;
   slug?: string | null;
   price: number;
+  price_mode?: string | null;
   description?: string | null;
   stock?: number | null;
   stock_mode?: string | null;
+  occasions?: string[] | null;
   orchid_type?: string | null;
   color?: string | null;
   size?: string | null;
@@ -54,6 +56,7 @@ type ProductVariantRow = {
   size?: string | null;
   flowering_stems?: number | null;
   price?: number | null;
+  price_mode?: string | null;
   stock?: number | null;
   stock_mode?: string | null;
   image_url?: string | null;
@@ -149,12 +152,18 @@ const PRODUCT_COLUMNS =
   'id, name, description, price, stock, orchid_type, color, size, image_url, is_active';
 const PRODUCT_COLUMNS_WITH_BASE_OPTIONAL =
   `${PRODUCT_COLUMNS}, slug, flowering_stems`;
-const PRODUCT_COLUMNS_WITH_OPTIONAL =
+const PRODUCT_COLUMNS_WITH_STOCK_MODE =
   `${PRODUCT_COLUMNS_WITH_BASE_OPTIONAL}, stock_mode`;
+const PRODUCT_COLUMNS_WITH_PRICE_MODE =
+  `${PRODUCT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL =
+  `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
-const PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL =
+const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE =
   `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
+const PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL =
+  `${PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
 
 const isMissingOptionalProductColumnError = (error: { code?: string; message?: string }) => {
   const message = error.message?.toLowerCase() ?? '';
@@ -163,7 +172,9 @@ const isMissingOptionalProductColumnError = (error: { code?: string; message?: s
     error.code === '42703' ||
     message.includes('slug') ||
     message.includes('flowering_stems') ||
-    message.includes('stock_mode')
+    message.includes('stock_mode') ||
+    message.includes('price_mode') ||
+    message.includes('occasions')
   );
 };
 
@@ -194,6 +205,21 @@ const isProductAttributes = (value: unknown): value is ProductAttributes =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 const normalizeStockMode = (value?: string | null): StockMode => (value === 'consult' ? 'consult' : 'quantity');
+const normalizePriceMode = (value?: string | null): PriceMode => (value === 'quote' ? 'quote' : 'fixed');
+
+const normalizeTextArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+};
 
 const sanitizeProductDescription = (description?: string | null) => {
   if (!description?.trim()) {
@@ -217,6 +243,7 @@ const mapProductVariant = (variant: ProductVariantRow) => ({
   color: variant.color?.trim() || 'Variado',
   floweringStems: variant.flowering_stems == null ? undefined : Number(variant.flowering_stems),
   price: Number(variant.price ?? 0),
+  priceMode: normalizePriceMode(variant.price_mode),
   stock: Math.max(0, Number(variant.stock ?? 0)),
   stockMode: normalizeStockMode(variant.stock_mode),
   image: variant.image_url?.trim() || undefined,
@@ -234,6 +261,7 @@ const mapProduct = (product: ProductRow): Product => {
     size: product.size || 'Mediana',
     color: product.color || 'Variado',
     price: Number(product.price),
+    priceMode: normalizePriceMode(product.price_mode),
     stock: fallbackStock,
     stockMode: normalizeStockMode(product.stock_mode),
     image: baseImage,
@@ -245,6 +273,7 @@ const mapProduct = (product: ProductRow): Product => {
     slug: product.slug || undefined,
     name: product.name,
     price: Number(product.price),
+    priceMode: normalizePriceMode(product.price_mode),
     originalPrice: product.original_price == null ? undefined : Number(product.original_price),
     image: baseImage,
     rating: Number(product.rating ?? 5),
@@ -257,6 +286,7 @@ const mapProduct = (product: ProductRow): Product => {
     description: sanitizeProductDescription(product.description),
     stock: product.stock == null ? undefined : fallbackStock,
     stockMode: normalizeStockMode(product.stock_mode),
+    occasions: normalizeTextArray(product.occasions),
     floweringStems: product.flowering_stems == null ? undefined : Number(product.flowering_stems),
     images,
     colors: [fallbackVariant.color],
@@ -306,16 +336,21 @@ const mapProductsWithDetails = (
     const colors = uniqueValues([...variants.map((variant) => variant.color), mappedProduct.color]);
     const hasRealVariants = realVariants.length > 0;
     const variantStock = realVariants.reduce((sum, variant) => sum + Math.max(0, Number(variant.stock ?? 0)), 0);
-    const variantPrices = realVariants.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price));
+    const fixedVariantPrices = realVariants
+      .filter((variant) => variant.priceMode !== 'quote')
+      .map((variant) => Number(variant.price))
+      .filter((price) => Number.isFinite(price));
+    const allVariantsRequireQuote = realVariants.length > 0 && realVariants.every((variant) => variant.priceMode === 'quote');
     const hasQuantityVariantWithStock = realVariants.some(
-      (variant) => variant.stockMode !== 'consult' && Number(variant.stock) > 0
+      (variant) => variant.priceMode !== 'quote' && variant.stockMode !== 'consult' && Number(variant.stock) > 0
     );
     const hasConsultVariant = realVariants.some((variant) => variant.stockMode === 'consult');
     const allVariantsRequireConsult = realVariants.length > 0 && realVariants.every((variant) => variant.stockMode === 'consult');
 
     return {
       ...mappedProduct,
-      price: hasRealVariants && variantPrices.length > 0 ? Math.min(...variantPrices) : mappedProduct.price,
+      price: hasRealVariants && fixedVariantPrices.length > 0 ? Math.min(...fixedVariantPrices) : mappedProduct.price,
+      priceMode: hasRealVariants ? (allVariantsRequireQuote ? 'quote' : 'fixed') : mappedProduct.priceMode,
       images: images.length > 0 ? images : [mappedProduct.image],
       colors: colors.length > 0 ? colors : [mappedProduct.color],
       variants,
@@ -533,6 +568,13 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
   if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
     productsResult = await client
       .from('products')
+      .select(PRODUCT_COLUMNS_WITH_PRICE_MODE)
+      .eq('is_active', true);
+  }
+
+  if (productsResult.error && isMissingOptionalProductColumnError(productsResult.error)) {
+    productsResult = await client
+      .from('products')
       .select(PRODUCT_COLUMNS_WITH_BASE_OPTIONAL)
       .eq('is_active', true);
   }
@@ -559,6 +601,14 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
         .select(PRODUCT_VARIANT_COLUMNS_WITH_OPTIONAL)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
+
+      if (result.error && isMissingOptionalProductColumnError(result.error)) {
+        result = await client
+          .from('product_variants')
+          .select(PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+      }
 
       if (result.error && isMissingOptionalProductColumnError(result.error)) {
         result = await client

@@ -46,9 +46,22 @@ const getRelatedProductSlug = (product: EventRelatedProduct) =>
 
 const getRelatedProductPrice = (product: EventRelatedProduct) => {
   const activeVariants = (product.variants ?? []).filter((variant) => variant.is_active !== false);
-  const prices = activeVariants.map((variant) => Number(variant.price)).filter((price) => Number.isFinite(price));
+  const prices = activeVariants
+    .filter((variant) => variant.price_mode !== 'quote')
+    .map((variant) => Number(variant.price))
+    .filter((price) => Number.isFinite(price));
 
   return prices.length > 0 ? Math.min(...prices) : Number(product.price || 0);
+};
+
+const getRelatedProductPriceLabel = (product: EventRelatedProduct) => {
+  const activeVariants = (product.variants ?? []).filter((variant) => variant.is_active !== false);
+  const requiresQuote =
+    activeVariants.length > 0
+      ? activeVariants.every((variant) => variant.price_mode === 'quote')
+      : product.price_mode === 'quote';
+
+  return requiresQuote ? 'A cotizar' : formatPrice(getRelatedProductPrice(product));
 };
 
 const getRelatedProductImage = (product: EventRelatedProduct) =>
@@ -58,6 +71,9 @@ const getRelatedProductAvailabilityLabel = (product: EventRelatedProduct) => {
   const activeVariants = (product.variants ?? []).filter((variant) => variant.is_active !== false);
 
   if (activeVariants.length > 0) {
+    const allQuote = activeVariants.every((variant) => variant.price_mode === 'quote');
+    if (allQuote) return 'Cotización personalizada';
+
     const allConsult = activeVariants.every((variant) => variant.stock_mode === 'consult');
     if (allConsult) return 'Consultar disponibilidad';
 
@@ -65,6 +81,7 @@ const getRelatedProductAvailabilityLabel = (product: EventRelatedProduct) => {
     return hasStock ? 'Disponible' : 'Sin stock';
   }
 
+  if (product.price_mode === 'quote') return 'Cotización personalizada';
   if (product.stock_mode === 'consult') return 'Consultar disponibilidad';
   return Number(product.stock) > 0 ? 'Disponible' : 'Sin stock';
 };
@@ -114,7 +131,7 @@ const EventRelatedProductCard: React.FC<{
           {product.name}
         </h4>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-lg font-bold text-[#16352B]">{formatPrice(getRelatedProductPrice(product))}</span>
+          <span className="text-lg font-bold text-[#16352B]">{getRelatedProductPriceLabel(product)}</span>
           <span className="text-xs text-[#6B756F]">{availabilityLabel}</span>
         </div>
       </div>

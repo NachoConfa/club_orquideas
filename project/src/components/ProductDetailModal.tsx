@@ -27,6 +27,7 @@ const getProductVariants = (product: Product): ProductVariant[] =>
           size: product.size,
           color: product.color,
           price: product.price,
+          priceMode: product.priceMode || 'fixed',
           stock: Number(product.stock ?? (product.inStock ? 1 : 0)),
           stockMode: product.stockMode || 'quantity',
           image: product.image,
@@ -76,10 +77,13 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
 
   const activeImage = selectedImage || selectedVariant?.image || product?.image || '';
   const activePrice = selectedVariant?.price ?? product?.price ?? 0;
+  const activePriceMode = selectedVariant?.priceMode || product?.priceMode || 'fixed';
+  const requiresPriceQuote = activePriceMode === 'quote';
   const activeStockMode = selectedVariant?.stockMode || product?.stockMode || 'quantity';
   const requiresAvailabilityConsult = activeStockMode === 'consult';
+  const requiresManualConsult = requiresPriceQuote || requiresAvailabilityConsult;
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
-  const isOutOfStock = !requiresAvailabilityConsult && activeStock <= 0;
+  const isOutOfStock = !requiresManualConsult && activeStock <= 0;
   const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
 
   useEffect(() => {
@@ -127,13 +131,13 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (requiresAvailabilityConsult) {
+    if (requiresManualConsult) {
       setQuantity(1);
       return;
     }
 
     setQuantity((current) => Math.min(Math.max(1, current), Math.max(1, activeStock)));
-  }, [activeStock, requiresAvailabilityConsult]);
+  }, [activeStock, requiresManualConsult]);
 
   if (!isOpen || !product) {
     return null;
@@ -155,8 +159,8 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
       return;
     }
 
-    if (requiresAvailabilityConsult) {
-      setMessage('Este producto requiere consulta de disponibilidad.');
+    if (requiresManualConsult) {
+      setMessage(requiresPriceQuote ? 'Este producto se cotiza por WhatsApp.' : 'Este producto requiere consulta de disponibilidad.');
       return;
     }
 
@@ -166,6 +170,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
       variantId: selectedVariant?.id,
       name: product.name,
       price: activePrice,
+      priceMode: activePriceMode,
       image: activeImage,
       quantity,
       color: selectedColor || selectedVariant?.color || product.color,
@@ -183,7 +188,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
       .filter(Boolean)
       .join(' / ');
     const variantLine = details ? `\nVariante: ${details}` : '';
-    const text = `Hola, quiero consultar disponibilidad de: ${product.name}${variantLine}`;
+    const text = `Hola, quiero consultar ${requiresPriceQuote ? 'cotización' : 'disponibilidad'} de: ${product.name}${variantLine}`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
   const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -333,8 +338,12 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                           <span className="block font-semibold">{size}</span>
                           {variantForSize && (
                             <span className="mt-1 block text-xs text-gray-500">
-                              {formatMoney(variantForSize.price)} ·{' '}
-                              {variantForSize.stockMode === 'consult' ? 'Consultar disponibilidad' : `Stock ${stock}`}
+                              {variantForSize.priceMode === 'quote' ? 'A cotizar' : formatMoney(variantForSize.price)} ·{' '}
+                              {variantForSize.priceMode === 'quote'
+                                ? 'Cotización'
+                                : variantForSize.stockMode === 'consult'
+                                  ? 'Consultar disponibilidad'
+                                  : `Stock ${stock}`}
                             </span>
                           )}
                         </button>
@@ -348,22 +357,26 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Precio</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatMoney(activePrice)}</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {requiresPriceQuote ? 'A cotizar' : formatMoney(activePrice)}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-500">Stock disponible</p>
                     <p className={`font-semibold ${isOutOfStock ? 'text-red-600' : 'text-emerald-700'}`}>
-                      {requiresAvailabilityConsult
-                        ? 'Consultar disponibilidad'
-                        : isOutOfStock
-                          ? 'Agotado'
-                          : `Stock: ${activeStock} unidades`}
+                      {requiresPriceQuote
+                        ? 'Cotización personalizada'
+                        : requiresAvailabilityConsult
+                          ? 'Consultar disponibilidad'
+                          : isOutOfStock
+                            ? 'Agotado'
+                            : `Stock: ${activeStock} unidades`}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {!requiresAvailabilityConsult && (
+              {!requiresManualConsult && (
                 <div className="mt-6">
                   <p className="mb-2 text-sm font-semibold text-gray-800">Cantidad</p>
                   <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white">
@@ -397,12 +410,12 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
 
               <button
                 type="button"
-                onClick={requiresAvailabilityConsult ? openAvailabilityWhatsApp : handleAddToCart}
+                onClick={requiresManualConsult ? openAvailabilityWhatsApp : handleAddToCart}
                 disabled={isOutOfStock}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 font-semibold text-white transition-all hover:from-emerald-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500"
               >
-                {requiresAvailabilityConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
-                {requiresAvailabilityConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+                {requiresManualConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+                {requiresManualConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
               </button>
             </div>
         </div>

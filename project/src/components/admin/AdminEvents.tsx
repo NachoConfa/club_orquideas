@@ -584,7 +584,9 @@ const EventForm: React.FC<EventFormProps> = ({
                           )}
                           <span className="min-w-0">
                             <span className="block truncate text-xs font-semibold text-gray-800">{product.name}</span>
-                            <span className="block text-xs text-gray-500">{formatCurrency(product.price)}</span>
+                            <span className="block text-xs text-gray-500">
+                              {product.price_mode === 'quote' ? 'A cotizar' : formatCurrency(product.price)}
+                            </span>
                           </span>
                         </button>
                       ))}
@@ -622,7 +624,7 @@ const EventForm: React.FC<EventFormProps> = ({
                                   </div>
                                   <div className="text-xs text-gray-500">
                                     {product
-                                      ? `${formatCurrency(product.price)} · ${product.orchid_type || 'Producto'}`
+                                      ? `${product.price_mode === 'quote' ? 'A cotizar' : formatCurrency(product.price)} · ${product.orchid_type || 'Producto'}`
                                       : relation.product_id}
                                   </div>
                                 </div>

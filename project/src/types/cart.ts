@@ -1,4 +1,4 @@
-import type { StockMode } from './product';
+import type { PriceMode, StockMode } from './product';
 
 export interface CartItem {
   cartKey: string;
@@ -7,6 +7,7 @@ export interface CartItem {
   variantId?: string;
   name: string;
   price: number;
+  priceMode?: PriceMode;
   image: string;
   quantity: number;
   color: string;

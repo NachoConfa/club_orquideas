@@ -306,6 +306,20 @@ const AdminDashboardSkeleton = () => (
   </div>
 );
 
+const PRODUCT_OCCASION_OPTIONS = [
+  'Cumpleaños',
+  'Casamiento',
+  'Aniversario',
+  'Regalo',
+  'Evento corporativo',
+  'Recepción',
+  'Escritorio',
+  'Living',
+  'Día de la madre',
+  'Decoración',
+  'Taller / Invernadero',
+];
+
 const ProductForm = ({
   form,
   title,
@@ -324,6 +338,8 @@ const ProductForm = ({
   const toast = useToast();
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
   const [uploadingVariantImageIndex, setUploadingVariantImageIndex] = useState<number | null>(null);
+  const [customOccasion, setCustomOccasion] = useState('');
+  const selectedOccasions = Array.isArray(form.occasions) ? form.occasions : [];
 
   const updateField = <K extends keyof AdminProductInput>(key: K, value: AdminProductInput[K]) => {
     onChange({ ...form, [key]: value });
@@ -341,6 +357,36 @@ const ProductForm = ({
     });
   };
   const normalizeStockInput = (value: string) => (value === '' ? '' : Number(value));
+  const addOccasion = (value: string) => {
+    const occasion = value.trim();
+    if (!occasion) return;
+
+    if (!selectedOccasions.some((selectedOccasion) => selectedOccasion.toLowerCase() === occasion.toLowerCase())) {
+      updateField('occasions', [...selectedOccasions, occasion]);
+    }
+  };
+  const toggleOccasion = (occasion: string) => {
+    const isSelected = selectedOccasions.some(
+      (selectedOccasion) => selectedOccasion.toLowerCase() === occasion.toLowerCase()
+    );
+
+    updateField(
+      'occasions',
+      isSelected
+        ? selectedOccasions.filter((selectedOccasion) => selectedOccasion.toLowerCase() !== occasion.toLowerCase())
+        : [...selectedOccasions, occasion]
+    );
+  };
+  const removeOccasion = (occasion: string) => {
+    updateField(
+      'occasions',
+      selectedOccasions.filter((selectedOccasion) => selectedOccasion !== occasion)
+    );
+  };
+  const addCustomOccasion = () => {
+    addOccasion(customOccasion);
+    setCustomOccasion('');
+  };
   const addVariant = () => {
     onChange({
       ...form,
@@ -351,6 +397,7 @@ const ProductForm = ({
           size: form.size || 'Mediana',
           flowering_stems: Number(form.flowering_stems || 0) > 0 ? Number(form.flowering_stems) : '',
           price: form.price || '',
+          price_mode: form.price_mode || 'fixed',
           stock: form.stock === '' ? 0 : Number(form.stock || 0),
           stock_mode: form.stock_mode || 'quantity',
           image_url: form.image_url || '',
@@ -418,7 +465,7 @@ const ProductForm = ({
     }
   };
 
-  const hasPriceValue = /\d/.test(String(form.price ?? ''));
+  const canSubmitPrice = form.price_mode === 'quote' || /\d/.test(String(form.price ?? ''));
 
   return (
     <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
@@ -508,6 +555,23 @@ const ProductForm = ({
         </label>
 
         <label className="text-sm font-medium text-gray-700">
+          Tipo de precio
+          <select
+            value={form.price_mode}
+            onChange={(event) => updateField('price_mode', event.target.value as AdminProductInput['price_mode'])}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="fixed">Precio fijo</option>
+            <option value="quote">A cotizar</option>
+          </select>
+          {form.price_mode === 'quote' && (
+            <span className="mt-1 block text-xs font-normal text-gray-500">
+              En la tienda se mostrará A cotizar y se consultará por WhatsApp.
+            </span>
+          )}
+        </label>
+
+        <label className="text-sm font-medium text-gray-700">
           Precio
           <div className="relative mt-1">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -516,9 +580,10 @@ const ProductForm = ({
               inputMode="decimal"
               value={form.price}
               onChange={(event) => updateField('price', event.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+              disabled={form.price_mode === 'quote'}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
               placeholder="56000"
-              required
+              required={form.price_mode !== 'quote'}
             />
           </div>
         </label>
@@ -604,6 +669,78 @@ const ProductForm = ({
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
           />
         </label>
+
+        <div className="text-sm font-medium text-gray-700 md:col-span-2">
+          <span>Ocasiones</span>
+          <p className="mt-1 text-xs font-normal text-gray-500">
+            Seleccioná una o varias ocasiones para que aparezcan como filtro en el catálogo.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PRODUCT_OCCASION_OPTIONS.map((occasion) => {
+              const isSelected = selectedOccasions.some(
+                (selectedOccasion) => selectedOccasion.toLowerCase() === occasion.toLowerCase()
+              );
+
+              return (
+                <button
+                  key={occasion}
+                  type="button"
+                  onClick={() => toggleOccasion(occasion)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    isSelected
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'
+                  }`}
+                  aria-pressed={isSelected}
+                >
+                  {occasion}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={customOccasion}
+              onChange={(event) => setCustomOccasion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addCustomOccasion();
+                }
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+              placeholder="Agregar ocasión personalizada"
+            />
+            <button
+              type="button"
+              onClick={addCustomOccasion}
+              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
+            >
+              Agregar
+            </button>
+          </div>
+          {selectedOccasions.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedOccasions.map((occasion) => (
+                <span
+                  key={occasion}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+                >
+                  {occasion}
+                  <button
+                    type="button"
+                    onClick={() => removeOccasion(occasion)}
+                    className="rounded-full p-0.5 text-emerald-700 hover:bg-emerald-200"
+                    aria-label={`Quitar ${occasion}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-4">
@@ -703,13 +840,31 @@ const ProductForm = ({
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">
+                    Tipo de precio
+                    <select
+                      value={variant.price_mode}
+                      onChange={(event) =>
+                        updateVariant(index, 'price_mode', event.target.value as AdminProductVariantInput['price_mode'])
+                      }
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="fixed">Precio fijo</option>
+                      <option value="quote">A cotizar</option>
+                    </select>
+                    {variant.price_mode === 'quote' && (
+                      <span className="mt-1 block font-normal text-gray-500">No se venderá directo desde la tienda.</span>
+                    )}
+                  </label>
+                  <label className="text-xs font-medium text-gray-600">
                     Precio
                     <input
                       type="text"
                       inputMode="decimal"
                       value={variant.price}
                       onChange={(event) => updateVariant(index, 'price', event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      disabled={variant.price_mode === 'quote'}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      required={variant.price_mode !== 'quote'}
                     />
                   </label>
                   <label className="text-xs font-medium text-gray-600">
@@ -811,7 +966,7 @@ const ProductForm = ({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={isSaving || !form.name.trim() || !hasPriceValue}
+          disabled={isSaving || !form.name.trim() || !canSubmitPrice}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1037,7 +1192,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     }
 
     const activeProducts = products.filter((product) => product.is_active).length;
-    const lowStockProducts = products.filter((product) => product.stock_mode !== 'consult' && Number(product.stock) <= 3).length;
+    const lowStockProducts = products.filter(
+      (product) => product.price_mode !== 'quote' && product.stock_mode !== 'consult' && Number(product.stock) <= 3
+    ).length;
     const pendingOrders = orders.filter(
       (order) => ['pending', 'pendiente', 'awaiting_payment', 'received'].includes(getStatus(order)) || isPendingPayment(order)
     ).length;
@@ -1054,7 +1211,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     }
 
     return products.filter((product) =>
-      [product.name, product.orchid_type, product.color, product.size]
+      [product.name, product.orchid_type, product.color, product.size, ...(product.occasions ?? [])]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query))
     );
@@ -1415,7 +1572,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                   <div>
                     <h2 className="mb-3 text-lg font-semibold text-gray-900">Stock bajo</h2>
                     <RecordTable
-                      records={products.filter((product) => product.stock_mode !== 'consult' && Number(product.stock) <= 3).slice(0, 6) as unknown as AdminRecord[]}
+                      records={products
+                        .filter((product) => product.price_mode !== 'quote' && product.stock_mode !== 'consult' && Number(product.stock) <= 3)
+                        .slice(0, 6) as unknown as AdminRecord[]}
                       emptyMessage="No hay productos con stock bajo."
                       columns={[
                         { key: 'name', label: 'Producto' },
@@ -1490,7 +1649,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                             )}
                           </td>
                           <td className="px-4 py-3 text-gray-700">{product.orchid_type}</td>
-                          <td className="px-4 py-3 text-gray-700">{formatCurrency(product.price)}</td>
+                          <td className="px-4 py-3 text-gray-700">
+                            {product.price_mode === 'quote' ? 'A cotizar' : formatCurrency(product.price)}
+                          </td>
                           <td className="px-4 py-3 text-gray-700">
                             {product.stock_mode === 'consult' ? 'Consultar disponibilidad' : product.stock}
                           </td>
