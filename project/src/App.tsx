@@ -444,7 +444,7 @@ const getCatalogCategoryFromPage = (page: AppPage): CatalogCategory | null => {
 };
 
 const getCatalogPageTitle = (page: AppPage) => {
-  if (page === 'orchids') return 'Nuestras Orquídeas';
+  if (page === 'orchids') return 'Nuestra selección de orquídeas';
   if (page === 'arrangements') return 'Arreglos';
   if (page === 'pots') return 'Macetas Artesanales';
   if (page === 'interior') return 'Plantas de interior';
@@ -453,7 +453,13 @@ const getCatalogPageTitle = (page: AppPage) => {
 };
 
 const getCatalogPageDescription = (page: AppPage) => {
-  if (page === 'orchids') return 'Descubrí nuestra colección completa de orquídeas exóticas';
+  if (page === 'orchids') {
+    return `Orquídeas seleccionadas para regalar y decorar tus ambientes y eventos.
+
+Elegí orquídeas con flores o pimpollos, ideales para interiores, escritorios, livings, recepciones y regalos especiales.
+
+Seleccionamos orquídeas, plantas y arreglos florales para transformar espacios con belleza natural, color y frescura.`;
+  }
   if (page === 'arrangements') return 'Arreglos con orquídeas listos para regalar, decorar o encargar';
   if (page === 'pots') return 'Macetas únicas diseñadas especialmente para orquídeas';
   if (page === 'interior') return 'Plantas seleccionadas para llenar tus espacios interiores de vida y frescura';
@@ -2155,7 +2161,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                 <h1 className="mb-2 text-2xl font-semibold text-[#2F3A35] sm:mb-4 sm:text-3xl">
                   {getCatalogPageTitle(currentPage)}
                 </h1>
-                <p className="text-sm text-[#6B756F] sm:text-base">
+                <p className="whitespace-pre-line text-sm text-[#6B756F] sm:text-base">
                   {getCatalogPageDescription(currentPage)}
                 </p>
               </div>

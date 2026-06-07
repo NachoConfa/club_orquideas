@@ -36,13 +36,14 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
             <div className="flex space-x-4">
               <a
-                href="https://www.instagram.com/modoplantas/"
+                href="https://www.instagram.com/clubdelasorquideas/?hl=es-la"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full bg-[#0F8F61] p-2 transition-colors hover:bg-[#0C7A52]"
-                aria-label="Instagram de Modo Plantas"
+                className="inline-flex items-center gap-2 rounded-full bg-[#0F8F61] px-3 py-2 text-sm font-semibold transition-colors hover:bg-[#0C7A52]"
+                aria-label="Instagram @clubdelasorquideas"
               >
                 <Instagram className="h-5 w-5" />
+                <span>@clubdelasorquideas</span>
               </a>
               <a
                 href="https://wa.me/5491122906442"

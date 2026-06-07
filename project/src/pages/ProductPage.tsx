@@ -15,6 +15,7 @@ import {
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import ProductImage from '../components/ProductImage';
 
 interface ProductPageProps {
   product: Product | null;
@@ -229,12 +230,13 @@ const ProductPage = ({
         <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)] xl:gap-8">
           <section className="min-w-0 self-start overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white shadow-sm">
             <div className="flex min-h-[260px] items-center justify-center bg-[#f7f1e8] p-3 sm:min-h-[320px] lg:min-h-[380px]">
-              <img
+              <ProductImage
                 src={activeImage}
                 alt={product.name}
                 loading="eager"
                 decoding="async"
                 className="block h-auto max-h-[58vh] w-auto max-w-full object-contain sm:max-h-[66vh] lg:max-h-[70vh]"
+                fallbackClassName="min-h-[260px] sm:min-h-[320px] lg:min-h-[380px]"
               />
             </div>
           </section>
@@ -259,7 +261,7 @@ const ProductPage = ({
             </div>
 
             <h1 className="break-words text-3xl font-bold leading-tight text-[#16352B] sm:text-4xl">{product.name}</h1>
-            <p className="mt-4 text-base leading-7 text-[#6B7280]">
+            <p className="mt-4 whitespace-pre-line text-base leading-7 text-[#6B7280]">
               {product.description || 'Producto seleccionado de nuestro catálogo.'}
             </p>
 
@@ -412,12 +414,13 @@ const ProductPage = ({
                   onClick={() => onOpenRelatedProduct?.(relatedProduct)}
                   className="overflow-hidden rounded-xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-transform hover:-translate-y-1"
                 >
-                  <img
+                  <ProductImage
                     src={relatedProduct.image}
                     alt={relatedProduct.name}
                     loading="lazy"
                     decoding="async"
                     className="h-44 w-full object-cover"
+                    fallbackClassName="h-44"
                   />
                   <div className="p-4">
                     <p className="line-clamp-2 font-semibold text-[#16352B]">{relatedProduct.name}</p>

@@ -222,6 +222,37 @@ const normalizeSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+const getUniqueProductCopySlug = async (source: AdminProduct) => {
+  const client = getClient();
+  const sourceSlug = normalizeSlug(source.slug || source.name) || `producto-${Date.now()}`;
+  const copyBaseSlug = `${sourceSlug.replace(/-copia(?:-\d+)?$/, '')}-copia`;
+  const { data, error } = await client
+    .from('products')
+    .select('slug')
+    .like('slug', `${copyBaseSlug}%`);
+
+  if (error) {
+    throw error;
+  }
+
+  const existingSlugs = new Set(
+    ((data ?? []) as Array<{ slug?: string | null }>)
+      .map((item) => item.slug)
+      .filter((slug): slug is string => Boolean(slug))
+  );
+
+  if (!existingSlugs.has(copyBaseSlug)) {
+    return copyBaseSlug;
+  }
+
+  let suffix = 2;
+  while (existingSlugs.has(`${copyBaseSlug}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${copyBaseSlug}-${suffix}`;
+};
+
 const isMissingProductVariantsTableError = (error: { code?: string; message?: string }) => {
   const message = error.message?.toLowerCase() ?? '';
   return (
@@ -623,6 +654,52 @@ export const createAdminProduct = async (product: AdminProductInput) => {
   const createdProduct = data as AdminProduct;
   await saveProductVariants(createdProduct.id, product);
   return (await attachVariantsToProducts([createdProduct]))[0];
+};
+
+export const duplicateAdminProduct = async (source: AdminProduct) => {
+  const client = getClient();
+  const duplicateInput: AdminProductInput = {
+    ...productToInput(source),
+    name: `${source.name} (copia)`,
+    slug: await getUniqueProductCopySlug(source),
+    is_active: false,
+    variants: (source.variants ?? []).map((variant) => ({
+      color: variant.color || '',
+      size: variant.size || '',
+      flowering_stems: variant.flowering_stems == null ? '' : Number(variant.flowering_stems),
+      price: String(variant.price ?? ''),
+      stock: Number(variant.stock ?? 0),
+      stock_mode: variant.stock_mode === 'consult' ? 'consult' : 'quantity',
+      image_url: variant.image_url || '',
+      is_active: Boolean(variant.is_active),
+      sort_order: Number(variant.sort_order ?? 0),
+    })),
+    deletedVariantIds: [],
+  };
+  const duplicateId = createUuid();
+
+  try {
+    const { data, error } = await client
+      .from('products')
+      .insert({
+        id: duplicateId,
+        ...toProductPayload(duplicateInput),
+        category_id: source.category_id,
+      })
+      .select(PRODUCT_COLUMNS_WITH_STOCK_MODE)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    const duplicatedProduct = data as AdminProduct;
+    await saveProductVariants(duplicatedProduct.id, duplicateInput);
+    return (await attachVariantsToProducts([duplicatedProduct]))[0];
+  } catch (error) {
+    await client.from('products').delete().eq('id', duplicateId);
+    throw error;
+  }
 };
 
 export const updateAdminProduct = async (id: string, product: AdminProductInput) => {

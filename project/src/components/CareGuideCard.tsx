@@ -41,7 +41,9 @@ const CareGuideCard: React.FC<CareGuideCardProps> = ({ guide, onOpen }) => {
             {guide.subtitle && <p className="mt-1 text-sm text-[#6B756F]">{guide.subtitle}</p>}
           </div>
           {guide.short_description && (
-            <p className="line-clamp-3 text-sm leading-6 text-[#6B756F]">{guide.short_description}</p>
+            <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-[#6B756F]">
+              {guide.short_description}
+            </p>
           )}
           <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#0F8F61]">
             Ver cuidado

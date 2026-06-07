@@ -13,6 +13,8 @@ const slides: Array<{
   buttonLabel: string;
   page: HeroPage;
   image: string;
+  fallbackImage?: string;
+  imageAlt?: string;
   eyebrow: string;
 }> = [
   {
@@ -21,7 +23,11 @@ const slides: Array<{
     buttonLabel: 'Ver orquídeas',
     page: 'orchids',
     eyebrow: 'Colección viva',
-    image: 'https://images.pexels.com/photos/459196/pexels-photo-459196.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    image:
+      'https://wcfxrqnesekpqzahadlc.supabase.co/storage/v1/object/public/imagenes/WhatsApp%20Image%202026-06-06%20at%2018.48.17.jpeg',
+    fallbackImage:
+      'https://images.pexels.com/photos/459196/pexels-photo-459196.jpeg?auto=compress&cs=tinysrgb&w=1800',
+    imageAlt: 'Orquídeas y plantas decorativas de Modo Plantas',
   },
   {
     title: 'Macetas y otros detalles con estilo',
@@ -78,7 +84,22 @@ const HeroCarousel: React.FC<HeroCarouselProps> = ({ onNavigate }) => {
           }`}
           aria-hidden={activeSlideIndex !== index}
         >
-          <img src={slide.image} alt={slide.title} className="h-full w-full object-cover" />
+          <img
+            src={slide.image}
+            alt={slide.imageAlt || slide.title}
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              const failedImage = event.currentTarget;
+              failedImage.onerror = null;
+
+              if (slide.fallbackImage && failedImage.src !== slide.fallbackImage) {
+                failedImage.src = slide.fallbackImage;
+                return;
+              }
+
+              failedImage.style.display = 'none';
+            }}
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-[#16352B]/88 via-[#16352B]/60 to-[#16352B]/20" />
           <div className="absolute inset-0 bg-[#0F8F61]/10" />
         </div>

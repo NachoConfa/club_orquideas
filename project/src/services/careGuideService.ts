@@ -34,6 +34,37 @@ const normalizeSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || `cuidado-${Date.now()}`;
 
+const getUniqueCareGuideCopySlug = async (guide: CareGuide) => {
+  const client = getClient();
+  const sourceSlug = normalizeSlug(guide.slug || guide.title);
+  const copyBaseSlug = `${sourceSlug.replace(/-copia(?:-\d+)?$/, '')}-copia`;
+  const { data, error } = await client
+    .from('care_guides')
+    .select('slug')
+    .like('slug', `${copyBaseSlug}%`);
+
+  if (error) {
+    throw error;
+  }
+
+  const existingSlugs = new Set(
+    ((data ?? []) as Array<{ slug?: string | null }>)
+      .map((item) => item.slug)
+      .filter((slug): slug is string => Boolean(slug))
+  );
+
+  if (!existingSlugs.has(copyBaseSlug)) {
+    return copyBaseSlug;
+  }
+
+  let suffix = 2;
+  while (existingSlugs.has(`${copyBaseSlug}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${copyBaseSlug}-${suffix}`;
+};
+
 const parseSpecialTips = (value: string | string[] | null | undefined) => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean);
@@ -289,6 +320,53 @@ export const createCareGuide = async (guide: CareGuideInput) => {
   const createdGuide = data as CareGuide;
   await saveCareGuideVariants(createdGuide.id, guide);
   return (await attachVariantsToGuides([createdGuide]))[0];
+};
+
+export const duplicateCareGuide = async (source: CareGuide) => {
+  const client = getClient();
+  const duplicateInput: CareGuideInput = {
+    ...careGuideToInput(source),
+    title: `${source.title} (copia)`,
+    slug: await getUniqueCareGuideCopySlug(source),
+    is_active: false,
+    variants: (source.variants ?? []).map((variant) => ({
+      title: variant.title,
+      subtitle: variant.subtitle || '',
+      description: variant.description || '',
+      image_url: variant.image_url || '',
+      light: variant.light || '',
+      watering: variant.watering || '',
+      temperature: variant.temperature || '',
+      humidity: variant.humidity || '',
+      fertilization: variant.fertilization || '',
+      transplant: variant.transplant || '',
+      flowering: variant.flowering || '',
+      special_tips: stringifySpecialTips(variant.special_tips),
+      is_active: Boolean(variant.is_active),
+      sort_order: Number(variant.sort_order ?? 0),
+    })),
+    deletedVariantIds: [],
+  };
+  const duplicateId = createUuid();
+
+  try {
+    const { data, error } = await client
+      .from('care_guides')
+      .insert({ id: duplicateId, ...toCareGuidePayload(duplicateInput) })
+      .select(CARE_GUIDE_COLUMNS)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    const duplicatedGuide = data as CareGuide;
+    await saveCareGuideVariants(duplicatedGuide.id, duplicateInput);
+    return (await attachVariantsToGuides([duplicatedGuide]))[0];
+  } catch (error) {
+    await client.from('care_guides').delete().eq('id', duplicateId);
+    throw error;
+  }
 };
 
 export const updateCareGuide = async (id: string, guide: CareGuideInput) => {

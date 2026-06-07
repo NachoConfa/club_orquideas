@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import type { Product } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import ProductImage from './ProductImage';
 
 interface ProductCardProps {
   product: Product;
@@ -42,12 +43,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
       className="group cursor-pointer overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#16352B]/10 focus:outline-none focus:ring-2 focus:ring-[#0F8F61]"
     >
       <div className="relative overflow-hidden">
-        <img
+        <ProductImage
           src={product.image}
           alt={product.name}
           loading="lazy"
           decoding="async"
           className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105 sm:h-56 lg:h-64"
+          fallbackClassName="h-48 sm:h-56 lg:h-64"
         />
         <div className="absolute top-2 sm:top-3 right-2 sm:right-3 space-y-2">
           <button 

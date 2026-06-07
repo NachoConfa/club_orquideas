@@ -6,6 +6,7 @@ import {
   Boxes,
   Check,
   ClipboardList,
+  Copy,
   CreditCard,
   Edit,
   CalendarDays,
@@ -31,6 +32,7 @@ import {
   confirmAdminOrderPayment,
   createAdminProduct,
   deleteAdminProduct,
+  duplicateAdminProduct,
   getAnalyticsReport,
   emptyAdminProductInput,
   getAdminOrders,
@@ -1142,6 +1144,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     }
   };
 
+  const duplicateProduct = async (product: AdminProduct) => {
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await duplicateAdminProduct(product);
+      await loadProducts();
+      await loadDashboardData();
+      onProductsChanged();
+      toast.success(`Se duplicó "${product.name}" como borrador oculto.`);
+    } catch (duplicateError) {
+      if (import.meta.env.DEV) {
+        console.error('No se pudo duplicar el producto:', duplicateError);
+      }
+      const message = 'No se pudo duplicar el producto. Intentá nuevamente.';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const changeOrderStatus = async (order: AdminRecord, status: string) => {
     const id = getRecordId(order);
     if (!id) {
@@ -1488,6 +1512,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                                 title="Editar producto"
                               >
                                 <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => void duplicateProduct(product)}
+                                disabled={isSaving}
+                                className="rounded-lg bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                                title="Duplicar producto"
+                              >
+                                <Copy className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => removeProduct(product)}

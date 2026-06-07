@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock, MapPin, MessageCircle, PartyPopper, RefreshCw, Users } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEventStatusLabel } from '../components/EventCard';
+import ProductImage from '../components/ProductImage';
 import { getActiveEventBySlug } from '../services/eventService';
 import type { EventRelatedProduct, EventSection, StoreEvent } from '../types/event';
 
@@ -96,19 +97,14 @@ const EventRelatedProductCard: React.FC<{
       className="group overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0F8F61]"
     >
       <div className="relative aspect-[4/3] bg-[#F8EFE3]">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[#0F8F61]">
-            <PartyPopper className="h-10 w-10" />
-          </div>
-        )}
+        <ProductImage
+          src={imageUrl}
+          alt={product.name}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          fallbackClassName="aspect-[4/3]"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
       <div className="space-y-2 p-4">
         <span className="rounded-full bg-[#E8F7EF] px-3 py-1 text-xs font-semibold text-[#0F8F61]">
@@ -136,7 +132,9 @@ const EventSectionCard: React.FC<{
     )}
     <div className="p-5">
       <h3 className="text-lg font-semibold text-[#16352B]">{section.title}</h3>
-      {section.description && <p className="mt-2 leading-7 text-[#6B756F]">{section.description}</p>}
+      {section.description && (
+        <p className="mt-2 whitespace-pre-line leading-7 text-[#6B756F]">{section.description}</p>
+      )}
       {section.products && section.products.length > 0 && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {section.products.map((relation) =>
@@ -253,7 +251,11 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
                   {getEventStatusLabel(event.status)}
                 </span>
                 <h1 className="mt-5 text-3xl font-semibold leading-tight text-[#16352B] sm:text-4xl">{event.title}</h1>
-                {event.short_description && <p className="mt-3 leading-7 text-[#6B756F]">{event.short_description}</p>}
+                {event.short_description && (
+                  <p className="mt-3 whitespace-pre-line leading-7 text-[#6B756F]">
+                    {event.short_description}
+                  </p>
+                )}
 
                 <div className="mt-6 grid gap-3">
                   {event.event_date && (
@@ -283,7 +285,7 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
                 </div>
 
                 {event.description && (
-                  <div className="mt-6 rounded-2xl bg-[#FFF8EF] p-5 leading-7 text-[#4B5A52]">
+                  <div className="mt-6 whitespace-pre-line rounded-2xl bg-[#FFF8EF] p-5 leading-7 text-[#4B5A52]">
                     {event.description}
                   </div>
                 )}

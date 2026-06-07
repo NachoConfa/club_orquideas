@@ -4,6 +4,7 @@ import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from 'lucide
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import ProductImage from './ProductImage';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -213,7 +214,12 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
         <div className="grid max-h-[92vh] grid-cols-1 overflow-y-auto lg:h-[82vh] lg:max-h-[760px] lg:grid-cols-[1.08fr_0.92fr] lg:overflow-hidden">
           <div className="relative min-h-0 bg-gray-100 lg:h-full">
             <div className="relative h-72 overflow-hidden bg-gray-100 sm:h-[430px] lg:h-full">
-              <img src={activeImage} alt={product.name} decoding="async" className="h-full w-full object-cover" />
+              <ProductImage
+                src={activeImage}
+                alt={product.name}
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
 
               {imageOptions.length > 1 && (
                 <div className="absolute bottom-4 left-4 right-4 flex gap-3 overflow-x-auto rounded-xl bg-black/35 p-2 backdrop-blur-sm">
@@ -226,7 +232,14 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                         activeImage === image ? 'border-white ring-2 ring-emerald-400' : 'border-white/40'
                       }`}
                     >
-                      <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                      <ProductImage
+                        src={image}
+                        alt={`${product.name} - vista adicional`}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                        showFallbackLabel={false}
+                      />
                     </button>
                   ))}
                 </div>
@@ -242,7 +255,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
               </div>
 
               <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h2>
-              <p className="mt-3 text-sm leading-6 text-gray-600">
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">
                 {product.description || 'Producto seleccionado de nuestro catálogo.'}
               </p>
               <p className="mt-2 text-xs text-gray-500">

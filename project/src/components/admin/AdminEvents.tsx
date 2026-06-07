@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from 'lucide-react';
+import { Check, Copy, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import {
   createEvent,
   deleteEvent,
+  duplicateEvent,
   emptyEventInput,
   eventToInput,
   getAdminEvents,
@@ -813,6 +814,26 @@ const AdminEvents: React.FC = () => {
     }
   };
 
+  const duplicateSelectedEvent = async (event: StoreEvent) => {
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await duplicateEvent(event);
+      await loadEvents();
+      toast.success(`Se duplicó "${event.title}" como borrador oculto.`);
+    } catch (duplicateError) {
+      if (import.meta.env.DEV) {
+        console.error('No se pudo duplicar el evento:', duplicateError);
+      }
+      const message = 'No se pudo duplicar el evento. Intentá nuevamente.';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -911,6 +932,15 @@ const AdminEvents: React.FC = () => {
                         title="Editar evento"
                       >
                         <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void duplicateSelectedEvent(event)}
+                        disabled={isSaving}
+                        className="rounded-lg bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                        title="Duplicar evento"
+                      >
+                        <Copy className="h-4 w-4" />
                       </button>
                       <button
                         type="button"

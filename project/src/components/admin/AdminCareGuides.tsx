@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from 'lucide-react';
+import { Check, Copy, Edit, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import {
   careGuideToInput,
   createCareGuide,
   deleteCareGuide,
+  duplicateCareGuide,
   emptyCareGuideInput,
   getAdminCareGuides,
   updateCareGuide,
@@ -619,6 +620,26 @@ const AdminCareGuides: React.FC = () => {
     }
   };
 
+  const duplicateGuide = async (guide: CareGuide) => {
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await duplicateCareGuide(guide);
+      await loadGuides();
+      toast.success(`Se duplicó "${guide.title}" como borrador oculto.`);
+    } catch (duplicateError) {
+      if (import.meta.env.DEV) {
+        console.error('No se pudo duplicar el cuidado:', duplicateError);
+      }
+      const message = 'No se pudo duplicar el cuidado. Intentá nuevamente.';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -714,6 +735,15 @@ const AdminCareGuides: React.FC = () => {
                         title="Editar cuidado"
                       >
                         <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void duplicateGuide(guide)}
+                        disabled={isSaving}
+                        className="rounded-lg bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                        title="Duplicar cuidado"
+                      >
+                        <Copy className="h-4 w-4" />
                       </button>
                       <button
                         type="button"

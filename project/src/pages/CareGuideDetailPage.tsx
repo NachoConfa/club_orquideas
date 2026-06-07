@@ -171,7 +171,9 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
               </div>
 
               <h1 className="text-3xl font-semibold leading-tight text-[#16352B] sm:text-4xl">{guide.title}</h1>
-              {guide.subtitle && <p className="mt-3 leading-7 text-[#6B756F]">{guide.subtitle}</p>}
+              {guide.subtitle && (
+                <p className="mt-3 whitespace-pre-line leading-7 text-[#6B756F]">{guide.subtitle}</p>
+              )}
 
               {guide.variants && guide.variants.length > 0 && (
                 <div className="mt-6">
@@ -189,7 +191,9 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                         }`}
                       >
                         <span className="font-semibold">{variant.title}</span>
-                        {variant.subtitle && <span className="block text-sm">{variant.subtitle}</span>}
+                        {variant.subtitle && (
+                          <span className="block whitespace-pre-line text-sm">{variant.subtitle}</span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -199,7 +203,9 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
               <div className="mt-7 rounded-2xl bg-[#FFF8EF] p-5">
                 <h2 className="text-xl font-semibold text-[#16352B]">{activeTitle}</h2>
                 {activeSubtitle && <p className="mt-1 text-sm font-medium text-[#0F8F61]">{activeSubtitle}</p>}
-                {activeDescription && <p className="mt-4 leading-7 text-[#4B5A52]">{activeDescription}</p>}
+                {activeDescription && (
+                  <p className="mt-4 whitespace-pre-line leading-7 text-[#4B5A52]">{activeDescription}</p>
+                )}
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -212,7 +218,9 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                   return (
                     <div key={key} className="rounded-2xl border border-[#F1E3D4] bg-white p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#0F8F61]">{label}</p>
-                      <p className="mt-2 text-sm leading-6 text-[#4B5A52]">{String(value)}</p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#4B5A52]">
+                        {String(value)}
+                      </p>
                     </div>
                   );
                 })}

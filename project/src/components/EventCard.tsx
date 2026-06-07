@@ -53,7 +53,9 @@ const EventCard: React.FC<EventCardProps> = ({ event, onOpen }) => {
         <div className="space-y-3 p-5">
           <h2 className="text-xl font-semibold leading-tight text-[#16352B]">{event.title}</h2>
           {event.short_description && (
-            <p className="line-clamp-3 text-sm leading-6 text-[#6B756F]">{event.short_description}</p>
+            <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-[#6B756F]">
+              {event.short_description}
+            </p>
           )}
           <div className="space-y-2 text-sm text-[#6B756F]">
             {event.event_date && (

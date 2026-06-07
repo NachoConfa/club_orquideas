@@ -147,6 +147,37 @@ const normalizeSlug = (value: unknown) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || `evento-${Date.now()}`;
 
+const getUniqueEventCopySlug = async (event: StoreEvent) => {
+  const client = getClient();
+  const sourceSlug = normalizeSlug(event.slug || event.title);
+  const copyBaseSlug = `${sourceSlug.replace(/-copia(?:-\d+)?$/, '')}-copia`;
+  const { data, error } = await client
+    .from('events')
+    .select('slug')
+    .like('slug', `${copyBaseSlug}%`);
+
+  if (error) {
+    throw error;
+  }
+
+  const existingSlugs = new Set(
+    ((data ?? []) as Array<{ slug?: string | null }>)
+      .map((item) => item.slug)
+      .filter((slug): slug is string => Boolean(slug))
+  );
+
+  if (!existingSlugs.has(copyBaseSlug)) {
+    return copyBaseSlug;
+  }
+
+  let suffix = 2;
+  while (existingSlugs.has(`${copyBaseSlug}-${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${copyBaseSlug}-${suffix}`;
+};
+
 const normalizeNumber = (value: unknown) => {
   return toNumberOrDefault(value, 0);
 };
@@ -657,6 +688,50 @@ export const createEvent = async (event: EventInput) => {
   const createdEvent = data as StoreEvent;
   await saveEventSections(createdEvent.id, event);
   return (await attachSectionsToEvents([createdEvent]))[0];
+};
+
+export const duplicateEvent = async (source: StoreEvent) => {
+  const client = getClient();
+  const duplicateInput: EventInput = {
+    ...eventToInput(source),
+    title: `${source.title} (copia)`,
+    slug: await getUniqueEventCopySlug(source),
+    is_active: false,
+    sections: (source.sections ?? []).map((section) => ({
+      title: section.title,
+      description: section.description || '',
+      image_url: section.image_url || '',
+      sort_order: toNumberOrDefault(section.sort_order, 0),
+      is_active: Boolean(section.is_active),
+      products: (section.products ?? [])
+        .filter((relation) => typeof relation.product_id === 'string' && Boolean(relation.product_id.trim()))
+        .map((relation) => ({
+          product_id: relation.product_id,
+          sort_order: toNumberOrDefault(relation.sort_order, 0),
+        })),
+    })),
+    deletedSectionIds: [],
+  };
+  const duplicateId = createUuid();
+
+  try {
+    const { data, error } = await client
+      .from('events')
+      .insert({ id: duplicateId, ...toEventPayload(duplicateInput) })
+      .select(EVENT_COLUMNS)
+      .single();
+
+    if (error) {
+      throwSupabaseError('No se pudo duplicar el evento.', duplicateInput, error);
+    }
+
+    const duplicatedEvent = data as StoreEvent;
+    await saveEventSections(duplicatedEvent.id, duplicateInput);
+    return (await attachSectionsToEvents([duplicatedEvent]))[0];
+  } catch (error) {
+    await client.from('events').delete().eq('id', duplicateId);
+    throw error;
+  }
 };
 
 export const updateEvent = async (id: string, event: EventInput) => {
