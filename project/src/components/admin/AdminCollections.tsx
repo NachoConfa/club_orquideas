@@ -33,6 +33,15 @@ const normalizeSearchText = (value: unknown) =>
     .toLowerCase()
     .trim();
 
+const createSectionSlug = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const getProductSearchText = (product: AdminProduct) =>
   normalizeSearchText([product.name, product.orchid_type, product.color, product.size].filter(Boolean).join(' '));
 
@@ -41,7 +50,7 @@ const CollectionForm: React.FC<{
   title: string;
   isSaving: boolean;
   productOptions: AdminProduct[];
-  onChange: (form: ProductCollectionInput) => void;
+  onChange: React.Dispatch<React.SetStateAction<ProductCollectionInput>>;
   onCancel: () => void;
   onSubmit: () => void;
 }> = ({ form, title, isSaving, productOptions, onChange, onCancel, onSubmit }) => {
@@ -50,7 +59,7 @@ const CollectionForm: React.FC<{
   const [productSearchBySection, setProductSearchBySection] = useState<Record<number, string>>({});
 
   const updateField = <K extends keyof ProductCollectionInput>(key: K, value: ProductCollectionInput[K]) => {
-    onChange({ ...form, [key]: value });
+    onChange((currentForm) => ({ ...currentForm, [key]: value }));
   };
 
   const updateSection = <K extends keyof ProductCollectionSectionInput>(
@@ -58,77 +67,127 @@ const CollectionForm: React.FC<{
     key: K,
     value: ProductCollectionSectionInput[K]
   ) => {
-    onChange({
-      ...form,
-      sections: form.sections.map((section, sectionIndex) =>
+    onChange((currentForm) => ({
+      ...currentForm,
+      sections: currentForm.sections.map((section, sectionIndex) =>
         sectionIndex === index ? { ...section, [key]: value } : section
       ),
-    });
+    }));
   };
 
   const addSection = () => {
-    onChange({
-      ...form,
+    onChange((currentForm) => ({
+      ...currentForm,
       sections: [
-        ...form.sections,
+        ...currentForm.sections,
         {
           title: '',
+          slug: '',
           description: '',
           image_url: '',
           is_active: true,
-          sort_order: form.sections.length + 1,
+          sort_order: currentForm.sections.length + 1,
           products: [],
         },
       ],
-    });
+    }));
+  };
+
+  const updateSectionTitle = (index: number, title: string) => {
+    onChange((currentForm) => ({
+      ...currentForm,
+      sections: currentForm.sections.map((section, sectionIndex) => {
+        if (sectionIndex !== index) {
+          return section;
+        }
+
+        const previousAutoSlug = createSectionSlug(section.title);
+        const shouldUpdateSlug = !section.slug || section.slug === previousAutoSlug;
+
+        return {
+          ...section,
+          title,
+          slug: shouldUpdateSlug ? createSectionSlug(title) : section.slug,
+        };
+      }),
+    }));
   };
 
   const removeSection = (index: number) => {
-    const section = form.sections[index];
-    onChange({
-      ...form,
-      sections: form.sections.filter((_, sectionIndex) => sectionIndex !== index),
-      deletedSectionIds: section?.id ? [...(form.deletedSectionIds ?? []), section.id] : form.deletedSectionIds,
+    onChange((currentForm) => {
+      const section = currentForm.sections[index];
+
+      return {
+        ...currentForm,
+        sections: currentForm.sections.filter((_, sectionIndex) => sectionIndex !== index),
+        deletedSectionIds: section?.id
+          ? [...(currentForm.deletedSectionIds ?? []), section.id]
+          : currentForm.deletedSectionIds,
+      };
     });
   };
 
   const addSectionProduct = (sectionIndex: number, product: AdminProduct) => {
-    const section = form.sections[sectionIndex];
-    if (!section || section.products.some((relation) => relation.product_id === product.id)) {
-      return;
-    }
+    onChange((currentForm) => {
+      const section = currentForm.sections[sectionIndex];
+      const sectionProducts = Array.isArray(section?.products) ? section.products : [];
 
-    updateSection(sectionIndex, 'products', [
-      ...section.products,
-      {
-        product_id: product.id,
-        sort_order: section.products.length + 1,
-      },
-    ]);
+      if (!section || sectionProducts.some((relation) => relation.product_id === product.id)) {
+        return currentForm;
+      }
+
+      return {
+        ...currentForm,
+        sections: currentForm.sections.map((currentSection, currentIndex) =>
+          currentIndex === sectionIndex
+            ? {
+                ...currentSection,
+                products: [
+                  ...sectionProducts,
+                  {
+                    product_id: product.id,
+                    sort_order: sectionProducts.length + 1,
+                  },
+                ],
+              }
+            : currentSection
+        ),
+      };
+    });
+    setProductSearchBySection((current) => ({ ...current, [sectionIndex]: '' }));
+    toast.success(`"${product.name}" se agregó a la sección. Guardá la colección para confirmar.`);
   };
 
   const removeSectionProduct = (sectionIndex: number, productId: string) => {
-    const section = form.sections[sectionIndex];
-    if (!section) return;
-
-    updateSection(
-      sectionIndex,
-      'products',
-      section.products.filter((relation) => relation.product_id !== productId)
-    );
+    onChange((currentForm) => ({
+      ...currentForm,
+      sections: currentForm.sections.map((section, index) =>
+        index === sectionIndex
+          ? {
+              ...section,
+              products: (Array.isArray(section.products) ? section.products : []).filter(
+                (relation) => relation.product_id !== productId
+              ),
+            }
+          : section
+      ),
+    }));
   };
 
   const updateSectionProductOrder = (sectionIndex: number, productId: string, sortOrder: number) => {
-    const section = form.sections[sectionIndex];
-    if (!section) return;
-
-    updateSection(
-      sectionIndex,
-      'products',
-      section.products.map((relation) =>
-        relation.product_id === productId ? { ...relation, sort_order: sortOrder } : relation
-      )
-    );
+    onChange((currentForm) => ({
+      ...currentForm,
+      sections: currentForm.sections.map((section, index) =>
+        index === sectionIndex
+          ? {
+              ...section,
+              products: (Array.isArray(section.products) ? section.products : []).map((relation) =>
+                relation.product_id === productId ? { ...relation, sort_order: sortOrder } : relation
+              ),
+            }
+          : section
+      ),
+    }));
   };
 
   const uploadImage = async (
@@ -310,7 +369,16 @@ const CollectionForm: React.FC<{
                       Título
                       <input
                         value={section.title}
-                        onChange={(event) => updateSection(index, 'title', event.target.value)}
+                        onChange={(event) => updateSectionTitle(index, event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </label>
+                    <label className="text-xs font-medium text-gray-600">
+                      Slug de sección
+                      <input
+                        value={section.slug || ''}
+                        onChange={(event) => updateSection(index, 'slug', createSectionSlug(event.target.value))}
+                        placeholder="se-genera-desde-el-titulo"
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                       />
                     </label>

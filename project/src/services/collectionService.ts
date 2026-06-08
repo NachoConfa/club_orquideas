@@ -18,6 +18,8 @@ import {
 const COLLECTION_COLUMNS =
   'id, title, slug, subtitle, description, image_url, is_active, sort_order, created_at, updated_at';
 const COLLECTION_SECTION_COLUMNS =
+  'id, collection_id, title, slug, description, image_url, is_active, sort_order, created_at, updated_at';
+const COLLECTION_SECTION_COLUMNS_WITHOUT_SLUG =
   'id, collection_id, title, description, image_url, is_active, sort_order, created_at, updated_at';
 const COLLECTION_SECTION_PRODUCT_COLUMNS =
   'id, collection_section_id, product_id, sort_order, created_at';
@@ -58,6 +60,15 @@ const normalizeSlug = (value: unknown) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || `coleccion-${Date.now()}`;
 
+const normalizeSectionSlug = (value: unknown, fallbackTitle?: unknown) =>
+  (toRequiredText(value) || toRequiredText(fallbackTitle) || 'seccion')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'seccion';
+
 const isMissingTableError = (error: { code?: string; message?: string } | null) => {
   const message = error?.message?.toLowerCase() ?? '';
   return (
@@ -71,6 +82,15 @@ const isMissingTableError = (error: { code?: string; message?: string } | null) 
 const isMissingPriceModeColumnError = (error: { code?: string; message?: string } | null) => {
   const message = error?.message?.toLowerCase() ?? '';
   return error?.code === 'PGRST204' || error?.code === '42703' || message.includes('price_mode');
+};
+
+const isMissingSectionSlugColumnError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return (
+    error?.code === 'PGRST204' ||
+    error?.code === '42703' ||
+    (message.includes('slug') && message.includes('product_collection_sections'))
+  );
 };
 
 const toStringIdOrNull = (value: unknown) => {
@@ -93,6 +113,12 @@ const toBooleanOrDefault = (value: unknown, fallback = false) => {
 
 const normalizeNumber = (value: unknown) => toNumberOrDefault(value, 0);
 
+const debugCollectionData = (label: string, value: unknown) => {
+  if (import.meta.env.DEV) {
+    console.info(`[Colecciones] ${label}`, value);
+  }
+};
+
 const toCollectionPayload = (collection: ProductCollectionInput) => {
   const title = toRequiredText(collection.title);
 
@@ -111,14 +137,51 @@ const toCollectionPayload = (collection: ProductCollectionInput) => {
   };
 };
 
-const toSectionPayload = (collectionId: unknown, section: ProductCollectionSectionInput) => ({
+const toSectionPayload = (
+  collectionId: unknown,
+  section: ProductCollectionSectionInput,
+  sectionSlug = normalizeSectionSlug(section.slug, section.title)
+) => ({
   collection_id: toRequiredText(collectionId),
   title: toRequiredText(section.title),
+  slug: sectionSlug,
   description: toTextOrNull(section.description),
   image_url: toTextOrNull(section.image_url),
   is_active: toBooleanOrDefault(section.is_active, true),
   sort_order: toNumberOrDefault(section.sort_order, 0),
 });
+
+const omitSectionSlug = <T extends { slug?: unknown }>(payload: T) => {
+  const { slug: _slug, ...payloadWithoutSlug } = payload;
+  return payloadWithoutSlug;
+};
+
+const getUniqueSectionSlug = (value: unknown, title: unknown, usedSlugs: Set<string>) => {
+  const baseSlug = normalizeSectionSlug(value, title);
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (usedSlugs.has(candidate)) {
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  usedSlugs.add(candidate);
+  return candidate;
+};
+
+const normalizeSectionsWithFallbackSlugs = (sections: ProductCollectionSection[]) => {
+  const usedSlugsByCollection = new Map<string, Set<string>>();
+
+  return sections.map((section) => {
+    const collectionId = toRequiredText(section.collection_id);
+    const usedSlugs = usedSlugsByCollection.get(collectionId) ?? new Set<string>();
+    const slug = getUniqueSectionSlug(section.slug, section.title, usedSlugs);
+    usedSlugsByCollection.set(collectionId, usedSlugs);
+
+    return { ...section, slug };
+  });
+};
 
 const mapRelatedProduct = (product: CollectionRelatedProduct): CollectionRelatedProduct => ({
   id: String(product.id),
@@ -173,6 +236,10 @@ const attachProductsToSections = async (sections: ProductCollectionSection[], on
   }
 
   const relations = (relationData ?? []) as ProductCollectionSectionProduct[];
+  debugCollectionData('relaciones cargadas', {
+    sectionIds: sections.map((section) => section.id),
+    count: relations.length,
+  });
   if (relations.length === 0) {
     return sections.map((section) => ({ ...section, products: [] }));
   }
@@ -248,6 +315,10 @@ const attachProductsToSections = async (sections: ProductCollectionSection[], on
     mappedProduct.variants = variantsByProduct.get(mappedProduct.id) ?? [];
     productsById.set(mappedProduct.id, mappedProduct);
   });
+  debugCollectionData('productos relacionados cargados', {
+    requestedProductIds: productIds,
+    loadedProductIds: Array.from(productsById.keys()),
+  });
 
   const relationsBySection = new Map<string, ProductCollectionSectionProduct[]>();
   relations.forEach((relation) => {
@@ -286,7 +357,24 @@ const attachSectionsToCollections = async (collections: ProductCollection[], onl
     query = query.eq('is_active', true);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
+
+  if (isMissingSectionSlugColumnError(error)) {
+    let fallbackQuery = client
+      .from('product_collection_sections')
+      .select(COLLECTION_SECTION_COLUMNS_WITHOUT_SLUG)
+      .in('collection_id', collections.map((collection) => collection.id))
+      .order('sort_order', { ascending: true })
+      .order('title', { ascending: true });
+
+    if (onlyActive) {
+      fallbackQuery = fallbackQuery.eq('is_active', true);
+    }
+
+    const fallbackResult = await fallbackQuery;
+    data = fallbackResult.data as typeof data;
+    error = fallbackResult.error;
+  }
 
   if (isMissingTableError(error)) {
     return collections.map((collection) => ({ ...collection, sections: [] }));
@@ -296,7 +384,14 @@ const attachSectionsToCollections = async (collections: ProductCollection[], onl
     throw error;
   }
 
-  const sectionsWithProducts = await attachProductsToSections((data ?? []) as ProductCollectionSection[], onlyActive);
+  debugCollectionData('secciones cargadas', {
+    collectionIds: collections.map((collection) => collection.id),
+    count: data?.length ?? 0,
+  });
+  const normalizedSections = normalizeSectionsWithFallbackSlugs(
+    (data ?? []) as ProductCollectionSection[]
+  );
+  const sectionsWithProducts = await attachProductsToSections(normalizedSections, onlyActive);
   const sectionsByCollection = new Map<string, ProductCollectionSection[]>();
   sectionsWithProducts.forEach((section) => {
     const sections = sectionsByCollection.get(section.collection_id) ?? [];
@@ -332,6 +427,7 @@ export const productCollectionToInput = (collection: ProductCollection): Product
   sections: (Array.isArray(collection.sections) ? collection.sections : []).map((section) => ({
     id: toRequiredText(section.id) || undefined,
     title: toRequiredText(section.title),
+    slug: normalizeSectionSlug(section.slug, section.title),
     description: toRequiredText(section.description),
     image_url: toRequiredText(section.image_url),
     is_active: toBooleanOrDefault(section.is_active, true),
@@ -354,15 +450,19 @@ const saveSectionProducts = async (
   const client = getClient();
   const normalizedSectionId = toRequiredText(sectionId);
   const productInputs = Array.isArray(products) ? products : [];
-  const { error: deleteError } = await client
+  const { data: existingData, error: existingError } = await client
     .from('product_collection_section_products')
-    .delete()
+    .select(COLLECTION_SECTION_PRODUCT_COLUMNS)
     .eq('collection_section_id', normalizedSectionId);
 
-  if (deleteError) {
-    throw deleteError;
+  if (existingError) {
+    throw existingError;
   }
 
+  const existingRelations = (existingData ?? []) as ProductCollectionSectionProduct[];
+  const existingByProductId = new Map(
+    existingRelations.map((relation) => [toRequiredText(relation.product_id), relation])
+  );
   const uniqueProductsById = new Map<
     string,
     {
@@ -377,8 +477,9 @@ const saveSectionProducts = async (
     const productId = toStringIdOrNull(product?.product_id);
     if (!productId) return;
 
+    const existingRelation = existingByProductId.get(productId);
     uniqueProductsById.set(productId, {
-      id: toStringIdOrNull(product?.id) || createUuid(),
+      id: toStringIdOrNull(existingRelation?.id) || toStringIdOrNull(product?.id) || createUuid(),
       collection_section_id: normalizedSectionId,
       product_id: productId,
       sort_order: toNumberOrDefault(product?.sort_order, index + 1),
@@ -386,15 +487,36 @@ const saveSectionProducts = async (
   });
 
   const uniqueProducts = Array.from(uniqueProductsById.values());
-  if (uniqueProducts.length === 0) {
-    return;
+  if (uniqueProducts.length > 0) {
+    const { error: upsertError } = await client
+      .from('product_collection_section_products')
+      .upsert(uniqueProducts, { onConflict: 'collection_section_id,product_id' });
+
+    if (upsertError) {
+      throw upsertError;
+    }
   }
 
-  const { error: insertError } = await client.from('product_collection_section_products').insert(uniqueProducts);
+  const removedRelationIds = existingRelations
+    .filter((relation) => !uniqueProductsById.has(toRequiredText(relation.product_id)))
+    .map((relation) => toRequiredText(relation.id))
+    .filter(Boolean);
 
-  if (insertError) {
-    throw insertError;
+  if (removedRelationIds.length > 0) {
+    const { error: deleteError } = await client
+      .from('product_collection_section_products')
+      .delete()
+      .in('id', removedRelationIds);
+
+    if (deleteError) {
+      throw deleteError;
+    }
   }
+
+  debugCollectionData('relaciones guardadas', {
+    sectionId: normalizedSectionId,
+    productIds: Array.from(uniqueProductsById.keys()),
+  });
 };
 
 const saveCollectionSections = async (collectionId: string, collection: ProductCollectionInput) => {
@@ -409,6 +531,7 @@ const saveCollectionSections = async (collectionId: string, collection: ProductC
   }
 
   const sections = Array.isArray(collection.sections) ? collection.sections : [];
+  const usedSlugs = new Set<string>();
   for (const section of sections) {
     const sectionTitle = toRequiredText(section?.title);
     if (!sectionTitle) {
@@ -416,22 +539,53 @@ const saveCollectionSections = async (collectionId: string, collection: ProductC
     }
 
     let sectionId = toRequiredText(section?.id);
-    const sectionPayload = toSectionPayload(collectionId, { ...section, title: sectionTitle });
+    const sectionSlug = getUniqueSectionSlug(section.slug, sectionTitle, usedSlugs);
+    const sectionPayload = toSectionPayload(
+      collectionId,
+      { ...section, title: sectionTitle },
+      sectionSlug
+    );
 
     if (sectionId) {
-      const { error } = await client
+      let { error } = await client
         .from('product_collection_sections')
         .update(sectionPayload)
         .eq('id', sectionId);
 
+      if (isMissingSectionSlugColumnError(error)) {
+        const fallbackResult = await client
+          .from('product_collection_sections')
+          .update(omitSectionSlug(sectionPayload))
+          .eq('id', sectionId);
+        error = fallbackResult.error;
+      }
+
+      if (error?.code === '23505') {
+        throw new Error(`Ya existe una sección con el slug "${sectionSlug}" en esta colección.`);
+      }
+
       if (error) throw error;
     } else {
       const insertPayload = { id: createUuid(), ...sectionPayload };
-      const { data, error } = await client
+      let { data, error } = await client
         .from('product_collection_sections')
         .insert(insertPayload)
         .select('id')
         .single();
+
+      if (isMissingSectionSlugColumnError(error)) {
+        const fallbackResult = await client
+          .from('product_collection_sections')
+          .insert(omitSectionSlug(insertPayload))
+          .select('id')
+          .single();
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+
+      if (error?.code === '23505') {
+        throw new Error(`Ya existe una sección con el slug "${sectionSlug}" en esta colección.`);
+      }
 
       if (error) throw error;
       sectionId = toRequiredText(data?.id);
@@ -477,7 +631,29 @@ export const getActiveProductCollectionBySlug = async (slug: string) => {
   }
 
   const [collection] = await attachSectionsToCollections([data as ProductCollection], true);
+  debugCollectionData('coleccion publica cargada', collection);
   return collection;
+};
+
+export const getActiveProductCollectionSectionBySlug = async (
+  collectionSlug: string,
+  sectionSlug: string
+) => {
+  const collection = await getActiveProductCollectionBySlug(collectionSlug);
+  if (!collection) {
+    return null;
+  }
+
+  const normalizedSectionSlug = normalizeSectionSlug(sectionSlug);
+  const section = (collection.sections ?? []).find(
+    (candidate) => normalizeSectionSlug(candidate.slug, candidate.title) === normalizedSectionSlug
+  );
+
+  if (!section) {
+    return null;
+  }
+
+  return { collection, section };
 };
 
 export const getAdminProductCollections = async () => {

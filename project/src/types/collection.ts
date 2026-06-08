@@ -17,6 +17,7 @@ export interface ProductCollectionSection {
   id: string;
   collection_id: string;
   title: string;
+  slug: string;
   description: string | null;
   image_url: string | null;
   is_active: boolean;
@@ -49,6 +50,7 @@ export interface ProductCollectionSectionProductInput {
 export interface ProductCollectionSectionInput {
   id?: string;
   title: string;
+  slug?: string;
   description: string;
   image_url: string;
   is_active: boolean;

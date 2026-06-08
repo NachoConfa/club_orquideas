@@ -48,6 +48,7 @@ const EventsPage = lazy(() => import('./pages/EventsPage'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
 const CollectionsPage = lazy(() => import('./pages/CollectionsPage'));
 const CollectionDetailPage = lazy(() => import('./pages/CollectionDetailPage'));
+const CollectionSectionDetailPage = lazy(() => import('./pages/CollectionSectionDetailPage'));
 const CareGuidesPage = lazy(() => import('./pages/CareGuidesPage'));
 const CareGuideDetailPage = lazy(() => import('./pages/CareGuideDetailPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -107,6 +108,7 @@ type AppPage =
   | 'event-detail'
   | 'collections'
   | 'collection-detail'
+  | 'collection-section-detail'
   | 'care'
   | 'care-detail'
   | 'orchids'
@@ -133,6 +135,7 @@ const APP_PAGE_PATHS: Record<AppPage, string> = {
   'event-detail': '/eventos',
   collections: '/colecciones',
   'collection-detail': '/colecciones',
+  'collection-section-detail': '/colecciones',
   care: '/cuidados',
   'care-detail': '/cuidados',
   orchids: '/orquideas',
@@ -1944,7 +1947,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
     );
   }
 
-  if (currentPage === 'collection-detail') {
+  if (currentPage === 'collection-detail' || currentPage === 'collection-section-detail') {
     return (
       <div className="min-h-screen bg-[#FFF8EF] text-[#2F3A35]">
         <Header
@@ -1966,7 +1969,11 @@ function AppShell({ routePage }: { routePage: AppPage }) {
           onSearchSubmit={submitGlobalSearch}
           user={user}
         />
-        <CollectionDetailPage onBack={() => navigateToPage('collections')} />
+        {currentPage === 'collection-detail' ? (
+          <CollectionDetailPage onBack={() => navigateToPage('collections')} />
+        ) : (
+          <CollectionSectionDetailPage />
+        )}
         <Footer onNavigate={navigateToPage} />
 
         <Cart
@@ -2499,6 +2506,10 @@ function App() {
           <Route path="/eventos" element={<AppShell routePage="accessories" />} />
           <Route path="/eventos/:slug" element={<AppShell routePage="event-detail" />} />
           <Route path="/colecciones" element={<AppShell routePage="collections" />} />
+          <Route
+            path="/colecciones/:collectionSlug/:sectionSlug"
+            element={<AppShell routePage="collection-section-detail" />}
+          />
           <Route path="/colecciones/:slug" element={<AppShell routePage="collection-detail" />} />
           <Route path="/otros" element={<Navigate to="/eventos" replace />} />
           <Route path="/accesorios" element={<Navigate to="/eventos" replace />} />
