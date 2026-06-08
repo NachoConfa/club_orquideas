@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Leaf, MessageCircle, RefreshCw } from '../lib/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import LinkifiedText from '../components/LinkifiedText';
 import { getActiveCareGuideBySlug } from '../services/careGuideService';
 import type { CareGuide, CareGuideVariant } from '../types/careGuide';
 
@@ -189,15 +190,21 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                   <h1 className="text-3xl font-semibold leading-tight text-[#16352B] sm:text-4xl lg:text-5xl">
                     {guide.title || 'Orquídeas Phalaenopsis'}
                   </h1>
-                  <p className="mt-4 text-lg leading-7 text-[#4B5A52]">
-                    {guide.subtitle || 'Cuidados esenciales para que vuelvan a florecer'}
-                  </p>
+                  <LinkifiedText
+                    as="p"
+                    text={guide.subtitle || 'Cuidados esenciales para que vuelvan a florecer'}
+                    className="mt-4 text-lg leading-7 text-[#4B5A52]"
+                  />
 
                   <div className="mt-6 rounded-2xl border border-[#F1E3D4] bg-[#FFF8EF] p-5">
                     <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#0F8F61]">
                       Cómo acompañarlas
                     </h2>
-                    <p className="mt-3 whitespace-pre-line text-base leading-7 text-[#4B5A52]">{activeDescription}</p>
+                    <LinkifiedText
+                      as="p"
+                      text={activeDescription}
+                      className="mt-3 text-base leading-7 text-[#4B5A52]"
+                    />
                   </div>
                 </div>
 
@@ -236,9 +243,11 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                     >
                       <span className="font-semibold">{variant.title}</span>
                       {variant.subtitle && (
-                        <span className="mt-1 block whitespace-pre-line text-sm leading-6 text-[#6B756F]">
-                          {variant.subtitle}
-                        </span>
+                        <LinkifiedText
+                          as="span"
+                          text={variant.subtitle}
+                          className="mt-1 block text-sm leading-6 text-[#6B756F]"
+                        />
                       )}
                     </button>
                   ))}
@@ -266,7 +275,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                       </span>
                       <h3 className="text-lg font-semibold text-[#16352B]">{label}</h3>
                     </div>
-                    <p className="whitespace-pre-line text-sm leading-7 text-[#4B5A52]">{String(value)}</p>
+                    <LinkifiedText as="p" text={String(value)} className="text-sm leading-7 text-[#4B5A52]" />
                   </article>
                 ))}
               </div>
@@ -282,7 +291,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                   {activeTips.map((tip) => (
                     <li key={tip} className="flex gap-3 rounded-2xl bg-white/70 p-4">
                       <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-[#0F8F61]" />
-                      <span>{tip}</span>
+                      <LinkifiedText as="span" text={tip} />
                     </li>
                   ))}
                 </ul>

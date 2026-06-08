@@ -4,6 +4,7 @@ import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from '../lib
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import LinkifiedText from './LinkifiedText';
 import ProductImage from './ProductImage';
 
 interface ProductDetailModalProps {
@@ -260,9 +261,11 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
               </div>
 
               <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">
-                {product.description || 'Producto seleccionado de nuestro catálogo.'}
-              </p>
+              <LinkifiedText
+                as="p"
+                text={product.description || 'Producto seleccionado de nuestro catálogo.'}
+                className="mt-3 text-sm leading-6 text-gray-600"
+              />
               <p className="mt-2 text-xs text-gray-500">
                 Las imagenes son ilustrativas. La floracion puede variar segun disponibilidad.
               </p>

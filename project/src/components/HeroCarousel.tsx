@@ -24,7 +24,7 @@ const slides: Array<{
     page: 'orchids',
     eyebrow: 'Colección viva',
     image:
-      'https://wcfxrqnesekpqzahadlc.supabase.co/storage/v1/object/public/imagenes/WhatsApp%20Image%202026-06-06%20at%2018.48.17.jpeg',
+      'https://wcfxrqnesekpqzahadlc.supabase.co/storage/v1/object/public/imagenes/df0294fe-4ad0-44e5-936a-cbdeb83d2473.png',
     fallbackImage:
       'https://images.pexels.com/photos/459196/pexels-photo-459196.jpeg?auto=compress&cs=tinysrgb&w=1800',
     imageAlt: 'Orquídeas y plantas decorativas de Modo Plantas',

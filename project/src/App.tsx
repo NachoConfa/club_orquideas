@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import HeroCarousel from './components/HeroCarousel';
 import CompanyIntro from './components/CompanyIntro';
 import Filters from './components/Filters';
+import SitePopup from './components/SitePopup';
 import type { CheckoutResultData } from './pages/CheckoutResultPage';
 import type { CartItem, CartItemInput } from './types/cart';
 import type { Product } from './types/product';
@@ -22,6 +23,7 @@ import {
   isSupabaseReady,
   onSupabaseAuthChange,
   signOutFromSupabase,
+  sortProductsForCatalog,
   type AuthenticatedUser,
 } from './services/supabaseService';
 import {
@@ -882,7 +884,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
     const hasCachedCatalog = Boolean(cachedCatalog?.products.length);
 
     if (cachedCatalog?.products.length) {
-      setCatalogProducts(cachedCatalog.products);
+      setCatalogProducts(sortProductsForCatalog(cachedCatalog.products));
       setIsLoadingProducts(false);
       setProductLoadError('');
       setProductLoadNotice('Mostrando productos guardados mientras actualizamos el catálogo.');
@@ -909,8 +911,10 @@ function AppShell({ routePage }: { routePage: AppPage }) {
       const supabaseProducts = await getSupabaseProducts();
       if (requestId !== productLoadRequestIdRef.current) return;
 
-      setCatalogProducts(supabaseProducts);
-      writeCatalogCache(supabaseProducts);
+      const sortedProducts = sortProductsForCatalog(supabaseProducts);
+
+      setCatalogProducts(sortedProducts);
+      writeCatalogCache(sortedProducts);
       setProductLoadError('');
       setProductLoadNotice('');
     } catch (error) {
@@ -2505,8 +2509,15 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <SitePopupMount />
     </BrowserRouter>
   );
+}
+
+function SitePopupMount() {
+  const location = useLocation();
+
+  return <SitePopup pathname={location.pathname} />;
 }
 
 export default App;

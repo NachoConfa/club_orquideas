@@ -22,6 +22,7 @@ export interface Product {
   id: number;
   sourceId?: string;
   slug?: string;
+  createdAt?: string;
   name: string;
   price: number;
   priceMode?: PriceMode;
@@ -38,6 +39,7 @@ export interface Product {
   description?: string;
   stock?: number;
   stockMode?: StockMode;
+  sortOrder?: number;
   occasions?: string[];
   floweringStems?: number;
   images?: string[];

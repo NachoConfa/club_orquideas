@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Clock, MapPin, MessageCircle, PartyPopper, RefreshCw, Users } from '../lib/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEventStatusLabel } from '../components/EventCard';
+import LinkifiedText from '../components/LinkifiedText';
 import ProductImage from '../components/ProductImage';
 import { getActiveEventBySlug } from '../services/eventService';
 import type { EventRelatedProduct, EventSection, StoreEvent } from '../types/event';
@@ -150,7 +151,7 @@ const EventSectionCard: React.FC<{
     <div className="p-5">
       <h3 className="text-lg font-semibold text-[#16352B]">{section.title}</h3>
       {section.description && (
-        <p className="mt-2 whitespace-pre-line leading-7 text-[#6B756F]">{section.description}</p>
+        <LinkifiedText as="p" text={section.description} className="mt-2 leading-7 text-[#6B756F]" />
       )}
       {section.products && section.products.length > 0 && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -269,9 +270,11 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
                 </span>
                 <h1 className="mt-5 text-3xl font-semibold leading-tight text-[#16352B] sm:text-4xl">{event.title}</h1>
                 {event.short_description && (
-                  <p className="mt-3 whitespace-pre-line leading-7 text-[#6B756F]">
-                    {event.short_description}
-                  </p>
+                  <LinkifiedText
+                    as="p"
+                    text={event.short_description}
+                    className="mt-3 leading-7 text-[#6B756F]"
+                  />
                 )}
 
                 <div className="mt-6 grid gap-3">
@@ -302,9 +305,11 @@ const EventDetailPage: React.FC<EventDetailPageProps> = ({ onBack }) => {
                 </div>
 
                 {event.description && (
-                  <div className="mt-6 whitespace-pre-line rounded-2xl bg-[#FFF8EF] p-5 leading-7 text-[#4B5A52]">
-                    {event.description}
-                  </div>
+                  <LinkifiedText
+                    as="div"
+                    text={event.description}
+                    className="mt-6 rounded-2xl bg-[#FFF8EF] p-5 leading-7 text-[#4B5A52]"
+                  />
                 )}
 
                 <a

@@ -15,6 +15,7 @@ import {
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import LinkifiedText from '../components/LinkifiedText';
 import ProductImage from '../components/ProductImage';
 
 interface ProductPageProps {
@@ -412,9 +413,11 @@ const ProductPage = ({
         <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
           <article className="min-w-0 rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">
             <h2 className="text-2xl font-bold text-[#16352B]">Descripción</h2>
-            <p className="mt-4 whitespace-pre-line text-base leading-8 text-[#1F2933]">
-              {product.description || 'Producto seleccionado de nuestro catálogo.'}
-            </p>
+            <LinkifiedText
+              as="p"
+              text={product.description || 'Producto seleccionado de nuestro catálogo.'}
+              className="mt-4 text-base leading-8 text-[#1F2933]"
+            />
           </article>
 
           <aside className="min-w-0 rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-7 lg:p-8">

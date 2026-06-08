@@ -21,6 +21,7 @@ export interface AdminProduct {
   image_url: string;
   is_featured: boolean;
   is_active: boolean;
+  sort_order?: number | null;
   created_at: string;
   updated_at: string;
   variants?: AdminProductVariant[];
@@ -79,8 +80,24 @@ export interface AdminProductInput {
   image_url: string;
   is_featured: boolean;
   is_active: boolean;
+  sort_order: number;
   variants: AdminProductVariantInput[];
   deletedVariantIds?: string[];
+}
+
+export interface AdminBulkPriceUpdate {
+  id: string;
+  price: number;
+}
+
+export interface AdminBulkPriceUpdatePayload {
+  productUpdates: AdminBulkPriceUpdate[];
+  variantUpdates: AdminBulkPriceUpdate[];
+}
+
+export interface AdminBulkPriceUpdateResult {
+  affectedProducts: number;
+  affectedVariants: number;
 }
 
 export type AdminRecord = Record<string, unknown>;
@@ -157,7 +174,9 @@ const PRODUCT_COLUMNS =
   'id, category_id, name, slug, description, price, stock, orchid_type, color, size, flowering_stems, image_url, is_featured, is_active, created_at, updated_at';
 const PRODUCT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_COLUMNS}, stock_mode`;
 const PRODUCT_COLUMNS_WITH_PRICE_MODE = `${PRODUCT_COLUMNS_WITH_STOCK_MODE}, price_mode`;
-const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions, visible_in_store`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES_WITHOUT_SORT_ORDER =
+  `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, occasions, visible_in_store`;
+const PRODUCT_COLUMNS_WITH_OPTIONAL_MODES = `${PRODUCT_COLUMNS_WITH_OPTIONAL_MODES_WITHOUT_SORT_ORDER}, sort_order`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order, created_at, updated_at';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE = `${PRODUCT_VARIANT_COLUMNS}, stock_mode`;
@@ -288,8 +307,14 @@ const isMissingOptionalModeColumnError = (error: { code?: string; message?: stri
     message.includes('stock_mode') ||
     message.includes('price_mode') ||
     message.includes('occasions') ||
-    message.includes('visible_in_store')
+    message.includes('visible_in_store') ||
+    message.includes('sort_order')
   );
+};
+
+const isMissingSortOrderColumnError = (error: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return error?.code === 'PGRST204' || error?.code === '42703' || message.includes('sort_order');
 };
 
 const isMissingProfileEmailColumnError = (error: { code?: string; message?: string }) => {
@@ -394,6 +419,11 @@ const parseAdminStockValue = (value: AdminStockInput | null | undefined, label =
   return stock;
 };
 
+const parseAdminSortOrderValue = (value: unknown) => {
+  const sortOrder = Number(value);
+  return Number.isFinite(sortOrder) && sortOrder >= 0 ? Math.trunc(sortOrder) : 0;
+};
+
 const toProductPayload = (product: AdminProductInput) => ({
   name: product.name.trim(),
   slug: normalizeSlug(product.slug || product.name),
@@ -411,7 +441,13 @@ const toProductPayload = (product: AdminProductInput) => ({
   image_url: product.image_url.trim(),
   is_featured: product.is_featured,
   is_active: product.is_active,
+  sort_order: parseAdminSortOrderValue(product.sort_order),
 });
+
+const omitSortOrder = <T extends { sort_order?: unknown }>(payload: T) => {
+  const { sort_order: _sortOrder, ...payloadWithoutSortOrder } = payload;
+  return payloadWithoutSortOrder;
+};
 
 const createUuid = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -509,6 +545,22 @@ const attachVariantsToProducts = async (products: AdminProduct[]) => {
     variants: variantsByProduct.get(product.id) ?? [],
   }));
 };
+
+const sortAdminProducts = (products: AdminProduct[]) =>
+  products.slice().sort((first, second) => {
+    const sortDifference = parseAdminSortOrderValue(first.sort_order) - parseAdminSortOrderValue(second.sort_order);
+    if (sortDifference !== 0) {
+      return sortDifference;
+    }
+
+    const firstDate = Date.parse(first.created_at || '');
+    const secondDate = Date.parse(second.created_at || '');
+    if (Number.isFinite(firstDate) && Number.isFinite(secondDate) && firstDate !== secondDate) {
+      return secondDate - firstDate;
+    }
+
+    return String(first.name ?? '').localeCompare(String(second.name ?? ''), 'es');
+  });
 
 const getOrderItemsSummaryForOrders = async (orderIds: string[]) => {
   if (orderIds.length === 0) {
@@ -611,6 +663,7 @@ export const emptyAdminProductInput = (): AdminProductInput => ({
   image_url: '',
   is_featured: false,
   is_active: true,
+  sort_order: 0,
   variants: [],
   deletedVariantIds: [],
 });
@@ -632,6 +685,7 @@ export const productToInput = (product: AdminProduct): AdminProductInput => ({
   image_url: product.image_url || '',
   is_featured: Boolean(product.is_featured),
   is_active: Boolean(product.is_active),
+  sort_order: parseAdminSortOrderValue(product.sort_order),
   variants: (product.variants ?? []).map((variant) => ({
     id: variant.id,
     color: variant.color || '',
@@ -685,7 +739,7 @@ export const getAdminProducts = async (limit = ADMIN_PAGE_LIMIT) => {
     throw result.error;
   }
 
-  return attachVariantsToProducts((result.data ?? []) as AdminProduct[]);
+  return sortAdminProducts(await attachVariantsToProducts((result.data ?? []) as AdminProduct[]));
 };
 
 export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) => {
@@ -739,11 +793,22 @@ export const getAdminLowStockProducts = async (limit = ADMIN_DASHBOARD_LIMIT) =>
 
 export const createAdminProduct = async (product: AdminProductInput) => {
   const client = getClient();
-  const { data, error } = await client
+  const payload = { id: createUuid(), ...toProductPayload(product) };
+  let { data, error } = await client
     .from('products')
-    .insert({ id: createUuid(), ...toProductPayload(product) })
+    .insert(payload)
     .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
     .single();
+
+  if (error && isMissingSortOrderColumnError(error)) {
+    const fallbackResult = await client
+      .from('products')
+      .insert(omitSortOrder(payload))
+      .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES_WITHOUT_SORT_ORDER)
+      .single();
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     throw error;
@@ -778,15 +843,26 @@ export const duplicateAdminProduct = async (source: AdminProduct) => {
   const duplicateId = createUuid();
 
   try {
-    const { data, error } = await client
+    const payload = {
+      id: duplicateId,
+      ...toProductPayload(duplicateInput),
+      category_id: source.category_id,
+    };
+    let { data, error } = await client
       .from('products')
-      .insert({
-        id: duplicateId,
-        ...toProductPayload(duplicateInput),
-        category_id: source.category_id,
-      })
+      .insert(payload)
       .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
       .single();
+
+    if (error && isMissingSortOrderColumnError(error)) {
+      const fallbackResult = await client
+        .from('products')
+        .insert(omitSortOrder(payload))
+        .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES_WITHOUT_SORT_ORDER)
+        .single();
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       throw error;
@@ -803,12 +879,24 @@ export const duplicateAdminProduct = async (source: AdminProduct) => {
 
 export const updateAdminProduct = async (id: string, product: AdminProductInput) => {
   const client = getClient();
-  const { data, error } = await client
+  const payload = toProductPayload(product);
+  let { data, error } = await client
     .from('products')
-    .update(toProductPayload(product))
+    .update(payload)
     .eq('id', id)
     .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES)
     .single();
+
+  if (error && isMissingSortOrderColumnError(error)) {
+    const fallbackResult = await client
+      .from('products')
+      .update(omitSortOrder(payload))
+      .eq('id', id)
+      .select(PRODUCT_COLUMNS_WITH_OPTIONAL_MODES_WITHOUT_SORT_ORDER)
+      .single();
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     throw error;
@@ -826,6 +914,46 @@ export const deleteAdminProduct = async (id: string) => {
   if (error) {
     throw error;
   }
+};
+
+export const applyAdminBulkPriceUpdates = async ({
+  productUpdates,
+  variantUpdates,
+}: AdminBulkPriceUpdatePayload): Promise<AdminBulkPriceUpdateResult> => {
+  const client = getClient();
+
+  for (const update of productUpdates) {
+    const price = Number(update.price);
+
+    if (!update.id || !Number.isFinite(price) || price < 0) {
+      throw new Error('Hay un precio de producto invalido en la actualizacion.');
+    }
+
+    const { error } = await client.from('products').update({ price }).eq('id', update.id);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  for (const update of variantUpdates) {
+    const price = Number(update.price);
+
+    if (!update.id || !Number.isFinite(price) || price < 0) {
+      throw new Error('Hay un precio de variante invalido en la actualizacion.');
+    }
+
+    const { error } = await client.from('product_variants').update({ price }).eq('id', update.id);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  return {
+    affectedProducts: productUpdates.length,
+    affectedVariants: variantUpdates.length,
+  };
 };
 
 export const getAdminOrders = async (limit = ADMIN_PAGE_LIMIT) => {

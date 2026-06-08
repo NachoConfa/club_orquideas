@@ -9,6 +9,7 @@ import {
 
 type ProductRow = {
   id: number | string;
+  created_at?: string | null;
   name: string;
   slug?: string | null;
   price: number;
@@ -16,6 +17,7 @@ type ProductRow = {
   description?: string | null;
   stock?: number | null;
   stock_mode?: string | null;
+  sort_order?: number | null;
   occasions?: string[] | null;
   visible_in_store?: boolean | null;
   orchid_type?: string | null;
@@ -150,7 +152,7 @@ const logProfileFallback = (message: string, error: unknown) => {
 const DEFAULT_PRODUCT_IMAGE =
   'https://images.pexels.com/photos/1407305/pexels-photo-1407305.jpeg?auto=compress&cs=tinysrgb&w=500';
 const PRODUCT_COLUMNS =
-  'id, name, description, price, stock, orchid_type, color, size, image_url, is_active';
+  'id, created_at, name, description, price, stock, orchid_type, color, size, image_url, is_active';
 const PRODUCT_COLUMNS_WITH_BASE_OPTIONAL =
   `${PRODUCT_COLUMNS}, slug, flowering_stems`;
 const PRODUCT_COLUMNS_WITH_STOCK_MODE =
@@ -160,7 +162,7 @@ const PRODUCT_COLUMNS_WITH_PRICE_MODE =
 const PRODUCT_COLUMNS_WITH_VISIBILITY =
   `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, visible_in_store`;
 const PRODUCT_COLUMNS_WITH_OPTIONAL =
-  `${PRODUCT_COLUMNS_WITH_VISIBILITY}, occasions`;
+  `${PRODUCT_COLUMNS_WITH_VISIBILITY}, occasions, sort_order`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE =
@@ -178,7 +180,8 @@ const isMissingOptionalProductColumnError = (error: { code?: string; message?: s
     message.includes('stock_mode') ||
     message.includes('price_mode') ||
     message.includes('occasions') ||
-    message.includes('visible_in_store')
+    message.includes('visible_in_store') ||
+    message.includes('sort_order')
   );
 };
 
@@ -215,6 +218,24 @@ const isProductAttributes = (value: unknown): value is ProductAttributes =>
 
 const normalizeStockMode = (value?: string | null): StockMode => (value === 'consult' ? 'consult' : 'quantity');
 const normalizePriceMode = (value?: string | null): PriceMode => (value === 'quote' ? 'quote' : 'fixed');
+
+const getProductSortOrder = (product: Pick<Product, 'sortOrder' | 'name'>) => Number(product.sortOrder ?? 0);
+
+export const sortProductsForCatalog = <T extends Pick<Product, 'sortOrder' | 'name'>>(products: T[]) =>
+  products.slice().sort((first, second) => {
+    const sortDifference = getProductSortOrder(first) - getProductSortOrder(second);
+    if (sortDifference !== 0) {
+      return sortDifference;
+    }
+
+    const firstDate = Date.parse((first as Pick<Product, 'createdAt'>).createdAt || '');
+    const secondDate = Date.parse((second as Pick<Product, 'createdAt'>).createdAt || '');
+    if (Number.isFinite(firstDate) && Number.isFinite(secondDate) && firstDate !== secondDate) {
+      return secondDate - firstDate;
+    }
+
+    return String(first.name ?? '').localeCompare(String(second.name ?? ''), 'es');
+  });
 
 const normalizeTextArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -280,6 +301,7 @@ const mapProduct = (product: ProductRow): Product => {
     id: toStableNumericId(product.id),
     sourceId,
     slug: product.slug || undefined,
+    createdAt: product.created_at || undefined,
     name: product.name,
     price: Number(product.price),
     priceMode: normalizePriceMode(product.price_mode),
@@ -296,6 +318,7 @@ const mapProduct = (product: ProductRow): Product => {
     description: sanitizeProductDescription(product.description),
     stock: product.stock == null ? undefined : fallbackStock,
     stockMode: normalizeStockMode(product.stock_mode),
+    sortOrder: Number(product.sort_order ?? 0),
     occasions: normalizeTextArray(product.occasions),
     floweringStems: product.flowering_stems == null ? undefined : Number(product.flowering_stems),
     images,
@@ -616,9 +639,20 @@ export const getSupabaseProducts = async (): Promise<Product[]> => {
     throw productsResult.error;
   }
 
-  const productRows = ((productsResult.data ?? []) as unknown as ProductRow[]).sort((first, second) =>
-    String(first.name ?? '').localeCompare(String(second.name ?? ''), 'es')
-  );
+  const productRows = ((productsResult.data ?? []) as unknown as ProductRow[]).sort((first, second) => {
+    const sortDifference = Number(first.sort_order ?? 0) - Number(second.sort_order ?? 0);
+    if (sortDifference !== 0) {
+      return sortDifference;
+    }
+
+    const firstDate = Date.parse(first.created_at || '');
+    const secondDate = Date.parse(second.created_at || '');
+    if (Number.isFinite(firstDate) && Number.isFinite(secondDate) && firstDate !== secondDate) {
+      return secondDate - firstDate;
+    }
+
+    return String(first.name ?? '').localeCompare(String(second.name ?? ''), 'es');
+  });
   const [imagesResult, variantsResult] = await Promise.allSettled([
     client.from('product_images').select('product_id, image_url, sort_order').order('sort_order', { ascending: true }),
     (async () => {

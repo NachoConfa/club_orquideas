@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  Banknote,
   BarChart3,
   BookOpen,
   Boxes,
@@ -13,6 +14,7 @@ import {
   Layers3,
   LineChart,
   Loader2,
+  MessageCircle,
   Plus,
   RefreshCw,
   Save,
@@ -51,6 +53,8 @@ import { useToast } from '../components/feedback/ToastProvider';
 import AdminCareGuides from '../components/admin/AdminCareGuides';
 import AdminEvents from '../components/admin/AdminEvents';
 import AdminCollections from '../components/admin/AdminCollections';
+import AdminPriceUpdates from '../components/admin/AdminPriceUpdates';
+import AdminSitePopups from '../components/admin/AdminSitePopups';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -61,9 +65,11 @@ interface AdminDashboardProps {
 type AdminTab =
   | 'dashboard'
   | 'products'
+  | 'prices'
   | 'collections'
   | 'care-guides'
   | 'events'
+  | 'site-popups'
   | 'orders'
   | 'customers'
   | 'payments'
@@ -621,6 +627,21 @@ const ProductForm = ({
           />
         </label>
 
+        <label className="text-sm font-medium text-gray-700">
+          Orden de visualización
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={form.sort_order}
+            onChange={(event) => updateField('sort_order', Number(event.target.value) || 0)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+          />
+          <span className="mt-1 block text-xs font-normal text-gray-500">
+            Los productos con menor número aparecen primero en la tienda.
+          </span>
+        </label>
+
         <div className="text-sm font-medium text-gray-700 md:col-span-2">
           <label>
             URL de imagen
@@ -1021,9 +1042,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const [loadedTabs, setLoadedTabs] = useState<Record<AdminTab, boolean>>({
     dashboard: false,
     products: false,
+    prices: false,
     collections: false,
     'care-guides': false,
     events: false,
+    'site-popups': false,
     orders: false,
     customers: false,
     payments: false,
@@ -1177,9 +1200,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
     if (tab === 'dashboard') void loadDashboardData();
     if (tab === 'products') void loadProducts();
+    if (tab === 'prices') markTabLoaded('prices');
     if (tab === 'collections') markTabLoaded('collections');
     if (tab === 'care-guides') markTabLoaded('care-guides');
     if (tab === 'events') markTabLoaded('events');
+    if (tab === 'site-popups') markTabLoaded('site-popups');
     if (tab === 'orders') void loadOrders();
     if (tab === 'customers') void loadProfiles();
     if (tab === 'payments') void loadPayments();
@@ -1495,9 +1520,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'products', label: 'Productos', icon: <Boxes className="h-4 w-4" /> },
+    { id: 'prices', label: 'Precios', icon: <Banknote className="h-4 w-4" /> },
     { id: 'collections', label: 'Colecciones', icon: <Layers3 className="h-4 w-4" /> },
     { id: 'care-guides', label: 'Cuidados', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" /> },
+    { id: 'site-popups', label: 'Pop-up', icon: <MessageCircle className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <ClipboardList className="h-4 w-4" /> },
     { id: 'customers', label: 'Clientes', icon: <Users className="h-4 w-4" /> },
     { id: 'payments', label: 'Pagos', icon: <CreditCard className="h-4 w-4" /> },
@@ -1674,6 +1701,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                         <th className="px-4 py-3">Tipo</th>
                         <th className="px-4 py-3">Precio</th>
                         <th className="px-4 py-3">Stock</th>
+                        <th className="px-4 py-3">Orden</th>
                         <th className="px-4 py-3">Estado</th>
                         <th className="px-4 py-3">Tienda</th>
                         <th className="px-4 py-3 text-right">Acciones</th>
@@ -1698,6 +1726,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                           <td className="px-4 py-3 text-gray-700">
                             {product.stock_mode === 'consult' ? 'Consultar disponibilidad' : product.stock}
                           </td>
+                          <td className="px-4 py-3 text-gray-700">{Number(product.sort_order ?? 0)}</td>
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
@@ -1755,11 +1784,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
           )
         )}
 
+        {activeTab === 'prices' && (
+          <AdminPriceUpdates
+            onPricesApplied={async () => {
+              await loadProducts();
+              await loadDashboardData();
+              onProductsChanged();
+            }}
+          />
+        )}
+
         {activeTab === 'collections' && <AdminCollections />}
 
         {activeTab === 'care-guides' && <AdminCareGuides />}
 
         {activeTab === 'events' && <AdminEvents />}
+
+        {activeTab === 'site-popups' && <AdminSitePopups />}
 
         {activeTab === 'orders' && isLoadingOrders && !loadedTabs.orders ? (
           <AdminTableSkeleton rows={6} />
