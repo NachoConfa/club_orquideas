@@ -134,28 +134,32 @@ const CollectionDetailPage: React.FC<CollectionDetailPageProps> = ({ onBack }) =
               </div>
 
               {(collection.sections ?? []).length > 0 ? (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {(collection.sections ?? []).map((section) => {
                     const productCount = (section.products ?? []).filter((relation) => relation.product).length;
+                    const sectionImageUrl = section.image_url?.trim() ?? '';
+                    const hasSectionImage = sectionImageUrl.length > 0;
 
                     return (
                       <button
                         key={section.id}
                         type="button"
                         onClick={() => navigate(`/colecciones/${collection.slug}/${section.slug}`)}
-                        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0F8F61]"
+                        className="group flex w-full flex-col overflow-hidden rounded-2xl border border-[#F1E3D4] bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0F8F61]"
                       >
-                        <div className="aspect-[4/3] w-full overflow-hidden bg-[#F8EFE3] p-3">
-                          <ProductImage
-                            src={section.image_url || ''}
-                            alt={section.title}
-                            className="h-full w-full rounded-xl object-contain object-center transition-transform duration-500 group-hover:scale-[1.02]"
-                            fallbackClassName="h-full rounded-xl"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </div>
-                        <div className="flex flex-1 flex-col gap-3 p-5">
+                        {hasSectionImage && (
+                          <div className="aspect-[4/3] w-full overflow-hidden bg-[#F8EFE3] p-3">
+                            <ProductImage
+                              src={sectionImageUrl}
+                              alt={section.title}
+                              className="h-full w-full rounded-xl object-contain object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                              fallbackClassName="h-full rounded-xl"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                        )}
+                        <div className={`flex flex-col gap-3 ${hasSectionImage ? 'p-5' : 'p-5 sm:p-6'}`}>
                           <span className="text-xs font-semibold uppercase tracking-wide text-[#0F8F61]">
                             {productCount === 1 ? '1 producto' : `${productCount} productos`}
                           </span>
@@ -165,7 +169,7 @@ const CollectionDetailPage: React.FC<CollectionDetailPageProps> = ({ onBack }) =
                               {section.description}
                             </p>
                           )}
-                          <span className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-[#0F8F61]">
+                          <span className="inline-flex items-center gap-2 pt-1 text-sm font-semibold text-[#0F8F61]">
                             Ver sección
                             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                           </span>
