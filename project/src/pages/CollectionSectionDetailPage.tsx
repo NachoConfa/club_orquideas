@@ -70,6 +70,8 @@ const CollectionSectionDetailPage = () => {
   const products = (section?.products ?? [])
     .filter((relation) => relation.product)
     .map((relation) => relation.product!);
+  const sectionImageUrl = section?.image_url?.trim() ?? '';
+  const hasSectionImage = sectionImageUrl.length > 0;
 
   return (
     <main className="min-h-[70vh] bg-[#FFF8EF] px-4 py-8 sm:px-6 lg:px-8">
@@ -106,17 +108,26 @@ const CollectionSectionDetailPage = () => {
           </div>
         ) : (
           <div className="space-y-10">
-            <section className="grid gap-6 rounded-[32px] border border-[#F1E3D4] bg-white p-4 shadow-sm sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] lg:items-start">
-              <div className="flex aspect-[4/3] items-center justify-center rounded-[24px] bg-[#F8EFE3] p-4">
-                <ProductImage
-                  src={section.image_url || ''}
-                  alt={section.title}
-                  className="h-full w-full rounded-2xl object-contain object-center"
-                  fallbackClassName="h-full rounded-2xl"
-                  decoding="async"
-                />
-              </div>
-              <div className="min-w-0 p-2 sm:p-4">
+            <section
+              className={[
+                'rounded-[32px] border border-[#F1E3D4] bg-white shadow-sm',
+                hasSectionImage
+                  ? 'grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)] lg:items-start'
+                  : 'p-6 sm:p-8 lg:p-10',
+              ].join(' ')}
+            >
+              {hasSectionImage && (
+                <div className="flex aspect-[4/3] items-center justify-center rounded-[24px] bg-[#F8EFE3] p-4">
+                  <ProductImage
+                    src={sectionImageUrl}
+                    alt={section.title}
+                    className="h-full w-full rounded-2xl object-contain object-center"
+                    fallbackClassName="h-full rounded-2xl"
+                    decoding="async"
+                  />
+                </div>
+              )}
+              <div className={hasSectionImage ? 'min-w-0 p-2 sm:p-4' : 'min-w-0'}>
                 <span className="inline-flex rounded-full bg-[#E8F7EF] px-3 py-1 text-xs font-semibold text-[#0F8F61]">
                   {collection.title}
                 </span>
