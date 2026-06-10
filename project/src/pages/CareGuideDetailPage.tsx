@@ -117,7 +117,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
   }, [slug]);
 
   return (
-    <main className="min-h-[70vh] bg-[#FFF8EF] px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-[70vh] overflow-x-hidden bg-[#FFF8EF] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1240px]">
         <button
           type="button"
@@ -184,7 +184,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                     )}
                   </div>
 
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#0F8F61]">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider sm:tracking-[0.24em] text-[#0F8F61]">
                     Guía de cuidados
                   </p>
                   <h1 className="text-3xl font-semibold leading-tight text-[#16352B] sm:text-4xl lg:text-5xl">
@@ -209,7 +209,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-[#D2EBDD] bg-[#E8F7EF] p-5">
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#0F8F61]">Confianza</p>
+                  <p className="text-sm font-semibold uppercase tracking-wider sm:tracking-[0.16em] text-[#0F8F61]">Confianza</p>
                   <p className="mt-2 text-lg font-semibold leading-7 text-[#16352B]">
                     Más de 10 años acompañando a amantes de las orquídeas en Nordelta y Buenos Aires.
                   </p>
@@ -221,7 +221,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
               <section className="rounded-[28px] border border-[#F1E3D4] bg-white/90 p-5 shadow-sm sm:p-6">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0F8F61]">
+                    <p className="text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em] text-[#0F8F61]">
                       Secciones
                     </p>
                     <h2 className="mt-1 text-2xl font-semibold text-[#16352B]">Elegí el tema que querés leer</h2>
@@ -257,7 +257,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
 
             <section>
               <div className="mb-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0F8F61]">
+                <p className="text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em] text-[#0F8F61]">
                   Cuidados esenciales
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold text-[#16352B]">Qué necesita tu orquídea</h2>
@@ -283,7 +283,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
 
             {activeTips.length > 0 && (
               <section className="rounded-[28px] border border-[#D2EBDD] bg-[#E8F7EF] p-6 shadow-sm sm:p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0F8F61]">
+                <p className="text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em] text-[#0F8F61]">
                   Consejos especiales
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-[#16352B]">Detalles que hacen la diferencia</h2>
@@ -300,7 +300,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
 
             <section className="rounded-[30px] border border-[#F1E3D4] bg-[#16352B] p-6 text-white shadow-sm sm:p-8 lg:flex lg:items-center lg:justify-between lg:gap-8">
               <div className="max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#CFE3D4]">
+                <p className="text-xs font-semibold uppercase tracking-wider sm:tracking-[0.18em] text-[#CFE3D4]">
                   Acompañamiento personalizado
                 </p>
                 <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">

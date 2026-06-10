@@ -39,6 +39,10 @@ export const createMercadoPagoPreference = async (orderId: string) => {
   );
 
   if (error) {
+    const errorText = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error);
+    if (errorText.includes('ORDER_TOTAL_INVALID')) {
+      throw new Error('El total del pedido no es válido.');
+    }
     throw error;
   }
 

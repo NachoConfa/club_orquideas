@@ -9,7 +9,7 @@ import {
   updateSitePopup,
 } from '../../services/sitePopupService';
 import { uploadProductImage } from '../../services/productImageUploadService';
-import type { SitePopup, SitePopupInput } from '../../types/sitePopup';
+import type { SitePopup, SitePopupAcceptAction, SitePopupInput } from '../../types/sitePopup';
 import { useConfirm } from '../feedback/ConfirmProvider';
 import { useToast } from '../feedback/ToastProvider';
 
@@ -201,16 +201,19 @@ const PopupForm = ({
         </div>
 
         <label className="text-sm font-medium text-gray-700">
-          Link opcional
+          Link secundario en el cuerpo del pop-up (opcional)
           <input
             value={form.link_url}
             onChange={(event) => updateField('link_url', event.target.value)}
             placeholder="https://..."
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
           />
+          <span className="mt-1 block text-xs font-normal text-gray-500">
+            Aparece en el cuerpo del pop-up, independiente del botón aceptar.
+          </span>
         </label>
         <label className="text-sm font-medium text-gray-700">
-          Texto del link
+          Texto del link secundario
           <input
             value={form.link_label}
             onChange={(event) => updateField('link_label', event.target.value)}
@@ -218,6 +221,50 @@ const PopupForm = ({
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
           />
         </label>
+
+        <div className="text-sm font-medium text-gray-700 md:col-span-2">
+          <p className="mb-2">Acción del botón aceptar</p>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Modo
+              <select
+                value={form.accept_action}
+                onChange={(event) => updateField('accept_action', event.target.value as SitePopupAcceptAction)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="dismiss">Solo cerrar (aviso informativo)</option>
+                <option value="link">Abrir link</option>
+                <option value="whatsapp">Abrir WhatsApp</option>
+              </select>
+            </label>
+            {form.accept_action === 'link' && (
+              <label className="block text-sm font-medium text-gray-700">
+                URL o ruta
+                <input
+                  value={form.accept_link_url}
+                  onChange={(event) => updateField('accept_link_url', event.target.value)}
+                  placeholder="https://... o /colecciones/..."
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                />
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  URL completa (https://...) o ruta interna (/colecciones/...).
+                </span>
+              </label>
+            )}
+            {form.accept_action === 'whatsapp' && (
+              <label className="block text-sm font-medium text-gray-700">
+                Mensaje prefijado de WhatsApp
+                <textarea
+                  value={form.accept_whatsapp_message}
+                  onChange={(event) => updateField('accept_whatsapp_message', event.target.value)}
+                  rows={3}
+                  placeholder="Hola! Quiero recibir novedades de Modo Plantas para sumarme a la lista de difusión. Gracias!"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                />
+              </label>
+            )}
+          </div>
+        </div>
 
         <label className="text-sm font-medium text-gray-700">
           Inicio opcional
@@ -472,6 +519,21 @@ const AdminSitePopups = () => {
                   </span>
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
                     Orden {popup.sort_order}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      popup.accept_action === 'whatsapp'
+                        ? 'bg-green-100 text-green-700'
+                        : popup.accept_action === 'link'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {popup.accept_action === 'whatsapp'
+                      ? 'WhatsApp'
+                      : popup.accept_action === 'link'
+                        ? 'Link'
+                        : 'Cerrar'}
                   </span>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">{popup.title}</h3>

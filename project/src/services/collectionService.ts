@@ -615,10 +615,17 @@ export const getActiveProductCollections = async () => {
 
 export const getActiveProductCollectionBySlug = async (slug: string) => {
   const client = getClient();
+  const normalizedSlug = slug
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   const { data, error } = await client
     .from('product_collections')
     .select(COLLECTION_COLUMNS)
-    .eq('slug', slug)
+    .eq('slug', normalizedSlug || slug.trim())
     .eq('is_active', true)
     .maybeSingle();
 

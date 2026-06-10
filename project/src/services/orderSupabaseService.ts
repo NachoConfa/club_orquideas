@@ -35,6 +35,8 @@ export interface CreateOrderInput {
   shippingZoneId?: string;
   shippingZoneName?: string;
   shippingRequiresQuote: boolean;
+  couponCode?: string;
+  discountTotal?: number;
   paymentFee?: number;
   total: number;
   paymentMethod: 'transfer' | 'cash' | 'mercadopago';
@@ -61,6 +63,8 @@ export interface CustomerOrder {
   subtotal: number;
   shipping: number;
   paymentFee: number;
+  discountTotal: number;
+  couponCode?: string;
   shippingMethod: ShippingMethod;
   shippingZoneName?: string;
   shippingRequiresQuote: boolean;
@@ -91,6 +95,9 @@ type OrderRow = {
   shipping: number | null;
   shipping_total: number | null;
   payment_fee?: number | null;
+  coupon_id?: string | null;
+  coupon_code?: string | null;
+  discount_total?: number | null;
   total?: number | null;
   total_amount: number | null;
   status: CustomerOrder['status'] | string | null;
@@ -213,6 +220,17 @@ const getKnownRpcErrorCode = (error: unknown) =>
     'STOCK_VARIANT_REQUIRED',
     'STOCK_VARIANT_NOT_FOUND',
     'STOCK_INSUFFICIENT',
+    'PRODUCT_REQUIRES_QUOTE',
+    'PRODUCT_REQUIRES_CONSULTATION',
+    'COUPON_NOT_FOUND',
+    'COUPON_INACTIVE',
+    'COUPON_NOT_STARTED',
+    'COUPON_EXPIRED',
+    'COUPON_LOGIN_REQUIRED',
+    'COUPON_MIN_ORDER',
+    'COUPON_MAX_USES',
+    'COUPON_USER_MAX_USES',
+    'COUPON_LOYALTY_LOCKED',
   ].find((marker) => getSupabaseErrorMessage(error).includes(marker));
 
 const normalizePublicErrorMessage = (message: string) =>
@@ -252,6 +270,8 @@ const redactOrderPayloadForDebug = (payload: Record<string, unknown>) => ({
   shipping: payload.shipping,
   shipping_total: payload.shipping_total,
   payment_fee: payload.payment_fee,
+  coupon_code: payload.coupon_code,
+  discount_total: payload.discount_total,
   total_amount: payload.total_amount,
   status: payload.status,
   payment_method: payload.payment_method,
@@ -346,8 +366,56 @@ const getPublicRpcErrorMessage = (error: unknown) => {
     return 'No hay stock suficiente para uno o mas productos del carrito.';
   }
 
+  if (errorText.includes('PRODUCT_REQUIRES_QUOTE')) {
+    return 'Uno de los productos requiere cotización y no puede comprarse desde el carrito.';
+  }
+
+  if (errorText.includes('PRODUCT_REQUIRES_CONSULTATION')) {
+    return 'Uno de los productos requiere consultar disponibilidad antes de comprar.';
+  }
+
   if (errorText.includes('AUTH_REQUIRED')) {
     return 'Iniciá sesión nuevamente antes de completar el pedido.';
+  }
+
+  if (errorText.includes('COUPON_NOT_FOUND')) {
+    return 'El cupón ingresado no existe.';
+  }
+
+  if (errorText.includes('COUPON_INACTIVE')) {
+    return 'Este cupón no está activo.';
+  }
+
+  if (errorText.includes('COUPON_NOT_STARTED')) {
+    return 'Este cupón todavía no está disponible.';
+  }
+
+  if (errorText.includes('COUPON_EXPIRED')) {
+    return 'Este cupón está vencido.';
+  }
+
+  if (errorText.includes('COUPON_LOGIN_REQUIRED')) {
+    return 'Iniciá sesión para usar este cupón.';
+  }
+
+  if (errorText.includes('COUPON_MIN_ORDER')) {
+    return 'Este cupón requiere una compra mínima.';
+  }
+
+  if (errorText.includes('COUPON_MAX_USES')) {
+    return 'Este cupón alcanzó su límite de usos.';
+  }
+
+  if (errorText.includes('COUPON_USER_MAX_USES')) {
+    return 'Ya usaste este cupón la cantidad máxima permitida.';
+  }
+
+  if (errorText.includes('COUPON_LOYALTY_LOCKED')) {
+    return 'Este cupón todavía no está desbloqueado en tu carnet.';
+  }
+
+  if (errorText.includes('ORDER_TOTAL_INVALID')) {
+    return 'El total del pedido no es válido.';
   }
 
   if (errorText.includes('ORDER_USER_MISMATCH')) {
@@ -444,7 +512,11 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
   const paymentStatus = getPaymentStatus(input);
   const subtotal = toFiniteNumber(input.subtotal);
   const shippingCost = input.deliveryMethod === 'pickup' ? 0 : toFiniteNumber(input.shipping);
-  const baseTotal = subtotal + shippingCost;
+  const discountTotal = Math.min(
+    Math.max(toFiniteNumber(input.discountTotal), 0),
+    subtotal + shippingCost
+  );
+  const baseTotal = Math.max(subtotal + shippingCost - discountTotal, 0);
   const paymentFee = input.paymentMethod === 'mercadopago' ? roundMoney(baseTotal * MERCADO_PAGO_SURCHARGE_RATE) : 0;
   const totalAmount = baseTotal + paymentFee;
   const shippingAddress =
@@ -458,6 +530,8 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
     subtotal,
     shipping: shippingCost,
     shipping_total: shippingCost,
+    coupon_code: input.couponCode?.trim().toUpperCase() || null,
+    discount_total: discountTotal,
     payment_fee: paymentFee,
     total_amount: totalAmount,
     status: 'pending',
@@ -565,9 +639,25 @@ export const createSupabaseOrder = async (input: CreateOrderInput) => {
     );
   }
 
+  const { data: persistedOrder, error: persistedOrderError } = await client
+    .from('orders')
+    .select('subtotal, shipping_total, payment_fee, discount_total, total_amount, coupon_code')
+    .eq('id', createdOrder.id)
+    .single();
+
+  if (persistedOrderError && import.meta.env.DEV) {
+    console.warn('No se pudo releer el total final del pedido creado:', persistedOrderError);
+  }
+
   return {
     id: createdOrder.id,
     orderNumber: createdOrder.order_number || orderNumber,
+    subtotal: Number(persistedOrder?.subtotal ?? subtotal),
+    shipping: Number(persistedOrder?.shipping_total ?? shippingCost),
+    discountTotal: Number(persistedOrder?.discount_total ?? discountTotal),
+    paymentFee: Number(persistedOrder?.payment_fee ?? paymentFee),
+    total: Number(persistedOrder?.total_amount ?? totalAmount),
+    couponCode: persistedOrder?.coupon_code ?? input.couponCode?.trim().toUpperCase() ?? null,
   };
 };
 
@@ -617,6 +707,10 @@ const getOrdersForUser = async (userId: string): Promise<OrderRow[]> => {
     'subtotal',
     'shipping',
     'shipping_total',
+    'payment_fee',
+    'coupon_id',
+    'coupon_code',
+    'discount_total',
     'total',
     'total_amount',
     'status',
@@ -718,6 +812,7 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
     const shipping = Number(order.shipping ?? order.shipping_total ?? 0);
     const rawTotal = Number(order.total_amount ?? order.total ?? subtotal + shipping);
     const paymentFee = Number(order.payment_fee ?? Math.max(rawTotal - subtotal - shipping, 0));
+    const discountTotal = Number(order.discount_total ?? 0);
     const total = rawTotal;
     const shippingMethod =
       normalizedDeliveryMethod === 'pickup'
@@ -735,6 +830,8 @@ export const getSupabaseOrdersForUser = async (userId: string): Promise<Customer
       subtotal,
       shipping,
       paymentFee,
+      discountTotal,
+      couponCode: order.coupon_code || undefined,
       shippingMethod,
       shippingZoneName: order.shipping_zone_name || shippingInfo?.zone_name || undefined,
       shippingRequiresQuote: Boolean(order.shipping_requires_quote ?? shippingInfo?.requires_quote),

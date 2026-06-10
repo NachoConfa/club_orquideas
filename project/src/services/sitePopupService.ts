@@ -1,8 +1,17 @@
 import { getSupabaseConfigMessage, supabase } from '../lib/supabase';
-import type { SitePopup, SitePopupInput, SitePopupResponse } from '../types/sitePopup';
+import type { SitePopup, SitePopupAcceptAction, SitePopupInput, SitePopupResponse } from '../types/sitePopup';
 
 const SITE_POPUP_COLUMNS =
-  'id, title, description, accept_label, dismiss_label, image_url, link_url, link_label, campaign_key, is_active, show_once, starts_at, ends_at, sort_order, created_at, updated_at';
+  'id, title, description, accept_label, dismiss_label, image_url, link_url, link_label, accept_action, accept_link_url, accept_whatsapp_message, campaign_key, is_active, show_once, starts_at, ends_at, sort_order, created_at, updated_at';
+
+const VALID_ACCEPT_ACTIONS: SitePopupAcceptAction[] = ['dismiss', 'link', 'whatsapp'];
+
+const normalizeAcceptAction = (value: unknown): SitePopupAcceptAction => {
+  if (typeof value === 'string' && VALID_ACCEPT_ACTIONS.includes(value as SitePopupAcceptAction)) {
+    return value as SitePopupAcceptAction;
+  }
+  return 'dismiss';
+};
 
 const DEFAULT_ACCEPT_LABEL = 'Sí, quiero recibir novedades';
 const DEFAULT_DISMISS_LABEL = 'Ahora no';
@@ -35,6 +44,14 @@ const isMissingTableError = (error: { code?: string; message?: string } | null |
     message.includes('could not find the table') ||
     message.includes('does not exist') ||
     message.includes('schema cache')
+  );
+};
+
+const isMissingColumnsError = (error: { code?: string; message?: string } | null | undefined) => {
+  const message = error?.message?.toLowerCase() ?? '';
+  return (
+    error?.code === 'PGRST204' ||
+    (message.includes('accept_action') || message.includes('accept_link_url') || message.includes('accept_whatsapp_message'))
   );
 };
 
@@ -95,6 +112,9 @@ const mapPopup = (popup: SitePopup): SitePopup => ({
   image_url: popup.image_url ?? null,
   link_url: popup.link_url ?? null,
   link_label: popup.link_label ?? null,
+  accept_action: normalizeAcceptAction(popup.accept_action),
+  accept_link_url: popup.accept_link_url ?? null,
+  accept_whatsapp_message: popup.accept_whatsapp_message ?? null,
   is_active: popup.is_active === true,
   show_once: popup.show_once !== false,
   starts_at: popup.starts_at ?? null,
@@ -110,6 +130,9 @@ export const emptySitePopupInput = (): SitePopupInput => ({
   image_url: '',
   link_url: '',
   link_label: '',
+  accept_action: 'dismiss',
+  accept_link_url: '',
+  accept_whatsapp_message: '',
   campaign_key: `novedades-${new Date().getFullYear()}`,
   is_active: false,
   show_once: true,
@@ -126,6 +149,9 @@ export const sitePopupToInput = (popup: SitePopup): SitePopupInput => ({
   image_url: popup.image_url ?? '',
   link_url: popup.link_url ?? '',
   link_label: popup.link_label ?? '',
+  accept_action: normalizeAcceptAction(popup.accept_action),
+  accept_link_url: popup.accept_link_url ?? '',
+  accept_whatsapp_message: popup.accept_whatsapp_message ?? '',
   campaign_key: popup.campaign_key,
   is_active: popup.is_active,
   show_once: popup.show_once,
@@ -141,6 +167,21 @@ const toSitePopupPayload = (popup: SitePopupInput) => {
     throw new Error('El pop-up necesita un titulo.');
   }
 
+  const acceptAction = normalizeAcceptAction(popup.accept_action);
+
+  if (acceptAction === 'link') {
+    const url = toText(popup.accept_link_url);
+    if (!url || !(/^https?:\/\//i.test(url) || url.startsWith('/'))) {
+      throw new Error('Para la acción "Abrir link" se necesita una URL válida (https://... o ruta interna /...).');
+    }
+  }
+
+  if (acceptAction === 'whatsapp') {
+    if (!toText(popup.accept_whatsapp_message)) {
+      throw new Error('Para la acción "Abrir WhatsApp" se necesita un mensaje prefijado.');
+    }
+  }
+
   return {
     title,
     description: toTextOrNull(popup.description),
@@ -149,6 +190,9 @@ const toSitePopupPayload = (popup: SitePopupInput) => {
     image_url: toTextOrNull(popup.image_url),
     link_url: toTextOrNull(popup.link_url),
     link_label: toTextOrNull(popup.link_label),
+    accept_action: acceptAction,
+    accept_link_url: acceptAction === 'link' ? toTextOrNull(popup.accept_link_url) : null,
+    accept_whatsapp_message: acceptAction === 'whatsapp' ? toTextOrNull(popup.accept_whatsapp_message) : null,
     campaign_key: normalizeCampaignKey(popup.campaign_key, title),
     is_active: toBoolean(popup.is_active, false),
     show_once: toBoolean(popup.show_once, true),
@@ -193,6 +237,10 @@ export const getAdminSitePopups = async (): Promise<SitePopup[]> => {
     return [];
   }
 
+  if (isMissingColumnsError(error)) {
+    throw new Error('Falta ejecutar site-popups-accept-action.sql en Supabase.');
+  }
+
   if (error) {
     throw error;
   }
@@ -210,6 +258,10 @@ export const createSitePopup = async (popup: SitePopupInput): Promise<SitePopup>
 
   if (isMissingTableError(error)) {
     throw new Error('Falta crear la tabla site_popups en Supabase.');
+  }
+
+  if (isMissingColumnsError(error)) {
+    throw new Error('Falta ejecutar site-popups-accept-action.sql en Supabase.');
   }
 
   if (error) {
@@ -230,6 +282,10 @@ export const updateSitePopup = async (id: string, popup: SitePopupInput): Promis
 
   if (isMissingTableError(error)) {
     throw new Error('Falta crear la tabla site_popups en Supabase.');
+  }
+
+  if (isMissingColumnsError(error)) {
+    throw new Error('Falta ejecutar site-popups-accept-action.sql en Supabase.');
   }
 
   if (error) {

@@ -1,12 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders } from '../_shared/cors.ts';
 
-type OrderItemRow = {
-  product_name: string | null;
-  quantity: number | null;
-  unit_price: number | null;
-};
-
 type CustomerInfo = {
   email?: string;
   firstName?: string;
@@ -235,46 +229,19 @@ Deno.serve(async (req) => {
       return json(req, { error: 'ORDER_REQUIRES_REVIEW' }, 400);
     }
 
-    const { data: orderItems, error: itemsError } = await adminClient
-      .from('order_items')
-      .select('product_name, quantity, unit_price')
-      .eq('order_id', order.id);
-
-    if (itemsError) {
-      throw itemsError;
+    const finalTotal = Number(orderRow.total_amount ?? orderRow.total ?? 0);
+    if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+      return json(req, { error: 'ORDER_TOTAL_INVALID' }, 400);
     }
 
-    const items = (orderItems ?? []) as OrderItemRow[];
-    if (items.length === 0) {
-      return json(req, { error: 'ORDER_NOT_PAYABLE' }, 400);
-    }
-
-    const preferenceItems = items.map((item) => ({
-      title: item.product_name || 'Producto',
-      quantity: Number(item.quantity ?? 1),
-      unit_price: Number(item.unit_price ?? 0),
-      currency_id: 'ARS',
-    }));
-
-    const shipping = Number(order.shipping ?? 0);
-    if (shipping > 0) {
-      preferenceItems.push({
-        title: 'Envio',
+    const preferenceItems = [
+      {
+        title: `Pedido Modo Plantas / Pedido ${orderRow.order_number || orderRow.id}`,
         quantity: 1,
-        unit_price: shipping,
+        unit_price: finalTotal,
         currency_id: 'ARS',
-      });
-    }
-
-    const paymentFee = Number(order.payment_fee ?? 0);
-    if (paymentFee > 0) {
-      preferenceItems.push({
-        title: 'Recargo Mercado Pago (10%)',
-        quantity: 1,
-        unit_price: paymentFee,
-        currency_id: 'ARS',
-      });
-    }
+      },
+    ];
 
     const preferenceBody = {
       items: preferenceItems,

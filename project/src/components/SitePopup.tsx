@@ -86,6 +86,24 @@ const SitePopup = ({ pathname }: { pathname: string }) => {
     setIsVisible(false);
   };
 
+  const handleAccept = () => {
+    if (!popup) return;
+
+    saveSitePopupPreference(popup, 'accepted');
+    setIsVisible(false);
+
+    if (popup.accept_action === 'link' && popup.accept_link_url) {
+      const url = popup.accept_link_url.startsWith('/')
+        ? window.location.origin + popup.accept_link_url
+        : popup.accept_link_url;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else if (popup.accept_action === 'whatsapp' && popup.accept_whatsapp_message) {
+      const waNumber = '5491122906442';
+      const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(popup.accept_whatsapp_message)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   if (!popup || !isVisible || isHiddenPath(pathname)) {
     return null;
   }
@@ -152,7 +170,7 @@ const SitePopup = ({ pathname }: { pathname: string }) => {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={() => closePopup('accepted')}
+              onClick={handleAccept}
               className="inline-flex flex-1 items-center justify-center rounded-full bg-[#0F8F61] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0B6F4A]"
             >
               {popup.accept_label}

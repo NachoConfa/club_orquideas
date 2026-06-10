@@ -1,5 +1,7 @@
 export type SitePopupResponse = 'accepted' | 'dismissed' | 'closed';
 
+export type SitePopupAcceptAction = 'dismiss' | 'link' | 'whatsapp';
+
 export interface SitePopup {
   id: string;
   title: string;
@@ -9,6 +11,9 @@ export interface SitePopup {
   image_url: string | null;
   link_url: string | null;
   link_label: string | null;
+  accept_action: SitePopupAcceptAction;
+  accept_link_url: string | null;
+  accept_whatsapp_message: string | null;
   campaign_key: string;
   is_active: boolean;
   show_once: boolean;
@@ -27,6 +32,9 @@ export interface SitePopupInput {
   image_url: string;
   link_url: string;
   link_label: string;
+  accept_action: SitePopupAcceptAction;
+  accept_link_url: string;
+  accept_whatsapp_message: string;
   campaign_key: string;
   is_active: boolean;
   show_once: boolean;

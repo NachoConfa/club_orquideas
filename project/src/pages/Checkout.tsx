@@ -15,6 +15,8 @@ import { sendOrderReceivedEmail } from '../services/emailService';
 import { trackOrderCreated } from '../services/analyticsService';
 import { createMercadoPagoPreference } from '../services/mercadoPagoService';
 import { createSupabaseOrder } from '../services/orderSupabaseService';
+import { validateCouponForCheckout } from '../services/couponService';
+import type { CouponValidationResult } from '../types/coupon';
 import {
   calculateShippingQuote,
   getShippingZones,
@@ -132,8 +134,31 @@ const getCheckoutErrorMessage = (error: unknown) => {
     return 'No hay stock suficiente para uno o mas productos.';
   }
 
+  if (errorText.includes('PRODUCT_REQUIRES_QUOTE')) {
+    return 'Uno de los productos requiere cotización y no puede comprarse desde el carrito.';
+  }
+
+  if (errorText.includes('PRODUCT_REQUIRES_CONSULTATION')) {
+    return 'Uno de los productos requiere consultar disponibilidad antes de comprar.';
+  }
+
   if (errorText.includes('ORDER_USER_MISMATCH') || errorText.includes('AUTH_REQUIRED')) {
     return 'Iniciá sesión nuevamente para finalizar tu compra.';
+  }
+
+  if (errorText.includes('COUPON_NOT_FOUND')) return 'El cupón ingresado no existe.';
+  if (errorText.includes('COUPON_INACTIVE')) return 'Este cupón no está activo.';
+  if (errorText.includes('COUPON_NOT_STARTED')) return 'Este cupón todavía no está disponible.';
+  if (errorText.includes('COUPON_EXPIRED')) return 'Este cupón está vencido.';
+  if (errorText.includes('COUPON_LOGIN_REQUIRED')) return 'Iniciá sesión para usar este cupón.';
+  if (errorText.includes('COUPON_MIN_ORDER')) return 'Este cupón requiere una compra mínima.';
+  if (errorText.includes('ORDER_TOTAL_INVALID')) return 'El total del pedido no es válido.';
+  if (errorText.includes('COUPON_MAX_USES')) return 'Este cupón alcanzó su límite de usos.';
+  if (errorText.includes('COUPON_USER_MAX_USES')) {
+    return 'Ya usaste este cupón la cantidad máxima permitida.';
+  }
+  if (errorText.includes('COUPON_LOYALTY_LOCKED')) {
+    return 'Este cupón todavía no está desbloqueado en tu carnet.';
   }
 
   const publicPrefixes = [
@@ -143,6 +168,9 @@ const getCheckoutErrorMessage = (error: unknown) => {
     'Tu sesión',
     'No pudimos preparar',
     'No pudimos completar',
+    'El cupón',
+    'Este cupón',
+    'Ya usaste',
   ];
 
   return error instanceof Error && publicPrefixes.some((prefix) => error.message.startsWith(prefix))
@@ -192,6 +220,10 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
   const [shippingZoneError, setShippingZoneError] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
+  const [couponMessage, setCouponMessage] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -271,12 +303,15 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
     !shippingQuote.requiresQuote;
   const canChoosePaymentMethod = deliveryMethod === 'pickup' || hasClosedDeliveryShipping;
   const paymentMethodsDisabled = !canChoosePaymentMethod;
-  const baseTotal = subtotal + shipping;
+  const discountTotal = Math.min(appliedCoupon?.discount_amount ?? 0, subtotal + shipping);
+  const baseTotal = Math.max(subtotal + shipping - discountTotal, 0);
   const paymentFee = paymentMethod === 'mercadopago' ? getMercadoPagoFee(baseTotal) : 0;
   const total = baseTotal + paymentFee;
+  const isTotalZeroWithCoupon = appliedCoupon !== null && baseTotal <= 0;
   const shippingRequiresManualQuote =
     deliveryMethod === 'delivery' && hasDeliveryLocation && !isLoadingShippingZones && shippingQuote.requiresQuote;
   const cannotPayOnline = paymentMethodsDisabled;
+  const mpDisabled = cannotPayOnline || isTotalZeroWithCoupon;
   const cashPaymentAllowed = canChoosePaymentMethod && allowsCashPayment(deliveryMethod, shippingQuote);
   const shouldShowCaptcha = isTurnstileEnabled();
   const canShowFinalTotal = deliveryMethod === 'pickup' || hasClosedDeliveryShipping;
@@ -293,7 +328,8 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
   const paymentDisabledMessage = shippingRequiresManualQuote
     ? SHIPPING_QUOTE_REQUIRED_MESSAGE
     : SHIPPING_LOCATION_REQUIRED_MESSAGE;
-  const isSubmitDisabled = isProcessing || !formData.email.trim() || paymentMethodsDisabled || !paymentMethod;
+  const isSubmitDisabled =
+    isProcessing || isValidatingCoupon || !formData.email.trim() || paymentMethodsDisabled || !paymentMethod;
   const submitButtonText = (() => {
     if (isProcessing) {
       return 'Procesando...';
@@ -312,6 +348,86 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
       : `Completar pedido - ${formatMoney(total)}`;
   })();
 
+  const applyCoupon = async () => {
+    const normalizedCode = couponInput.trim().toUpperCase();
+    if (!normalizedCode) {
+      setCouponMessage('Ingresá un código de cupón.');
+      return;
+    }
+
+    if (subtotal <= 0) {
+      setCouponMessage('El carrito no tiene productos comprables.');
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponMessage('');
+    try {
+      const result = await validateCouponForCheckout(normalizedCode, subtotal, shipping);
+      setCouponMessage(result.message);
+
+      if (result.valid) {
+        setAppliedCoupon(result);
+        setCouponInput(result.code ?? normalizedCode);
+        toast.success(result.message);
+      } else {
+        setAppliedCoupon(null);
+      }
+    } catch (couponError) {
+      const message = couponError instanceof Error ? couponError.message : 'No pudimos validar el cupón.';
+      setAppliedCoupon(null);
+      setCouponMessage(message);
+      toast.error(message);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponMessage('');
+  };
+
+  useEffect(() => {
+    const appliedCode = appliedCoupon?.code;
+    if (!appliedCode) {
+      return;
+    }
+
+    let isCurrent = true;
+    const revalidate = async () => {
+      setIsValidatingCoupon(true);
+      try {
+        const result = await validateCouponForCheckout(appliedCode, subtotal, shipping);
+        if (!isCurrent) return;
+
+        if (result.valid) {
+          setAppliedCoupon(result);
+          setCouponMessage(result.message);
+        } else {
+          setAppliedCoupon(null);
+          setCouponMessage(result.message);
+        }
+      } catch (couponError) {
+        if (!isCurrent) return;
+        const message = couponError instanceof Error ? couponError.message : 'No pudimos revalidar el cupón.';
+        setAppliedCoupon(null);
+        setCouponMessage(message);
+      } finally {
+        if (isCurrent) {
+          setIsValidatingCoupon(false);
+        }
+      }
+    };
+
+    const timer = window.setTimeout(() => void revalidate(), 250);
+    return () => {
+      isCurrent = false;
+      window.clearTimeout(timer);
+    };
+  }, [appliedCoupon?.code, shipping, subtotal]);
+
   useEffect(() => {
     if (deliveryMethod === 'pickup') {
       if (!paymentMethod) {
@@ -328,7 +444,11 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
     if (!cashPaymentAllowed && paymentMethod === 'cash') {
       setPaymentMethod('');
     }
-  }, [canChoosePaymentMethod, cashPaymentAllowed, deliveryMethod, paymentMethod]);
+
+    if (isTotalZeroWithCoupon && paymentMethod === 'mercadopago') {
+      setPaymentMethod('');
+    }
+  }, [canChoosePaymentMethod, cashPaymentAllowed, deliveryMethod, isTotalZeroWithCoupon, paymentMethod]);
 
   const updateForm = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -383,6 +503,10 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         : shippingQuote.requiresQuote
           ? `${shippingQuote.label}: a cotizar`
           : `${shippingQuote.label}: ${formatMoney(shipping)}`;
+    const discountLine =
+      discountTotal > 0
+        ? `Descuento (${appliedCoupon?.code ?? 'CUPÓN'}): -${formatMoney(discountTotal)}\n`
+        : '';
     const paymentFeeLine = paymentFee > 0 ? `Recargo Mercado Pago (10%): ${formatMoney(paymentFee)}\n` : '';
     const paymentLabel =
       paymentMethod === 'cash'
@@ -403,6 +527,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
       `PRODUCTOS:\n${orderDetails}\n\n` +
       `Subtotal: ${formatMoney(subtotal)}\n` +
       `${shippingLine}\n` +
+      discountLine +
       paymentFeeLine +
       `TOTAL: ${formatMoney(total)}\n\n` +
       `Método de pago: ${paymentLabel}` +
@@ -487,6 +612,12 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
       return;
     }
 
+    if (paymentMethod === 'mercadopago' && baseTotal <= 0) {
+      toast.error('Con este cupón el total queda en $0. Elegí transferencia o efectivo para completar el pedido.');
+      setPaymentMethod('');
+      return;
+    }
+
     if (shouldShowCaptcha && !turnstileToken) {
       toast.warning(TURNSTILE_REQUIRED_MESSAGE);
       return;
@@ -516,13 +647,15 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         shippingZoneId: deliveryMethod === 'pickup' ? undefined : shippingQuote.zoneId,
         shippingZoneName: deliveryMethod === 'pickup' ? 'Retiro en local' : shippingQuote.zoneName,
         shippingRequiresQuote: deliveryMethod === 'pickup' ? false : shippingQuote.requiresQuote,
+        couponCode: appliedCoupon?.code ?? undefined,
+        discountTotal,
         paymentFee,
         total,
         paymentMethod,
         deliveryMethod,
         customerInfo: customerInfoForOrder,
       });
-      trackOrderCreated({ id: savedOrder.id, total });
+      trackOrderCreated({ id: savedOrder.id, total: savedOrder.total });
       const receivedEmailWasSent = await sendConfirmationEmail(savedOrder.id);
 
       if (paymentMethod === 'mercadopago') {
@@ -538,7 +671,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
             status: 'pending',
             orderId: savedOrder.id,
             orderNumber: savedOrder.orderNumber,
-            total,
+            total: savedOrder.total,
             paymentMethod,
             deliveryMethod,
             shippingLabel: deliveryMethod === 'pickup' ? 'Retiro en local sin costo' : shippingQuote.label,
@@ -556,7 +689,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
         status: 'success',
         orderId: savedOrder.id,
         orderNumber: savedOrder.orderNumber,
-        total,
+        total: savedOrder.total,
         paymentMethod,
         deliveryMethod,
         shippingLabel: deliveryMethod === 'pickup' ? 'Retiro en local sin costo' : shippingQuote.label,
@@ -801,7 +934,7 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
 
                   <label
                     className={`flex items-center rounded-xl border border-[#F1E3D4] p-4 ${
-                      cannotPayOnline ? 'bg-gray-50 text-gray-400' : 'cursor-pointer transition-colors hover:bg-[#E8F7EF]'
+                      mpDisabled ? 'bg-gray-50 text-gray-400' : 'cursor-pointer transition-colors hover:bg-[#E8F7EF]'
                     }`}
                   >
                     <input
@@ -809,9 +942,9 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                       name="payment"
                       value="mercadopago"
                       checked={paymentMethod === 'mercadopago'}
-                      disabled={cannotPayOnline}
+                      disabled={mpDisabled}
                       onChange={() => {
-                        if (!cannotPayOnline) {
+                        if (!mpDisabled) {
                           setPaymentMethod('mercadopago');
                         }
                       }}
@@ -821,9 +954,11 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                     <div>
                       <span>Mercado Pago</span>
                       <p className="text-sm text-[#6B7280]">
-                        {cannotPayOnline
-                          ? paymentDisabledMessage
-                          : 'Tarjeta, dinero en cuenta y otros medios disponibles. Incluye recargo del 10%.'}
+                        {isTotalZeroWithCoupon
+                          ? 'Con este cupón el total queda en $0. Usá transferencia o efectivo.'
+                          : cannotPayOnline
+                            ? paymentDisabledMessage
+                            : 'Tarjeta, dinero en cuenta y otros medios disponibles. Incluye recargo del 10%.'}
                       </p>
                     </div>
                   </label>
@@ -856,6 +991,53 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   </p>
                 </div>
               )}
+
+              <div className="mt-6 rounded-xl border border-[#F1E3D4] bg-[#FFF8EF] p-4">
+                <h4 className="font-semibold text-[#16352B]">Cupón de descuento</h4>
+                <p className="mt-1 text-sm text-[#6B7280]">
+                  Ingresá tu código. La validez se controla nuevamente al crear el pedido.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={couponInput}
+                    onChange={(event) => {
+                      setCouponInput(event.target.value.toUpperCase());
+                      if (!appliedCoupon) setCouponMessage('');
+                    }}
+                    disabled={Boolean(appliedCoupon)}
+                    placeholder="Código de cupón"
+                    className="min-w-0 flex-1 rounded-lg border border-[#E4D2BF] bg-white px-3 py-2 uppercase text-[#1F2933] outline-none focus:border-[#0F8F61] focus:ring-2 focus:ring-[#0F8F61]/20 disabled:bg-[#F5F5F4]"
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={removeCoupon}
+                      className="rounded-lg border border-[#D8C6B5] bg-white px-4 py-2 text-sm font-semibold text-[#16352B] hover:bg-[#F8EFE3]"
+                    >
+                      Quitar cupón
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void applyCoupon()}
+                      disabled={isValidatingCoupon || subtotal <= 0}
+                      className="rounded-lg bg-[#0F8F61] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0C7A52] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isValidatingCoupon ? 'Validando...' : 'Aplicar'}
+                    </button>
+                  )}
+                </div>
+                {couponMessage && (
+                  <p
+                    className={`mt-2 text-sm ${
+                      appliedCoupon ? 'font-medium text-[#0F8F61]' : 'text-amber-700'
+                    }`}
+                    role="status"
+                  >
+                    {couponMessage}
+                  </p>
+                )}
+              </div>
 
               {shouldShowCaptcha && (
                 <TurnstileWidget
@@ -913,6 +1095,12 @@ const Checkout: React.FC<CheckoutProps> = ({ items, onBack, onOrderComplete, use
                   {shippingDisplayText}
                 </span>
               </div>
+              {discountTotal > 0 && (
+                <div className="flex justify-between font-medium text-[#0F8F61]">
+                  <span>Descuento {appliedCoupon?.code ? `(${appliedCoupon.code})` : ''}:</span>
+                  <span>-{formatMoney(discountTotal)}</span>
+                </div>
+              )}
               {paymentFee > 0 && (
                 <div className="flex justify-between">
                   <span>Recargo Mercado Pago (10%):</span>

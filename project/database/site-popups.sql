@@ -18,6 +18,10 @@ create table if not exists public.site_popups (
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+  -- Columnas agregadas en site-popups-accept-action.sql (ejecutar por separado):
+  -- accept_action text not null default 'dismiss' check (accept_action in ('dismiss','link','whatsapp')),
+  -- accept_link_url text,
+  -- accept_whatsapp_message text
 );
 
 create index if not exists site_popups_active_schedule_idx

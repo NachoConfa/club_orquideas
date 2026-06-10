@@ -3,28 +3,33 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle,
+  Copy,
   CreditCard,
   Home,
   LogOut,
+  Lock,
   Mail,
   MapPin,
   Package,
   Phone,
   Save,
   Shield,
+  Star,
   Truck,
   User,
 } from '../lib/icons';
 import TurnstileWidget from '../components/TurnstileWidget';
+import { getActiveLoyaltyBenefits } from '../services/loyaltyService';
 import { getSupabaseOrdersForUser, type CustomerOrder } from '../services/orderSupabaseService';
 import { isSupabaseReady, sendSupabasePasswordReset, updateSupabaseProfile } from '../services/supabaseService';
+import type { LoyaltyBenefit } from '../types/loyalty';
 import {
   TURNSTILE_FAILED_MESSAGE,
   TURNSTILE_REQUIRED_MESSAGE,
   isTurnstileEnabled,
 } from '../services/turnstileService';
 
-type ProfileTab = 'profile' | 'security' | 'orders';
+type ProfileTab = 'profile' | 'loyalty' | 'security' | 'orders';
 
 interface ProfileUser {
   id?: string;
@@ -124,9 +129,12 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     address: user.address || '',
   });
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [loyaltyBenefits, setLoyaltyBenefits] = useState<LoyaltyBenefit[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [isLoadingLoyaltyBenefits, setIsLoadingLoyaltyBenefits] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const [loyaltyError, setLoyaltyError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSendingPasswordEmail, setIsSendingPasswordEmail] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -184,6 +192,39 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     };
   }, [user.id]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLoyaltyBenefits = async () => {
+      setIsLoadingLoyaltyBenefits(true);
+      setLoyaltyError('');
+
+      try {
+        const benefits = await getActiveLoyaltyBenefits();
+        if (isMounted) {
+          setLoyaltyBenefits(benefits);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error cargando beneficios del carnet:', error);
+        }
+        if (isMounted) {
+          setLoyaltyError('No pudimos cargar los beneficios del carnet.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingLoyaltyBenefits(false);
+        }
+      }
+    };
+
+    void loadLoyaltyBenefits();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const stats = useMemo(() => {
     const spent = orders.reduce((sum, order) => sum + order.total, 0);
     const pending = orders.filter((order) => ['pending', 'confirmed', 'processing'].includes(order.status)).length;
@@ -195,6 +236,34 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
     };
   }, [orders]);
 
+  const loyaltyProgress = useMemo(() => {
+    const validPurchases = orders.filter(
+      (order) => order.stockDeducted === true && order.status !== 'cancelled'
+    ).length;
+    const achievedBenefits = loyaltyBenefits.filter(
+      (benefit) => benefit.required_purchases <= validPurchases
+    );
+    const currentBenefit = achievedBenefits[achievedBenefits.length - 1] ?? null;
+    const nextBenefit =
+      loyaltyBenefits.find((benefit) => benefit.required_purchases > validPurchases) ?? null;
+    const progressPercent = nextBenefit
+      ? Math.min(100, Math.round((validPurchases / Math.max(nextBenefit.required_purchases, 1)) * 100))
+      : loyaltyBenefits.length > 0
+        ? 100
+        : 0;
+
+    return {
+      validPurchases,
+      achievedBenefits,
+      currentBenefit,
+      nextBenefit,
+      progressPercent,
+      remainingPurchases: nextBenefit
+        ? Math.max(nextBenefit.required_purchases - validPurchases, 0)
+        : 0,
+    };
+  }, [loyaltyBenefits, orders]);
+
   const showSuccess = (message: string) => {
     setSuccessMessage(message);
     setErrorMessage('');
@@ -204,6 +273,18 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
   const showError = (message: string) => {
     setErrorMessage(message);
     setSuccessMessage('');
+  };
+
+  const copyCouponCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      showSuccess(`Cupón ${code} copiado. Usalo en el checkout.`);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('No se pudo copiar el cupón:', error);
+      }
+      showError('No pudimos copiar el cupón. Seleccioná el código y copialo manualmente.');
+    }
   };
 
   const resetPasswordCaptcha = useCallback(() => {
@@ -327,6 +408,7 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
 
   const tabs: Array<{ id: ProfileTab; label: string; icon: ReactNode }> = [
     { id: 'profile', label: 'Datos', icon: <User className="h-4 w-4" /> },
+    { id: 'loyalty', label: 'Carnet', icon: <Star className="h-4 w-4" /> },
     { id: 'security', label: 'Seguridad', icon: <Shield className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <Package className="h-4 w-4" /> },
   ];
@@ -494,6 +576,236 @@ const AccountSettings = ({ user, onBack, onUpdateUser, onLogout }: AccountSettin
               </button>
             </div>
           </form>
+        )}
+
+        {activeTab === 'loyalty' && (
+          <section className="space-y-6">
+            <div className="overflow-hidden rounded-2xl border border-[#B9E8CF] bg-white shadow-sm">
+              <div className="bg-[#16352B] px-5 py-6 text-white sm:px-7">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#B9E8CF]">
+                      Mi carnet Modo Plantas
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold sm:text-3xl">
+                      {profileData.name || user.name}
+                    </h2>
+                    <p className="mt-2 text-sm text-white/75">
+                      Tus compras confirmadas desbloquean beneficios especiales.
+                    </p>
+                  </div>
+                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10">
+                    <Star className="h-9 w-9 text-[#B9E8CF]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-7">
+                {isLoadingOrders || isLoadingLoyaltyBenefits ? (
+                  <div className="py-8 text-center text-[#6B7280]">Cargando tu carnet...</div>
+                ) : ordersError ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+                    No pudimos calcular tus compras válidas. Intentá nuevamente más tarde.
+                  </div>
+                ) : loyaltyError ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+                    {loyaltyError}
+                  </div>
+                ) : loyaltyBenefits.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#CFE3D4] bg-[#FFF8EF] px-5 py-8 text-center">
+                    <Star className="mx-auto h-9 w-9 text-[#0F8F61]" />
+                    <h3 className="mt-3 font-semibold text-[#16352B]">Próximamente habrá nuevos beneficios</h3>
+                    <p className="mt-1 text-sm text-[#6B7280]">
+                      Tus compras confirmadas quedarán registradas para el carnet.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-xl border border-[#F1E3D4] bg-[#FFF8EF] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                          Compras válidas
+                        </p>
+                        <p className="mt-2 text-3xl font-semibold text-[#0F8F61]">
+                          {loyaltyProgress.validPurchases}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#F1E3D4] bg-[#FFF8EF] p-4 md:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                          Beneficio actual
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[#16352B]">
+                          {loyaltyProgress.currentBenefit?.title ?? 'Todavía no desbloqueaste un beneficio'}
+                        </p>
+                        {loyaltyProgress.currentBenefit?.description && (
+                          <p className="mt-1 text-sm text-[#6B7280]">
+                            {loyaltyProgress.currentBenefit.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-[#B9E8CF] bg-[#E8F7EF] p-5">
+                      {loyaltyProgress.nextBenefit ? (
+                        <>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-[#0F8F61]">Próximo beneficio</p>
+                              <h3 className="mt-1 text-lg font-semibold text-[#16352B]">
+                                {loyaltyProgress.nextBenefit.title}
+                              </h3>
+                            </div>
+                            <p className="text-sm font-semibold text-[#16352B]">
+                              {loyaltyProgress.validPurchases} / {loyaltyProgress.nextBenefit.required_purchases} compras
+                            </p>
+                          </div>
+                          <div
+                            className="mt-4 h-3 overflow-hidden rounded-full bg-white"
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={loyaltyProgress.nextBenefit.required_purchases}
+                            aria-valuenow={loyaltyProgress.validPurchases}
+                            aria-label="Progreso hacia el próximo beneficio"
+                          >
+                            <div
+                              className="h-full rounded-full bg-[#0F8F61] transition-[width]"
+                              style={{ width: `${loyaltyProgress.progressPercent}%` }}
+                            />
+                          </div>
+                          <p className="mt-3 text-sm text-[#4B5A52]">
+                            Te {loyaltyProgress.remainingPurchases === 1 ? 'falta' : 'faltan'}{' '}
+                            <strong>
+                              {loyaltyProgress.remainingPurchases}{' '}
+                              {loyaltyProgress.remainingPurchases === 1 ? 'compra' : 'compras'}
+                            </strong>{' '}
+                            para desbloquear este beneficio.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex items-start gap-3">
+                          <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#0F8F61]" />
+                          <div>
+                            <h3 className="font-semibold text-[#16352B]">
+                              Alcanzaste todos los beneficios disponibles
+                            </h3>
+                            <p className="mt-1 text-sm text-[#4B5A52]">
+                              Seguiremos sumando novedades para miembros de Modo Plantas.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {!isLoadingLoyaltyBenefits && loyaltyBenefits.length > 0 && (
+              <div className="rounded-2xl border border-[#F1E3D4] bg-white p-5 shadow-sm sm:p-6">
+                <div className="mb-5">
+                  <h2 className="text-xl font-semibold text-[#16352B]">Beneficios del carnet</h2>
+                  <p className="mt-1 text-sm text-[#6B7280]">
+                    Los beneficios alcanzados quedan desbloqueados en tu perfil. Los cupones se usan en el checkout.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {loyaltyBenefits.map((benefit) => {
+                    const isAchieved =
+                      benefit.is_unlocked ??
+                      benefit.required_purchases <= loyaltyProgress.validPurchases;
+                    const remainingPurchases = Math.max(
+                      benefit.required_purchases - loyaltyProgress.validPurchases,
+                      0
+                    );
+
+                    return (
+                      <article
+                        key={benefit.id}
+                        className={`rounded-xl border p-4 ${
+                          isAchieved
+                            ? 'border-[#B9E8CF] bg-[#E8F7EF]'
+                            : 'border-[#F1E3D4] bg-[#FFF8EF]'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${
+                              isAchieved ? 'bg-[#0F8F61] text-white' : 'bg-white text-[#6B7280]'
+                            }`}
+                          >
+                            {isAchieved ? <CheckCircle className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[#0F8F61]">
+                              {benefit.required_purchases}{' '}
+                              {benefit.required_purchases === 1 ? 'compra' : 'compras'}
+                            </p>
+                            <h3 className="mt-1 font-semibold text-[#16352B]">{benefit.title}</h3>
+                            {benefit.description && (
+                              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#6B7280]">
+                                {benefit.description}
+                              </p>
+                            )}
+                            {benefit.gift_description && (
+                              <p className="mt-2 text-sm font-medium text-[#4B5A52]">
+                                {benefit.gift_description}
+                              </p>
+                            )}
+                            {isAchieved &&
+                              benefit.benefit_type === 'coupon' &&
+                              benefit.coupon_code && (
+                                <div className="mt-3 rounded-lg border border-[#B9E8CF] bg-white p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                                    Tu cupón
+                                  </p>
+                                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <code className="break-all text-base font-bold text-[#16352B]">
+                                      {benefit.coupon_code}
+                                    </code>
+                                    <button
+                                      type="button"
+                                      onClick={() => void copyCouponCode(benefit.coupon_code as string)}
+                                      disabled={benefit.coupon_is_active === false}
+                                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0F8F61] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0C7A52] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                      Copiar cupón
+                                    </button>
+                                  </div>
+                                  <p className="mt-2 text-xs text-[#6B7280]">
+                                    {benefit.coupon_is_active === false
+                                      ? 'Este cupón está temporalmente inactivo.'
+                                      : 'Usalo en el checkout.'}
+                                  </p>
+                                </div>
+                              )}
+                            {isAchieved &&
+                              benefit.benefit_type === 'coupon' &&
+                              !benefit.coupon_code && (
+                                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                  El cupón asociado no está disponible. Contactanos para revisar el beneficio.
+                                </p>
+                              )}
+                            <p
+                              className={`mt-3 text-xs font-semibold ${
+                                isAchieved ? 'text-[#0F8F61]' : 'text-[#6B7280]'
+                              }`}
+                            >
+                              {isAchieved
+                                ? 'Beneficio desbloqueado'
+                                : `Te faltan ${remainingPurchases} ${
+                                    remainingPurchases === 1 ? 'compra' : 'compras'
+                                  }`}
+                            </p>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
         {activeTab === 'security' && (

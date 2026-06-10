@@ -162,7 +162,7 @@ const PRODUCT_COLUMNS_WITH_PRICE_MODE =
 const PRODUCT_COLUMNS_WITH_VISIBILITY =
   `${PRODUCT_COLUMNS_WITH_PRICE_MODE}, visible_in_store`;
 const PRODUCT_COLUMNS_WITH_OPTIONAL =
-  `${PRODUCT_COLUMNS_WITH_VISIBILITY}, occasions, sort_order`;
+  `${PRODUCT_COLUMNS_WITH_VISIBILITY}, occasions, sort_order, is_featured`;
 const PRODUCT_VARIANT_COLUMNS =
   'id, product_id, color, size, flowering_stems, price, stock, image_url, is_active, sort_order';
 const PRODUCT_VARIANT_COLUMNS_WITH_STOCK_MODE =
@@ -181,7 +181,8 @@ const isMissingOptionalProductColumnError = (error: { code?: string; message?: s
     message.includes('price_mode') ||
     message.includes('occasions') ||
     message.includes('visible_in_store') ||
-    message.includes('sort_order')
+    message.includes('sort_order') ||
+    message.includes('is_featured')
   );
 };
 
@@ -319,6 +320,7 @@ const mapProduct = (product: ProductRow): Product => {
     stock: product.stock == null ? undefined : fallbackStock,
     stockMode: normalizeStockMode(product.stock_mode),
     sortOrder: Number(product.sort_order ?? 0),
+    isFeatured: product.is_featured === true ? true : undefined,
     occasions: normalizeTextArray(product.occasions),
     floweringStems: product.flowering_stems == null ? undefined : Number(product.flowering_stems),
     images,

@@ -2152,6 +2152,11 @@ function AppShell({ routePage }: { routePage: AppPage }) {
   const orchidProducts = getProductsByCatalogCategory('orchids', searchedProducts);
   const arrangementProducts = getProductsByCatalogCategory('arrangements', searchedProducts);
   const potProducts = getProductsByCatalogCategory('pots', searchedProducts);
+  const featuredOrchids = orchidProducts.filter(p => p.isFeatured === true);
+  // Falls back to first N by sort_order when no products are marked as featured
+  const homeOrchids = featuredOrchids.length > 0 ? featuredOrchids.slice(0, 6) : orchidProducts.slice(0, 6);
+  const featuredArrangements = arrangementProducts.filter(p => p.isFeatured === true);
+  const homeArrangements = featuredArrangements.length > 0 ? featuredArrangements.slice(0, 3) : arrangementProducts.slice(0, 3);
   const currentBaseProducts = currentCatalogCategory
     ? getProductsByCatalogCategory(currentCatalogCategory, searchedProducts)
     : orchidProducts;
@@ -2228,7 +2233,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                 {isLoadingProducts ? (
                   <ProductGridSkeleton count={6} />
                 ) : (
-                  orchidProducts.slice(0, 6).map((product) => (
+                  homeOrchids.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
@@ -2270,7 +2275,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                 {isLoadingProducts ? (
                   <ProductGridSkeleton count={3} />
                 ) : (
-                  arrangementProducts.slice(0, 3).map((product) => (
+                  homeArrangements.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
@@ -2364,7 +2369,7 @@ function AppShell({ routePage }: { routePage: AppPage }) {
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#EADBC8]">
                     <ShoppingBag className="h-8 w-8 text-[#D96C9F]" />
                   </div>
-                  <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">7</h3>
+                  <h3 className="mb-2 text-3xl font-semibold text-[#2F3A35]">10</h3>
                   <p className="text-[#6B756F]">Años de experiencia</p>
                 </div>
               </div>

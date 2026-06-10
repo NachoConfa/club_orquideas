@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Star,
   Trash2,
   Users,
   X,
@@ -55,6 +56,8 @@ import AdminEvents from '../components/admin/AdminEvents';
 import AdminCollections from '../components/admin/AdminCollections';
 import AdminPriceUpdates from '../components/admin/AdminPriceUpdates';
 import AdminSitePopups from '../components/admin/AdminSitePopups';
+import AdminLoyaltyBenefits from '../components/admin/AdminLoyaltyBenefits';
+import AdminCoupons from '../components/admin/AdminCoupons';
 
 interface AdminDashboardProps {
   user: { name: string; email: string; isAdmin?: boolean } | null;
@@ -70,6 +73,8 @@ type AdminTab =
   | 'care-guides'
   | 'events'
   | 'site-popups'
+  | 'loyalty'
+  | 'coupons'
   | 'orders'
   | 'customers'
   | 'payments'
@@ -1047,6 +1052,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     'care-guides': false,
     events: false,
     'site-popups': false,
+    loyalty: false,
+    coupons: false,
     orders: false,
     customers: false,
     payments: false,
@@ -1205,6 +1212,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     if (tab === 'care-guides') markTabLoaded('care-guides');
     if (tab === 'events') markTabLoaded('events');
     if (tab === 'site-popups') markTabLoaded('site-popups');
+    if (tab === 'loyalty') markTabLoaded('loyalty');
+    if (tab === 'coupons') markTabLoaded('coupons');
     if (tab === 'orders') void loadOrders();
     if (tab === 'customers') void loadProfiles();
     if (tab === 'payments') void loadPayments();
@@ -1525,6 +1534,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
     { id: 'care-guides', label: 'Cuidados', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" /> },
     { id: 'site-popups', label: 'Pop-up', icon: <MessageCircle className="h-4 w-4" /> },
+    { id: 'loyalty', label: 'Carnet', icon: <Star className="h-4 w-4" /> },
+    { id: 'coupons', label: 'Cupones', icon: <Banknote className="h-4 w-4" /> },
     { id: 'orders', label: 'Pedidos', icon: <ClipboardList className="h-4 w-4" /> },
     { id: 'customers', label: 'Clientes', icon: <Users className="h-4 w-4" /> },
     { id: 'payments', label: 'Pagos', icon: <CreditCard className="h-4 w-4" /> },
@@ -1802,6 +1813,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
 
         {activeTab === 'site-popups' && <AdminSitePopups />}
 
+        {activeTab === 'loyalty' && <AdminLoyaltyBenefits />}
+
+        {activeTab === 'coupons' && <AdminCoupons />}
+
         {activeTab === 'orders' && isLoadingOrders && !loadedTabs.orders ? (
           <AdminTableSkeleton rows={6} />
         ) : (
@@ -1841,6 +1856,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                     ),
                   },
                   { key: 'total', label: 'Total', render: (record) => formatCurrency(getAmount(record)) },
+                  {
+                    key: 'coupon_code',
+                    label: 'Cupón',
+                    render: (record) => stringifyValue(record.coupon_code) || '-',
+                  },
+                  {
+                    key: 'discount_total',
+                    label: 'Descuento',
+                    render: (record) => {
+                      const discount = Number(record.discount_total ?? 0);
+                      return discount > 0 ? `-${formatCurrency(discount)}` : '-';
+                    },
+                  },
                   {
                     key: 'payment_fee',
                     label: 'Recargo',

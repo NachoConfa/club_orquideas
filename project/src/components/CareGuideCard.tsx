@@ -32,12 +32,12 @@ const CareGuideCard: React.FC<CareGuideCardProps> = ({ guide, onOpen }) => {
           )}
         </div>
 
-        <div className="space-y-3 p-5">
+        <div className="min-w-0 space-y-3 p-5">
           {guide.category && (
             <p className="text-xs font-semibold uppercase tracking-wide text-[#0F8F61]">{guide.category}</p>
           )}
           <div>
-            <h2 className="text-xl font-semibold leading-tight text-[#16352B]">{guide.title}</h2>
+            <h2 className="break-words text-xl font-semibold leading-tight text-[#16352B]">{guide.title}</h2>
             {guide.subtitle && <p className="mt-1 text-sm text-[#6B756F]">{guide.subtitle}</p>}
           </div>
           {guide.short_description && (

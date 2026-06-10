@@ -40,6 +40,7 @@ export interface Product {
   stock?: number;
   stockMode?: StockMode;
   sortOrder?: number;
+  isFeatured?: boolean;
   occasions?: string[];
   floweringStems?: number;
   images?: string[];

@@ -10,6 +10,7 @@ import {
   X,
 } from '../lib/icons';
 import SearchBar from './SearchBar';
+import { getActiveProductCollections } from '../services/collectionService';
 
 type HeaderPage =
   | 'home'
@@ -57,14 +58,6 @@ const buyLinks: DropdownItem[] = [
   { label: 'Macetas', page: 'pots' },
 ];
 
-const collectionLinks: DropdownItem[] = [
-  { label: 'Ver todas', page: 'collections' },
-  { label: 'Casamientos', path: '/colecciones/casamientos' },
-  { label: 'Regalos', path: '/colecciones/regalos' },
-  { label: 'Empresas', path: '/colecciones/empresas' },
-  { label: 'Cumpleaños', path: '/colecciones/cumpleanos' },
-  { label: 'Decoración', path: '/colecciones/decoracion' },
-];
 
 const desktopNavButtonClass =
   'whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium text-[#16352B] transition-colors hover:bg-[#E8F7EF] hover:text-[#0F8F61]';
@@ -106,8 +99,12 @@ const Header: React.FC<HeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openDesktopMenu, setOpenDesktopMenu] = useState<'buy' | 'collections' | null>(null);
   const dropdownCloseTimeoutRef = useRef<number | null>(null);
+  const [loadedCollectionLinks, setLoadedCollectionLinks] = useState<DropdownItem[] | null>(null);
   const safeBuyLinks = Array.isArray(buyLinks) ? buyLinks : [];
-  const safeCollectionLinks = Array.isArray(collectionLinks) ? collectionLinks : [];
+  const safeCollectionLinks: DropdownItem[] = [
+    { label: 'Ver todas', page: 'collections' },
+    ...(loadedCollectionLinks ?? []),
+  ];
 
   const clearDropdownCloseTimeout = () => {
     if (dropdownCloseTimeoutRef.current !== null) {
@@ -131,6 +128,21 @@ const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     return () => clearDropdownCloseTimeout();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getActiveProductCollections()
+      .then((collections) => {
+        if (cancelled) return;
+        setLoadedCollectionLinks(
+          collections.map((c) => ({ label: c.title, path: `/colecciones/${c.slug}` }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedCollectionLinks([]);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const closeMenus = () => {
