@@ -52,7 +52,7 @@ const LinkifiedText = ({
               href={normalizeHref(cleanUrl)}
               target="_blank"
               rel="noopener noreferrer"
-              className={`break-words font-semibold text-[#0F8F61] underline decoration-[#0F8F61]/35 underline-offset-4 transition-colors hover:text-[#0C7A52] hover:decoration-[#0C7A52] ${linkClassName}`}
+              className={`break-all font-semibold text-[#0F8F61] underline decoration-[#0F8F61]/35 underline-offset-4 transition-colors hover:text-[#0C7A52] hover:decoration-[#0C7A52] ${linkClassName}`}
             >
               {cleanUrl}
             </a>

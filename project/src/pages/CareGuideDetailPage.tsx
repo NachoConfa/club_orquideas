@@ -291,7 +291,7 @@ const CareGuideDetailPage: React.FC<CareGuideDetailPageProps> = ({ onBack }) => 
                   {activeTips.map((tip) => (
                     <li key={tip} className="flex gap-3 rounded-2xl bg-white/70 p-4">
                       <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-[#0F8F61]" />
-                      <LinkifiedText as="span" text={tip} />
+                      <LinkifiedText as="div" text={tip} className="min-w-0 flex-1" />
                     </li>
                   ))}
                 </ul>
