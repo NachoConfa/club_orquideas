@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, ShoppingCart, Star } from '../lib/icons';
 import type { Product } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import { isRentalProduct } from '../utils/rentalProduct';
 import ProductImage from './ProductImage';
 
 interface ProductCardProps {
@@ -13,6 +14,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onToggleFavorite, isFavorite }) => {
   const categoryLabel = getCategoryDisplayLabel(product.category);
+  const isRental = isRentalProduct(product);
   const activeVariants = (product.variants ?? []).filter((variant) => variant.isActive !== false);
   const requiresPriceQuote =
     activeVariants.length > 0
@@ -80,10 +82,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
       </div>
 
       <div className="p-3 sm:p-4">
-        <div className="mb-2">
+        <div className="mb-2 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-[#E8F7EF] px-3 py-1 text-xs font-semibold text-[#0F8F61]">
             {categoryLabel}
           </span>
+          {isRental && (
+            <span className="rounded-full bg-[#F8DDEB] px-3 py-1 text-xs font-semibold text-[#D96C9F]">
+              Alquiler
+            </span>
+          )}
         </div>
         
         <h3 className="mb-2 line-clamp-2 text-sm font-semibold text-[#16352B] transition-colors group-hover:text-[#0F8F61] sm:text-base">
@@ -131,8 +138,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetails, onTog
           }`}
         >
           <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">{isUnavailable ? 'Sin stock' : 'Ver producto'}</span>
-          <span className="sm:hidden">{isUnavailable ? 'Sin stock' : 'Ver'}</span>
+          <span className="hidden sm:inline">
+            {isUnavailable ? 'Sin stock' : isRental ? 'Consultar alquiler' : 'Ver producto'}
+          </span>
+          <span className="sm:hidden">
+            {isUnavailable ? 'Sin stock' : isRental ? 'Consultar' : 'Ver'}
+          </span>
         </button>
       </div>
     </div>

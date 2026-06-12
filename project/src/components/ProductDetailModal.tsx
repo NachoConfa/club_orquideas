@@ -4,6 +4,7 @@ import { AlertCircle, MessageCircle, Minus, Plus, ShoppingCart, X } from '../lib
 import type { CartItemInput } from '../types/cart';
 import type { Product, ProductVariant } from '../types/product';
 import { getCategoryDisplayLabel } from '../utils/displayLabels';
+import { isRentalProduct } from '../utils/rentalProduct';
 import LinkifiedText from './LinkifiedText';
 import ProductImage from './ProductImage';
 
@@ -86,6 +87,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
   const activeStock = Math.max(0, Number(selectedVariant?.stock ?? product?.stock ?? 0));
   const isOutOfStock = !requiresManualConsult && activeStock <= 0;
   const categoryLabel = product ? getCategoryDisplayLabel(product.category) : '';
+  const isRental = product ? isRentalProduct(product) : false;
 
   useEffect(() => {
     if (!product || !isOpen) return;
@@ -188,8 +190,10 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
     const details = [selectedVariant?.color || selectedColor, selectedVariant?.size || selectedSize, selectedVariant?.floweringStems ? `${selectedVariant.floweringStems} varas` : '']
       .filter(Boolean)
       .join(' / ');
-    const variantLine = details ? `\nVariante: ${details}` : '';
-    const text = `Hola, quiero consultar ${requiresPriceQuote ? 'cotización' : 'disponibilidad'} de: ${product.name}${variantLine}`;
+    const variantLine = details ? ` (${details})` : '';
+    const text = isRental
+      ? `Hola! Quiero consultar alquiler de: ${product.name}${variantLine}`
+      : `Hola, quiero consultar ${requiresPriceQuote ? 'cotización' : 'disponibilidad'} de: ${product.name}${variantLine ? `\nVariante: ${variantLine}` : ''}`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
   const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -418,7 +422,13 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart }: ProductDe
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 font-semibold text-white transition-all hover:from-emerald-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500"
               >
                 {requiresManualConsult ? <MessageCircle className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
-                {requiresManualConsult ? 'Consultar por WhatsApp' : isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+                {requiresManualConsult
+                  ? isRental
+                    ? 'Consultar alquiler por WhatsApp'
+                    : 'Consultar por WhatsApp'
+                  : isOutOfStock
+                    ? 'Agotado'
+                    : 'Agregar al carrito'}
               </button>
             </div>
         </div>

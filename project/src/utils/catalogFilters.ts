@@ -1,6 +1,6 @@
 import type { Product } from '../types/product';
 
-export type CatalogCategory = 'orchids' | 'pots' | 'arrangements' | 'interior' | 'exterior';
+export type CatalogCategory = 'orchids' | 'pots' | 'arrangements' | 'interior' | 'exterior' | 'rentals';
 
 export interface CatalogFilterState {
   values: Record<string, string[]>;
@@ -176,6 +176,24 @@ export const filterConfigByCategory: Record<CatalogCategory, FilterConfig[]> = {
       key: 'sun',
       label: 'Sol',
       sources: ['attributes.sun', 'attributes.sun_exposure', 'attributes.light'],
+    },
+    {
+      key: 'occasion',
+      label: 'Ocasión',
+      sources: ['occasions', 'attributes.occasion', 'attributes.occasions'],
+    },
+  ],
+  rentals: [
+    {
+      key: 'flowerColor',
+      label: 'Color de flor',
+      display: 'swatch',
+      sources: ['attributes.flower_color', 'color', 'colors', 'variants.color'],
+    },
+    {
+      key: 'size',
+      label: 'Tamano',
+      sources: ['attributes.size', 'size', 'variants.size'],
     },
     {
       key: 'occasion',

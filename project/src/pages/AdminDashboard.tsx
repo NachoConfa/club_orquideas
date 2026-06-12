@@ -807,6 +807,32 @@ const ProductForm = ({
         )}
       </div>
 
+      <div className="mt-4 rounded-lg border border-[#F8DDEB] bg-[#FFF5F9] p-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={
+              form.orchid_type.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'alquiler'
+            }
+            onChange={(event) => {
+              if (event.target.checked) {
+                onChange({ ...form, orchid_type: 'Alquiler', price_mode: 'quote', stock_mode: 'consult' });
+              } else {
+                const normalized = form.orchid_type.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                onChange({ ...form, orchid_type: normalized === 'alquiler' ? '' : form.orchid_type });
+              }
+            }}
+            className="mt-0.5 rounded border-pink-300 text-pink-600 focus:ring-pink-500"
+          />
+          <div>
+            <span className="text-sm font-semibold text-[#D96C9F]">Producto para sección Alquiler</span>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Los productos en alquiler aparecen en /alquiler con precio a cotizar y disponibilidad a consultar por WhatsApp.
+            </p>
+          </div>
+        </label>
+      </div>
+
       <div className="mt-6 rounded-lg border border-emerald-100 bg-white p-4">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1722,7 +1748,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onBack, onProduct
                       {visibleFilteredProducts.map((product) => (
                         <tr key={product.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-gray-900">{product.name}</span>
+                              {product.orchid_type?.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'alquiler' && (
+                                <span className="inline-flex rounded-full bg-[#F8DDEB] px-2 py-0.5 text-xs font-semibold text-[#D96C9F]">
+                                  Alquiler
+                                </span>
+                              )}
+                            </div>
                             <div className="max-w-md truncate text-xs text-gray-500">{product.description}</div>
                             {product.variants && product.variants.length > 0 && (
                               <div className="mt-1 text-xs font-semibold text-emerald-700">

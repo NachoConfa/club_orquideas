@@ -22,6 +22,7 @@ type HeaderPage =
   | 'exterior'
   | 'arrangements'
   | 'pots'
+  | 'rentals'
   | 'checkout'
   | 'terms'
   | 'privacy'
@@ -56,6 +57,7 @@ const buyLinks: DropdownItem[] = [
   { label: 'Plantas de exterior', page: 'exterior' },
   { label: 'Arreglos', page: 'arrangements' },
   { label: 'Macetas', page: 'pots' },
+  { label: 'Alquiler', page: 'rentals' },
 ];
 
 

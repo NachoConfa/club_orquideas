@@ -38,6 +38,7 @@ import {
   type CatalogFilterGroup,
 } from './utils/catalogFilters';
 import { getProductSlug } from './utils/productSlug';
+import { isRentalProduct } from './utils/rentalProduct';
 import { Flower, Star, Heart, ShoppingBag } from './lib/icons';
 
 const ProductDetailModal = lazy(() => import('./components/ProductDetailModal'));
@@ -116,6 +117,7 @@ type AppPage =
   | 'exterior'
   | 'arrangements'
   | 'pots'
+  | 'rentals'
   | 'checkout'
   | 'checkout-success'
   | 'checkout-failure'
@@ -143,6 +145,7 @@ const APP_PAGE_PATHS: Record<AppPage, string> = {
   exterior: '/plantas-exterior',
   arrangements: '/arreglos',
   pots: '/macetas',
+  rentals: '/alquiler',
   checkout: '/checkout',
   'checkout-success': '/checkout/success',
   'checkout-failure': '/checkout/failure',
@@ -292,7 +295,8 @@ const isOrchidProduct = (product: Product) => {
     isArrangementProduct(product) ||
     isAccessoryProduct(product) ||
     isInteriorProduct(product) ||
-    isExteriorProduct(product)
+    isExteriorProduct(product) ||
+    isRentalProduct(product)
   ) {
     return false;
   }
@@ -493,6 +497,7 @@ const getCatalogCategoryFromPage = (page: AppPage): CatalogCategory | null => {
   if (page === 'exterior') return 'exterior';
   if (page === 'pots') return 'pots';
   if (page === 'arrangements') return 'arrangements';
+  if (page === 'rentals') return 'rentals';
   return null;
 };
 
@@ -502,6 +507,7 @@ const getCatalogPageTitle = (page: AppPage) => {
   if (page === 'pots') return 'Macetas Artesanales';
   if (page === 'interior') return 'Plantas de interior';
   if (page === 'exterior') return 'Plantas de exterior';
+  if (page === 'rentals') return 'Plantas en alquiler';
   return 'Productos';
 };
 
@@ -517,6 +523,11 @@ Seleccionamos orquídeas, plantas y arreglos florales para transformar espacios 
   if (page === 'pots') return 'Macetas únicas diseñadas especialmente para orquídeas';
   if (page === 'interior') return 'Plantas seleccionadas para llenar tus espacios interiores de vida y frescura';
   if (page === 'exterior') return 'Plantas resistentes para balcones, patios, jardines y espacios al aire libre';
+  if (page === 'rentals') {
+    return `Orquídeas y plantas para eventos, recepciones, casamientos y ambientaciones temporales.
+
+Coordinamos disponibilidad y cotización por WhatsApp según fecha, cantidad y tipo de evento.`;
+  }
   return '';
 };
 
@@ -551,6 +562,10 @@ const getProductsByCatalogCategory = (category: CatalogCategory, products: Produ
 
   if (category === 'exterior') {
     return products.filter(isExteriorProduct);
+  }
+
+  if (category === 'rentals') {
+    return products.filter(isRentalProduct);
   }
 
   return products.filter(isOrchidProduct);
@@ -1297,6 +1312,11 @@ function AppShell({ routePage }: { routePage: AppPage }) {
 
     if (isAccessoryProduct(productPageProduct)) {
       navigateToPage('accessories');
+      return;
+    }
+
+    if (isRentalProduct(productPageProduct)) {
+      navigateToPage('rentals');
       return;
     }
 
@@ -2383,7 +2403,8 @@ function AppShell({ routePage }: { routePage: AppPage }) {
         currentPage === 'arrangements' ||
         currentPage === 'pots' ||
         currentPage === 'interior' ||
-        currentPage === 'exterior') && (
+        currentPage === 'exterior' ||
+        currentPage === 'rentals') && (
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
             <div className="lg:w-1/4 lg:flex-shrink-0">
@@ -2508,6 +2529,7 @@ function App() {
           <Route path="/buscar" element={<AppShell routePage="search" />} />
           <Route path="/arreglos" element={<AppShell routePage="arrangements" />} />
           <Route path="/macetas" element={<AppShell routePage="pots" />} />
+          <Route path="/alquiler" element={<AppShell routePage="rentals" />} />
           <Route path="/eventos" element={<AppShell routePage="accessories" />} />
           <Route path="/eventos/:slug" element={<AppShell routePage="event-detail" />} />
           <Route path="/colecciones" element={<AppShell routePage="collections" />} />
